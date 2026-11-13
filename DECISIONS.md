@@ -122,7 +122,7 @@ CompileTimeError: main.jernal:3:16, line 3 column 16
 
 Still open, which Cyborg's design session advised deciding early: exit codes (since decided in D11), the wording when
 the compiler itself fails (since decided in D12), and what happens after an error on a line that opens a block, such
-as an `if`.
+as an `if` (since decided in D13).
 
 Claude proposed Cyborg's format with `unproven:` dropped and a spec link in `why:`; the owner said: "Seems good, before
 you record. Maybe change `refused` and `check failed` to be more straightforward, `CompileTimeError` and
@@ -161,3 +161,21 @@ CompilerBug: the compiler itself failed
 ```
 
 Claude proposed it; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D13. Carrying on after an error.** Builds on D10's "every error is shown", which is Cyborg's D207: the first error's
+single fix is applied in memory and the program is checked again, and any later error that disappears gets a
+`because:` pointing back, such as "with `total` here, this error goes away". This is defined, not guessed, so every
+implementation prints the same errors. For errors with no single fix:
+
+- **Only the broken statement is skipped**, and checking carries on with the next one (Cyborg's D215).
+- **A skipped `let` or `var` still creates its variable**, with the type it wrote, or with an unknown type if it wrote
+  none.
+- **A line that opens a block, with no single fix, skips only that line.** The block's body is still checked, with the
+  broken part treated as unknown: a broken condition means either branch may run, and a broken `for` still creates its
+  loop variable, with an unknown range. The named `end` says exactly where the block stops.
+- **A broken function header still creates the function.** Whatever is broken in the header counts as unknown.
+- **Nothing is guessed:** an error that only happens because something is unknown is not shown.
+
+This closes the case Cyborg's D215 left open, where its oracle stops checking at a broken opening line. Cyborg's design
+session explained D207 and D215 on 2026-11-13; the owner had said "I think Cyborg has a technique on this, and it's
+pretty cool. Aks". Claude proposed this set; the owner chose: "yea". (Owner, 2026-11-13)
