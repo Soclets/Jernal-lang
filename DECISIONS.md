@@ -70,3 +70,16 @@ let $n: Int = $x           // ok: plain values need no word
 Claude first proposed copying on every assignment, as Swift does; the owner said: "I'm used to ownership, so that's
 weird." Claude then proposed Cyborg's words; the owner said: "Like, maybe just for clarity, and not full-on
 Ownership", asked "Compile time or runtime check?", and chose: "yea, record them". (Owner, 2026-11-13)
+
+**D8. Compile time when possible, runtime when too hard.** A check happens when compiling whenever it can, and at
+runtime when that's too hard. From the start, the compiler checks these when compiling:
+
+- What an `if` just checked: inside `if $d != 0:`, dividing by `$d` needs no runtime check.
+- Loop ranges: in `for $i in 0..$list.length:`, `$list[$i]` is known to be in bounds.
+
+Contracts, such as `requires $n >= 0`, are checked at runtime: proving them when compiling needs a prover like SPARK's
+or Verus, which is too heavy.
+
+The owner sketched: "compile time when possible, runtime when too hard". Claude listed three checks that are possible
+but take work; the owner chose: "Ah, we could do 1 & 2 at start in compile, 3 is too heavy so runtime." (Owner,
+2026-11-13)
