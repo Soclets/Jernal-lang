@@ -549,3 +549,19 @@ rounding error on every step. An empty list sums to `0`. The result has the item
 
 The owner asked: "Btw, I think we should have Python's `sum`?" Claude proposed making the plain `sum` the exact one;
 the owner chose: "yea". (Owner, 2026-11-13)
+
+**D39. `at pos` and `at offset` give a loop the item's place.** After the list in a `for`, `at pos $p` gives each item's
+position counting from 1, and `at offset $o` counting from 0, with the same words as indexing (D17). It's optional:
+without it, the loop is the plain one from D30.
+
+```
+for $name in $names at pos $p:
+    println($p as String ". " $name)        // 1. Ann, 2. Bob, 3. Cat
+end for
+
+for $name in $names at offset $o:           // $o is 0, 1, 2
+```
+
+Cyborg's design session advised deciding this early; Cyborg has no such loop. The owner asked "What does that do?" and
+"Is `at` a good spelling?"; Claude compared it with `with` and Python's order; the owner chose: "`at`". (Owner,
+2026-11-13)
