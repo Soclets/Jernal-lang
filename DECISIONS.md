@@ -283,3 +283,17 @@ Claude proposed interpolation of variables and fields only; the owner said: "Fuc
 `println("Hello, " $name)`, then "Everywhere too, but maybe it should need `[]` elsewhere", explaining that a bare
 `$name` "looks like another variable being declared (a little bit)". Claude worked out `[ ]` outside call arguments;
 the owner said "Nvm", and when asked which part, chose: "`[]`". (Owner, 2026-11-13)
+
+**D21. Turning a value into text is explicit, with `as String`.** A join (D20) only joins `String`s. Anything else is
+converted where it can be seen, and forgetting it is refused with the one fix shown (D10). `println` only prints the
+joined text, with no shaping options; formatting, such as two decimal places, is a separate tool for later.
+
+```
+println("Age: " $age as String)        // ok
+println("Age: " $age)                  // CompileTimeError, fix: `$age as String`
+```
+
+Not decided yet: what each type's text looks like (a `bool`, a `Float`, a struct), and how `as` binds inside a longer
+join. Cyborg has no joins; it uses a format print with holes, as Cyborg's design session described on 2026-11-13. The
+owner said "Ask Cyborg"; Claude proposed automatic conversion with shaping labels; the owner said "It's `println`, not
+a format version" and asked "Explicit conversion?"; asked how to spell it, the owner chose: "`as`". (Owner, 2026-11-13)
