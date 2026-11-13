@@ -792,3 +792,49 @@ text_tools.shout($name)       // not $name.shout()
 Settles one of D45's open questions. Cyborg's design session flagged it as still open in Cyborg. Claude proposed one
 block per type; the owner asked "Wdym by that?" and "Can't you just write at the same place?", and chose: "yea".
 (Owner, 2026-11-13)
+
+**D48. Failures: Cyborg's core.** A function lists the failures it can raise in its header, after the result type, and
+raises one with `fail`, which leaves the function. Failures are their own track, not a `Result` value, and can carry
+data. A named set of failures is a family, `fam.failure`.
+
+```
+fn half[$n: Int] -> Int fails [odd, negative[got: Int]]:
+    ...
+    fail negative[got = $n]
+end fn half
+
+fam.failure file_failed:
+    not_found
+    denied
+    disk_full[free: Int]
+end fam.failure file_failed
+```
+
+A caller has four tools:
+
+```
+let $f: File = open($path)?                      // pass it up; refused unless this function lists it
+let $port: Int = read_port() ?? 8080             // use this value instead
+let $w: String = first_word($text) otherwise:    // every failure still possible must be covered
+    case too_long:
+        instead "…"
+    case no_words $f:                            // $f names the failure, to read its data
+        instead "(none)"
+end otherwise
+let $w: String = first_word($text) otherwise word_failed.use_placeholder
+```
+
+- `instead` gives the value used in place of the failed call. An arm may also `return`, `break` or `fail`.
+- `fam.handler` holds named, reusable sets of arms, used after `otherwise` as if written at the call. A handler that
+  can `return` or `break` is marked `*` where it's used (`otherwise word_failed.*bail`), so a jump out is always
+  visible; leaving it off, or putting it on one that can't jump, is refused.
+- A failure nobody handles crashes loudly. Handling is opt-in; a linter can make it stricter.
+- Failures are real events a program can handle, such as a missing file. Failed checks (D8, D9) are bugs in the code's
+  own assumptions, such as overflow or a false `requires`; they can't be handled and are `RuntimeError`s.
+
+Not decided yet: the list of which problems are failures and which are checks (Cyborg's design session advises writing
+it first), and how a failure is ignored on purpose (Cyborg writes `?? void`). This is Cyborg's (its D44, D45, D47, D96,
+D139, D209), as Cyborg's design session described on 2026-11-13; in Cyborg the owner said "`?` = `try`, `??` =
+`otherwise`", "you could use handler collections" and "we default to crash, and then opt-in handle". The owner said
+"Let's do err handling now. Ask Cyborg"; Claude proposed taking the core as it is; the owner chose: "yea". (Owner,
+2026-11-13)
