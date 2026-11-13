@@ -83,3 +83,7 @@ or Verus, which is too heavy.
 The owner sketched: "compile time when possible, runtime when too hard". Claude listed three checks that are possible
 but take work; the owner chose: "Ah, we could do 1 & 2 at start in compile, 3 is too heavy so runtime." (Owner,
 2026-11-13)
+
+**D9. Runtime checks never give a wrong answer, and proven ones are dropped.** Adds to D8. A runtime check that fails
+stops with a clear error, never a wrong answer. A runtime check the compiler proves always passes is dropped, so safety
+costs nothing where the compiler can see it's safe. Claude proposed both; the owner chose: "added". (Owner, 2026-11-13)
