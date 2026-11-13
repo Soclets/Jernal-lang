@@ -452,3 +452,35 @@ Claude proposed it from Cyborg's design session's advice; the owner chose: "yea"
 operation sits on the left and the amount comes after it, where `$count + 1` reads in order. How a variable gets its
 new value is not decided yet. The owner said: "no things that break reading flow, like `+=`. It places `thing + 1` in
 front, instead of in back". (Owner, 2026-11-13)
+
+**D33. `change` gives a `var` a new value.** Every update starts with `change`, for a whole variable, one field or one
+item. A bare `$x = ...` is refused, with `fix: change $x = ...`. `change` on a `let` is refused, since it can't change.
+So every line that touches a variable starts with a word (`let`, `var`, `change`), and the left edge of the code shows
+what happens. As in Cyborg, as Cyborg's design session described on 2026-11-13.
+
+```
+var $count: Int = 0
+change $count = $count + 1
+change $user.name = "Tankun"
+change $xs[pos: 3] = 10
+$count = 5                       // refused, fix: `change $count = 5`
+```
+
+**D34. `decl` and `assign`: a variable whose value comes later.** `decl` declares a variable with its type and no
+value. `assign` gives it its first value, exactly once on each path through the code. Reading it before every path has
+assigned it is refused when compiling, so nothing can ever read it empty. After that it acts like a `let`. `assign` on
+something that already has a value is refused, with `fix: change`. As in Cyborg (its D203). How to declare one that can
+change later is not decided yet.
+
+```
+decl $label: String
+if $hot:
+    assign $label = "hot"
+else:
+    assign $label = "cold"
+end if
+println($label)
+```
+
+The owner said: "Cyborg has `change`, `let`, `assign`, and `decl`, ask." Claude proposed `change`, with `decl` and
+`assign` to follow; the owner chose: "yea to both, actually". (Owner, 2026-11-13)
