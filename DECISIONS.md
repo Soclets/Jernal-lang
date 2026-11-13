@@ -350,7 +350,7 @@ written at the end. Leaving before the end is the only leave the page doesn't ot
 
 ```
 fn greet[$name: String]:
-    if $name == "":
+    if $name == "":            // placeholder: how equality is written isn't decided
         return early
     end if
     println("Hi " $name)
