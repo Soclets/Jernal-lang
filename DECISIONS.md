@@ -692,3 +692,57 @@ presets a visible word) and Cyborg's call-side `fmt_print.stored`, as their desi
 The owner said "Ask Radium and CyborgPL, then", "Function narrowings, they call it. And also variants too, I think
 they're diff", confirmed variants are versions ("yea"), asked "What's the idea?", and chose: "Ah yea". (Owner,
 2026-11-13)
+
+**D45. `fam.fn`: everything under one name.** Replaces how D44 declares narrowings: there is no `presets` header
+line and no `fn show.hex` outside a family. What a narrowing is stays as in D44. Plain `fn` stays for single functions
+(D24); a `fam.fn` block is for three things:
+
+1. a function and its narrowings and presets,
+2. a group of related functions,
+3. a type's makers and methods.
+
+Inside `fam.fn X`, names are written short, and each one's full name is `X.name`. A function named `X` itself is the
+family's own function, called as `X(...)`. A narrowing on `fam.fn`, such as `fam.fn.pure`, applies to every function
+inside. The closer repeats everything, as in D41.
+
+```
+fam.fn show:
+    fn show[$x: Float, $digits: Digits] -> String:    // show(...)
+        labels [$digits as digits]
+        defaults [$digits = shortest]
+        ...
+    end fn show
+
+    preset stored [$digits = all]                      // show.stored(...): fills in arguments, no body
+
+    fn hex[$x: Float] -> String:                       // show.hex(...): its own code
+        ...
+    end fn hex
+end fam.fn show
+
+fam.fn.pure geometry:
+    fn area[$w: Int, $h: Int] -> Int:                  // geometry.area(3, 4)
+        return $w * $h
+    end fn area
+end fam.fn.pure geometry
+
+fam.fn Reading:
+    fn new[$celsius: Int] -> Reading:                  // Reading.new(20)
+        ...
+    end fn new
+
+    fn warm_up[mut $self: Reading, $by: Int]:          // $r.warm_up(by: 2)
+        ...
+    end fn warm_up
+end fam.fn Reading
+```
+
+- A preset is written with the word `preset` and has no body, so it can't be mistaken for a function.
+- In a family named after a type, a function whose first parameter is `$self` of that type is a method.
+- Turning a plain function into a family later changes no calls.
+
+Not decided yet: versions (D44's "variants"), whether a type can have more than one family, and a member pointing at a
+function elsewhere. `fam.fn` descends from CyborgPL's `coll.fn` through Radium's `narrowings.fn` to Cyborg's `fam.fn`;
+the owner said: "`fam` comes from Radium's `narrowings` that then comes from CyborgPL's `coll`". The owner asked
+"What's more powerful?"; Claude said the block, and proposed `fam.fn` for all three uses; the owner asked "So, we would
+have no single functions?" and "Let me see fam.fn syntax", and chose: "yea". (Owner, 2026-11-13)
