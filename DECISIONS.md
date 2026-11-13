@@ -541,3 +541,11 @@ for $p in range[from: 1, to: $xs.length]:         // every position, for $xs[pos
 This is Cyborg's range (its D128, from Radium, with D145), as Cyborg's design session described on 2026-11-13. Claude
 first proposed the words `1 to 5` and `0 until 5`; the owner said "Ask Cyborg"; Claude then proposed Cyborg's labels;
 the owner chose: "yup". (Owner, 2026-11-13)
+
+**D38. `sum`, and it's always exact.** Jernal has a `sum` like Python's, but the plain one is the correct one: exact for
+`Int` and `Decimal`, and for floats it rounds once at the end, like Python's `math.fsum`, instead of piling up a
+rounding error on every step. An empty list sums to `0`. The result has the items' type. Whether it's spelled
+`sum($xs)` or `$xs.sum()` depends on whether Jernal has methods, which isn't decided yet.
+
+The owner asked: "Btw, I think we should have Python's `sum`?" Claude proposed making the plain `sum` the exact one;
+the owner chose: "yea". (Owner, 2026-11-13)
