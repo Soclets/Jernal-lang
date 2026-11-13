@@ -264,3 +264,22 @@ Whether a comma after the last item is allowed is not decided yet. Claude propos
 operator continuing the line; the owner said "Is cursed, though". Claude proposed a leading operator instead; the owner
 asked "Or just one line?". Claude proposed one line, except between items inside brackets; the owner chose: "yup".
 (Owner, 2026-11-13)
+
+**D20. Strings are joined side by side, with no interpolation.** Writing values next to each other joins them into one
+string, everywhere, with no operator and no brackets. Inside a string, `$` is always just a character, so
+`"Price: $5"` needs no escape and `\$` isn't needed. `println` is an ordinary function that takes a `String`.
+
+```
+println("Hello, " $name)                   // Hello, Tankun
+println("Hi, " $user.name "!")             // Hi, Tankun!
+let $greeting: String = "Hello, " $name
+println("Hello," $name)                    // Hello,Tankun: no space is added
+```
+
+Not decided yet: whether a value that isn't a `String`, such as an `Int`, is turned into text automatically, and whether
+an operator like `+` can appear inside a join. Replaces the sketch's `"Hello, $name"` and `\$name`.
+
+Claude proposed interpolation of variables and fields only; the owner said: "Fuck, new `println`" with
+`println("Hello, " $name)`, then "Everywhere too, but maybe it should need `[]` elsewhere", explaining that a bare
+`$name` "looks like another variable being declared (a little bit)". Claude worked out `[ ]` outside call arguments;
+the owner said "Nvm", and when asked which part, chose: "`[]`". (Owner, 2026-11-13)
