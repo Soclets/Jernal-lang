@@ -121,7 +121,8 @@ CompileTimeError: main.jernal:3:16, line 3 column 16
   says which implementation printed it.
 
 Still open, which Cyborg's design session advised deciding early: exit codes (since decided in D11), the wording when
-the compiler itself fails, and what happens after an error on a line that opens a block, such as an `if`.
+the compiler itself fails (since decided in D12), and what happens after an error on a line that opens a block, such
+as an `if`.
 
 Claude proposed Cyborg's format with `unproven:` dropped and a spec link in `why:`; the owner said: "Seems good, before
 you record. Maybe change `refused` and `check failed` to be more straightforward, `CompileTimeError` and
@@ -147,3 +148,16 @@ and 126 and up are the shell's.
 Claude proposed codes following the usual habits; the owner asked "Is there a standard for this, or nah?", then said "Or
 maybe just whatever code, but separate. So the tool could you know? Get it" and "For fun, maybe go from limit? Like
 100 something". Claude proposed counting down from 122; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D12. `CompilerBug:` when the compiler itself fails.** The message uses D10's layout, with the kind `CompilerBug:` and
+no place line, since no line of the program caused it. Only `what:` changes: it gives the compiler's internal detail.
+`why:` and `fix:` are always the same. It exits with `118` (D11).
+
+```
+CompilerBug: the compiler itself failed
+ what: linking: undefined symbol `memset`
+ why:  this is a bug in the compiler, not in the program
+ fix:  report it at https://github.com/Soclets/Jernal-lang/issues with the program that caused it
+```
+
+Claude proposed it; the owner chose: "yea". (Owner, 2026-11-13)
