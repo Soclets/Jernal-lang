@@ -450,7 +450,7 @@ Claude proposed it from Cyborg's design session's advice; the owner chose: "yea"
 
 **D32. No compound assignment.** There is no `+=`, `-=`, `*=` or the like, nor `++`. They break the reading flow: the
 operation sits on the left and the amount comes after it, where `$count + 1` reads in order. How a variable gets its
-new value is not decided yet. The owner said: "no things that break reading flow, like `+=`. It places `thing + 1` in
+new value is not decided yet (since decided in D33). The owner said: "no things that break reading flow, like `+=`. It places `thing + 1` in
 front, instead of in back". (Owner, 2026-11-13)
 
 **D33. `change` gives a `var` a new value.** Every update starts with `change`, for a whole variable, one field or one
