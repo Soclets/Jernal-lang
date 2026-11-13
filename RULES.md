@@ -24,7 +24,8 @@ Each implementation session works in its own clone, on `main` with no branch, an
 6. **Keep going.** A finished milestone or report isn't a reason to stop. Stop only when blocked on a design question with
    nothing else to do, or at 8:30 PM.
 7. **Fix what needs no question.** A bug, or a gap against a rule, gets fixed straight away and mentioned in the next
-   report. Only a fix that needs a design choice goes to Tankun first.
+   report. Only a fix that needs a design choice, or would change what a test expects, goes to Tankun through Jernal
+   Design Claude first. (D4)
 8. **Scratchpad is for what can be lost.** Anything needed later goes in the project folder.
 9. **Commits.** `kind.folder.narrowing: sentence (owner: "their exact words"; D1)`. Kinds: `decision`, `design`,
    `feature`, `fix`, `test`, `house`. The owner quote is Tankun's exact words, never a paraphrase. If it's too long for
