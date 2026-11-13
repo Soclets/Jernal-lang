@@ -484,3 +484,40 @@ println($label)
 
 The owner said: "Cyborg has `change`, `let`, `assign`, and `decl`, ask." Claude proposed `change`, with `decl` and
 `assign` to follow; the owner chose: "yea to both, actually". (Owner, 2026-11-13)
+
+**D35. `decl var` for a later value that can change.** Settles what D34 left open. `decl` declares a `let`, and
+`decl var` declares a `var`, which `change` can update after its first `assign`.
+
+```
+decl var $total: Int
+if $hot:
+    assign $total = 10
+else:
+    assign $total = 0
+end if
+change $total = $total + 1
+```
+
+**D36. `shadow` declares a name that already exists.** `shadow` gives an existing name a new value, which may have a
+new type; from then on the name means the new one. `shadow` means `let`, and `shadow var` means `var`, matching `decl`.
+
+- Declaring an existing name with `let`, `var` or `decl` is refused, with `fix: shadow`, so reusing a name is always on
+  purpose.
+- `shadow` on a name that doesn't exist is refused, with `fix: let`.
+- It works in the same block or an inner one. In an inner block, the old name comes back after the block's `end`.
+- It works after `give`: the given name is retired, and `shadow` makes a fresh one.
+
+```
+let $total: Int = 5
+shadow $total: String = $total as String
+```
+
+| Can't change | Can change |
+|---|---|
+| `let $x: Int = 1` | `var $x: Int = 1` |
+| `decl $x: Int` | `decl var $x: Int` |
+| `shadow $x: Int = 1` | `shadow var $x: Int = 1` |
+
+Cyborg has no `shadow`, and declaring a name twice is still open there, as Cyborg's design session said on
+2026-11-13. The owner said "`shadow` is also real", then "That rule, no need to ask now? `decl` means `let`, `decl var`
+means `var`?"; Claude proposed these rules; the owner chose: "yea". (Owner, 2026-11-13)
