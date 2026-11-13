@@ -297,3 +297,14 @@ Not decided yet: what each type's text looks like (a `bool`, a `Float`, a struct
 join. Cyborg has no joins; it uses a format print with holes, as Cyborg's design session described on 2026-11-13. The
 owner said "Ask Cyborg"; Claude proposed automatic conversion with shaping labels; the owner said "It's `println`, not
 a format version" and asked "Explicit conversion?"; asked how to spell it, the owner chose: "`as`". (Owner, 2026-11-13)
+
+**D22. `give` and `copy` are lowercase.** Replaces the spelling in D7 and D10's example. Every Jernal keyword is
+lowercase (`let`, `var`, `baked`, `fn`, `end`, `if`, `as`), and capitalized words look like type names (`List`,
+`String`). The capitals came from Cyborg's spelling.
+
+```
+let $b: List = give $a
+let $c: List = copy $a
+```
+
+The owner asked: "shouldn't `Give` be lowercase?"; Claude agreed; the owner chose: "yea". (Owner, 2026-11-13)
