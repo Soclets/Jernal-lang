@@ -308,3 +308,16 @@ let $c: List = copy $a
 ```
 
 The owner asked: "shouldn't `Give` be lowercase?"; Claude agreed; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D23. A join holds only text, names and `as`.** Settles what D20 and D21 left open. A join contains strings,
+variables, fields and `as`, nothing else. `as` applies only to the one value right before it. Operators such as `+` are
+refused inside a join, with a `fix:` that names a step first, as D19 does for long lines.
+
+```
+println("Age: " $age as String)            // converts $age, then joins
+println("Total: " $a + $b as String)       // refused: name the step first
+let $total: Int = $a + $b
+println("Total: " $total as String)        // ok
+```
+
+Claude proposed it; the owner chose: "yea". (Owner, 2026-11-13)
