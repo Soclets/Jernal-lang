@@ -17,3 +17,10 @@ group"); and the result was adopted ("yea"). (Owner, 2026-11-13)
 **D2. Commit and push automatically.** Sessions commit and push without asking, as Cyborg's do. Placeholders are
 allowed, and are marked as placeholders. Claude mentioned Cyborg's rule; the owner chose: "Use that rule too".
 (Owner, 2026-11-13)
+
+**D3. Public on Soclets, licensed like Cyborg.** The repository is public at `Soclets/Jernal-lang`. Code is under
+Apache-2.0 WITH LLVM-exception, in `LICENSE`: the stock Apache 2.0 text with LLVM's exception appended, so programs
+compiled with Jernal owe nothing. The repo's Markdown is under CC BY 4.0, in `LICENSE-CC-BY-4.0`. There is no copyright
+line, no NOTICE file and no SPDX headers, and the README has a Licences section. This is Cyborg's licensing (its D262),
+as Cyborg's design session described it on 2026-11-13; both files went in before the first public push. The owner said:
+"Pub on Soclets as `Jernal-lang`. Same licensing as Cyborg (ask session, don't look)". (Owner, 2026-11-13)
