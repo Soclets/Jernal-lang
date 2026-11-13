@@ -391,3 +391,18 @@ if check_a() and.both check_b():              // both always run
 ```
 
 Claude proposed the words; the owner chose: "yea, they short-circuit, with `.both`, they don't". (Owner, 2026-11-13)
+
+**D29. The shape of `if`.** Further branches are `else if` (two words, no `elif`) and `else:`. Every line that opens a
+block ends with `:`, and one `end if` closes the whole chain.
+
+```
+if $age < 13:
+    println("kid")
+else if $age < 18:
+    println("teen")
+else:
+    println("adult")
+end if
+```
+
+Claude proposed it; the owner chose: "yea". (Owner, 2026-11-13)
