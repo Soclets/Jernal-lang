@@ -521,3 +521,23 @@ shadow $total: String = $total as String
 Cyborg has no `shadow`, and declaring a name twice is still open there, as Cyborg's design session said on
 2026-11-13. The owner said "`shadow` is also real", then "That rule, no need to ask now? `decl` means `let`, `decl var`
 means `var`?"; Claude proposed these rules; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D37. Ranges are labelled: `range[from:, to: or before:, step_by:]`.** `from:` is required, then either `to:`, which
+includes the end, or `before:`, which stops before it, then an optional `step_by:`, in that order. There is no `..`.
+
+```
+for $i in range[from: 1, to: 5]:                  // 1, 2, 3, 4, 5
+for $i in range[from: 0, before: 5]:              // 0, 1, 2, 3, 4
+for $i in range[from: 0, to: 10, step_by: 2]:     // 0, 2, 4, 6, 8, 10
+for $i in range[from: 5, to: 1, step_by: -1]:     // 5, 4, 3, 2, 1
+for $p in range[from: 1, to: $xs.length]:         // every position, for $xs[pos: $p]
+```
+
+- A range whose numbers are known when compiling and that can never reach its end is refused, such as `from: 5, to: 1`
+  with no negative step. One that's only known while running runs zero times.
+- A `step_by:` of 0 is a `RuntimeError`, since the loop would never end.
+- The loop's own variable can't be changed inside the loop.
+
+This is Cyborg's range (its D128, from Radium, with D145), as Cyborg's design session described on 2026-11-13. Claude
+first proposed the words `1 to 5` and `0 until 5`; the owner said "Ask Cyborg"; Claude then proposed Cyborg's labels;
+the owner chose: "yup". (Owner, 2026-11-13)
