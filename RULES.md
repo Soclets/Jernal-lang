@@ -1,6 +1,6 @@
 # Jernal — Session rules
 
-A hook prints this file into every Jernal session at startup, resume, clear and after compaction, so the rules survive
+A hook prints this file into every Jernal session at startup, clear and after compaction, so the rules survive
 when a session's first prompt doesn't. Only Jernal Design Claude edits it. When a rule changes, `DECISIONS.md` gets an
 entry and this file is updated to match. Keep it short: every session pays for it in context.
 

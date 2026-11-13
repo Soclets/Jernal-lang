@@ -210,3 +210,8 @@ greet("Tankun")                // ( ) runs it
 Not decided yet: grouping in maths, list literals, indexing, and type details.
 
 Claude proposed it; the owner chose: "yea. As for labels, I absolutely love them". (Owner, 2026-11-13)
+
+**D16. The rules hook doesn't print on resume.** Replaces part of D1. The hook prints `RULES.md` at startup, clear and
+after compaction, but not on resume: a resumed session gets its old transcript back, rules included, so printing again
+only adds a second copy. The owner noticed it after this session resumed: "I think that's wasted tokens, it was already
+in your context?"; Claude proposed dropping `resume` from the matcher; the owner chose: "yea". (Owner, 2026-11-13)
