@@ -350,7 +350,7 @@ written at the end. Leaving before the end is the only leave the page doesn't ot
 
 ```
 fn greet[$name: String]:
-    if $name == "":            // placeholder: how equality is written isn't decided
+    if $name == "":
         return early
     end if
     println("Hi " $name)
@@ -360,3 +360,21 @@ end fn greet
 The owner asked: "How do you leave early? `return early`?" Claude first suggested a bare `return`; the owner asked: "If
 it's bare `return`, why don't you write at the end too? Even when not leaving early?" Claude agreed `return early` is
 the consistent choice; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D27. The comparisons: `==`, `!=`, `<`, `>`, `at_least`, `at_most`.** Equality is `==` and `!=`. "Greater or equal"
+and "less or equal" are the words `at_least` and `at_most`, replacing the `>=` and `<=` that D18 mentioned, since a
+word is shorter to read in your head. `>=` and `<=` are refused, with the word as the fix. `<` and `>` stay, spaced as
+in D18. `=` in a condition is refused, with `fix: ==`.
+
+```
+if $age == 18:
+if $age != 18:
+if $age < 18:
+if $age at_least 18:
+if $age at_most 65:
+if $age = 18:            // refused, fix: `==`
+if $age >= 18:           // refused, fix: `at_least`
+```
+
+Claude proposed `==` and `!=`; the owner chose: "`==`, `!=`, `at_least`, `at_most`, `>=` is longer when you read in
+mind". (Owner, 2026-11-13)
