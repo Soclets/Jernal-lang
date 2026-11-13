@@ -11,9 +11,9 @@ Straight to the fucking point.
 
 ## Cons
 
-The performance would likely be around Go, probably worse.
-It's a little bit more low-level than languages like Python or Ruby.
-With unique features, you'll have to learn more.
+- The performance would likely be around Go, probably worse.
+- It's a little bit more low-level than languages like Python or Ruby.
+- With unique features, you'll have to learn more.
 
 ## Hello, World!
 
