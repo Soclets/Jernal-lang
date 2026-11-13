@@ -120,10 +120,30 @@ CompileTimeError: main.jernal:3:16, line 3 column 16
 - **Wording:** only what's certain. Neutral and about the program: no "you", no apologies. Jernal's own words. It never
   says which implementation printed it.
 
-Still open, which Cyborg's design session advised deciding early: exit codes, the wording when the compiler itself
-fails, and what happens after an error on a line that opens a block, such as an `if`.
+Still open, which Cyborg's design session advised deciding early: exit codes (since decided in D11), the wording when
+the compiler itself fails, and what happens after an error on a line that opens a block, such as an `if`.
 
 Claude proposed Cyborg's format with `unproven:` dropped and a spec link in `why:`; the owner said: "Seems good, before
 you record. Maybe change `refused` and `check failed` to be more straightforward, `CompileTimeError` and
 `RuntimeError`?" Claude worried that "compile time" competes with "baked" (D5); the owner chose: "the baked worry, just
 use CompileTimeError and RuntimeError". (Owner, 2026-11-13)
+
+**D11. Exit codes count down from 122.** Each kind of error has its own exit code, so a tool can tell what happened
+from the number alone:
+
+| Code | Meaning |
+|---|---|
+| `0` | ran fine |
+| `122` | `RuntimeError` |
+| `121` | `CompileTimeError` |
+| `120` | `NotDesignedYet` |
+| `119` | `NotBuiltYet` |
+| `118` | the compiler itself failed |
+
+The codes sit near the top of the usable range so that programs keep 1–117 for their own use, and `exit()` refuses
+118–122. They start at 122, not 125, because 123–125 are already used by GNU `timeout`, `xargs` and `git bisect run`,
+and 126 and up are the shell's.
+
+Claude proposed codes following the usual habits; the owner asked "Is there a standard for this, or nah?", then said "Or
+maybe just whatever code, but separate. So the tool could you know? Get it" and "For fun, maybe go from limit? Like
+100 something". Claude proposed counting down from 122; the owner chose: "yea". (Owner, 2026-11-13)
