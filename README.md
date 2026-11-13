@@ -4,8 +4,10 @@ Straight to the fucking point.
 
 Cool features:
 
-Families, Claude fucking explain.
-Checked units, Claude fucking explain (shit, it isn't designed yet)
+- **Families.** One name, many kinds. `fam.fn show` holds `show`, its narrowings like `show.stored` and `show.hex`,
+  and versions like `area(3)` and `area(3, 4)`. A family can also be a toolbox (`geometry.area(3, 4)`) or a type's
+  methods (`$r.warm_up(by: 2)`).
+- **Checked units.** Planned, not designed yet.
 
 ## Licences
 
