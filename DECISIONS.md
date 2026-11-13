@@ -215,3 +215,17 @@ Claude proposed it; the owner chose: "yea. As for labels, I absolutely love them
 after compaction, but not on resume: a resumed session gets its old transcript back, rules included, so printing again
 only adds a second copy. The owner noticed it after this session resumed: "I think that's wasted tokens, it was already
 in your context?"; Claude proposed dropping `resume` from the matcher; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D17. Indexing always says how it counts.** An index has a label: `pos:` counts from 1, and `offset:` counts from 0.
+A bare index is refused, so nobody has to remember which way Jernal counts.
+
+```
+$xs[pos: 1]       // the 1st item, counting from 1
+$xs[offset: 0]    // the same item, counting from 0
+$xs[1]            // refused: say pos: or offset:
+```
+
+This is Cyborg's labelled indexing (its D23) without units: Cyborg writes `offset.items:`, and units aren't in
+Jernal's v1. The owner said "As for labels, I absolutely love them", then "Woah there, you're also using another major
+Cyborg feature, checked units in example"; Claude proposed the two labels without units; the owner chose: "yea".
+(Owner, 2026-11-13)
