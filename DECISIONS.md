@@ -29,3 +29,15 @@ as Cyborg's design session described it on 2026-11-13; both files went in before
 from Cyborg's rule 18: a fix that would change what a test expects goes to Tankun through Jernal Design Claude first,
 like one that needs a design choice. Otherwise a session could change a test to match its own bug. The owner asked "Is
 there auto fix bugs rule yet?"; Claude pointed out the clause was missing; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D5. `let`, `var` and `let baked`.** `let` declares a variable that can't change, and `var` one that can. `let baked`
+declares one whose value must be known when compiling. "baked" is Jernal's word for compile-time things.
+
+```
+let $x: Int = 1000
+var $total: Int = 0
+let baked $limit: Int = 100
+```
+
+Claude asked what the difference between `let` and `var` is; the owner said: "let can't change, var can, `let baked`
+is must be known when compiling. "baked" is the compile time stuff word". (Owner, 2026-11-13)
