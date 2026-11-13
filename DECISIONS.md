@@ -565,3 +565,15 @@ for $name in $names at offset $o:           // $o is 0, 1, 2
 Cyborg's design session advised deciding this early; Cyborg has no such loop. The owner asked "What does that do?" and
 "Is `at` a good spelling?"; Claude compared it with `with` and Python's order; the owner chose: "`at`". (Owner,
 2026-11-13)
+
+**D40. Methods.** Values have methods, called with a dot, so steps read left to right in the order they happen, as D32
+wants. Plain functions stay for what doesn't belong to a value, such as `println(...)` and `now()`. This settles D38's
+spelling: `$xs.sum()`.
+
+```
+let $clean: String = $text.trim().upper()     // not upper(trim($text))
+let $total: Int = $prices.sum()
+```
+
+How methods are declared is not decided yet. Claude proposed methods, citing D32's reading flow; the owner chose:
+"yea". (Owner, 2026-11-13)
