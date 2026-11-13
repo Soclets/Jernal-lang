@@ -179,3 +179,21 @@ implementation prints the same errors. For errors with no single fix:
 This closes the case Cyborg's D215 left open, where its oracle stops checking at a broken opening line. Cyborg's design
 session explained D207 and D215 on 2026-11-13; the owner had said "I think Cyborg has a technique on this, and it's
 pretty cool. Aks". Claude proposed this set; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D14. Emptiness is written bare.** No parameters, no arguments and empty values are written with nothing inside:
+
+```
+fn main[]:
+let $now: Time = now()
+let $name: String = ""
+```
+
+There is no `[none]` and no `empty`; the sketch's `empty` is dropped. A writer who wants it to look finished can add a
+comment, such as `fn main[]: // none`. The compiler never sees comments, so this changes nothing: a missing parameter
+is caught by every call that passes one, and a string left blank by mistake is caught by neither form. This differs
+from Cyborg, which writes `[none]` (its D267) and `empty` (its D103), as Cyborg's design session described on
+2026-11-13. Which brackets mean what is not decided yet.
+
+Claude proposed Cyborg's `[none]`, `()` and `empty`; the owner said: "Nah, just leave them empty. If you want it to look
+finished, just use `//` comment? This is a question. Would it create mistakes?" Claude explained it wouldn't and asked
+whether `empty` for values goes too; the owner chose: "drop too". (Owner, 2026-11-13)
