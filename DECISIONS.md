@@ -603,3 +603,26 @@ let baked $week: Int = seconds_in(7)
 This is Cyborg's (its D86, D91, D121, D223), as Cyborg's design session described on 2026-11-13. The owner said
 "CyborgPL has an interesting function making system, ask", then "Fuck, I meant Cyborg"; Claude proposed narrowings,
 with the closer repeating them; the owner chose: "yes, and repeat". (Owner, 2026-11-13)
+
+**D42. The top of a body: `labels`, `defaults`, `requires`, `ensures`.** Before any code, a function body may say how
+to call it and what it promises, always in this order:
+
+- `labels`: which parameters are written with a label at the call. Unlabelled arguments come first, in order.
+- `defaults`: a labelled parameter's value when the call leaves it off.
+- `requires` and `ensures`: contracts, checked at runtime (D8). How `ensures` names the result is not decided yet.
+
+```
+fn first_word[$text: String, $limit: Int] -> String:
+    labels [$limit as limit]
+    defaults [$limit = 40]
+    requires $limit at_least 1
+    ...
+end fn first_word
+
+first_word($text, limit: 20)
+first_word($text)                  // $limit is 40
+```
+
+Any function can have labels and defaults, not only special ones, as CyborgPL's design session advised. This is
+Cyborg's (its D52, D113, D114), as Cyborg's design session described on 2026-11-13. Claude proposed it; the owner chose:
+"yea". (Owner, 2026-11-13)
