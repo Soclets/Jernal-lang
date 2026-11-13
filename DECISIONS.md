@@ -406,3 +406,28 @@ end if
 ```
 
 Claude proposed it; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D30. Loops: `for`, `while`, `break`, and no `continue`.** `for ... in` goes through something, and `while` runs while
+a condition holds; each is closed by its own `end`. `break` leaves the innermost loop at once, and the program carries
+on after its `end`. There is no `continue` and no `skip`: an item is skipped by wrapping the work in an `if`, so the
+skipped path shows as structure instead of a hidden jump. This matches Cyborg (its D128, from Radium), as Cyborg's
+design session described on 2026-11-13.
+
+```
+for $item in $list:
+    if $item == "end":
+        break
+    end if
+    if $item != "":
+        println($item)
+    end if
+end for
+
+while $count < 10:
+    ...
+end while
+```
+
+Claude proposed `skip` and `stop`; the owner said "Ask Cyborg about `continue` `brea`k", then "Don't style guides
+dislike `continue`? I mean, I don't like it either", asked "yea but what does `break` do?", and chose: "`break`, `stop`
+just makes me think of the entire program". (Owner, 2026-11-13)
