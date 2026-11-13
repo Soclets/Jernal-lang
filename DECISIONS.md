@@ -321,3 +321,25 @@ println("Total: " $total as String)        // ok
 ```
 
 Claude proposed it; the owner chose: "yea". (Owner, 2026-11-13)
+
+**D24. The shape of a function.** Parameters go in `[ ]` (D15). `-> Type` gives the result, and leaving it out means
+the function returns nothing. A result is given with `return`, written out; the last line is never the result by
+itself. The closing `end fn` repeats the function's name.
+
+```
+fn add[$a: Int, $b: Int] -> Int:
+    return $a + $b
+end fn add
+
+fn main[]:
+    println("Hello")
+end fn main
+```
+
+The owner's sketch had `fn main[]:`, `end fn main` and "implicit return void"; Claude proposed the rest; the owner
+chose: "yea". (Owner, 2026-11-13)
+
+**D25. Sized types like `i32` are all available.** Jernal is progressive: the everyday types, such as `Int`, come first,
+and sized types such as `i32` (a 32-bit signed integer) are there for whoever needs them. Which sized types exist and
+what `Int`'s size is aren't settled; the sketch's comment says `Int` is `i64`. The sketch said "i32 style types are
+usable, just not here"; the owner said: "`i32` style types are all available, it's progressive". (Owner, 2026-11-13)
