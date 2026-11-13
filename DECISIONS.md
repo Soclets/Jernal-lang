@@ -41,3 +41,32 @@ let baked $limit: Int = 100
 
 Claude asked what the difference between `let` and `var` is; the owner said: "let can't change, var can, `let baked`
 is must be known when compiling. "baked" is the compile time stuff word". (Owner, 2026-11-13)
+
+**D6. `let` freezes the inside too.** A `let` value can't be reassigned, and nothing inside it can change either: a
+`let` list never gains or loses an item. This is how `let` works in maths, where a value never changes and only which
+name points at which value does. The owner asked: "math's `let` doesn't let insides change, right? And I mean, I'm
+leaning there too"; Claude confirmed and summarized; the owner chose: "yea, record them". (Owner, 2026-11-13)
+
+**D7. `Give` and `Copy`, for clarity, not full ownership.** The garbage collector does all the memory work. Ownership
+words exist only so a reader can see when two names could share something that changes.
+
+- Handing off something whose inside can change, such as a `var` list or object, says `Give` or `Copy`. `Give $a`
+  moves it to the new name and retires `$a`, copying nothing. `Copy $a` makes a separate one, and both stay usable.
+- Plain values need no word: numbers, `bool`, strings, and anything frozen.
+- There is no `Lend`, no lifetimes, no borrow checker and no `must_Give`. A missing word gives the error "say `Give` or
+  `Copy`".
+- Using a name after it was given is refused when compiling. A name that might have been given, such as one given
+  inside an `if` or a loop, counts as given.
+- `let $b = Give $a` freezes the list without copying it, since nobody is left who could change it.
+
+```
+var $a: List = [1, 2, 3]
+let $b: List = Copy $a     // ok: a separate list
+let $c: List = $a          // refused: say Give or Copy
+let $d: List = Give $a     // ok: $a is retired
+let $n: Int = $x           // ok: plain values need no word
+```
+
+Claude first proposed copying on every assignment, as Swift does; the owner said: "I'm used to ownership, so that's
+weird." Claude then proposed Cyborg's words; the owner said: "Like, maybe just for clarity, and not full-on
+Ownership", asked "Compile time or runtime check?", and chose: "yea, record them". (Owner, 2026-11-13)
