@@ -838,3 +838,45 @@ D139, D209), as Cyborg's design session described on 2026-11-13; in Cyborg the o
 `otherwise`", "you could use handler collections" and "we default to crash, and then opt-in handle". The owner said
 "Let's do err handling now. Ask Cyborg"; Claude proposed taking the core as it is; the owner chose: "yea". (Owner,
 2026-11-13)
+
+**D49. Every family writes its members short, with a keyword.** One rule for every kind of family, extending D45:
+inside `fam.X name`, each member is written by its short name after a keyword saying what it is, and its full name is
+`name.member`. `fam.fn` uses `fn`, `fam.handler` uses `handler`, and `fam.failure` uses `failure`. Replaces the
+keyword-less `not_found` in D48's example.
+
+```
+fam.failure file_failed:
+    failure not_found
+    failure denied
+    failure disk_full[free: Int]
+end fam.failure file_failed
+
+fam.handler word_failed:
+    handler use_placeholder:
+        case too_long:
+            instead "…"
+        case no_words:
+            instead "(none)"
+    end handler use_placeholder
+
+    handler bail:
+        case too_long:
+            return early
+        case no_words:
+            return early
+    end handler bail
+end fam.handler word_failed
+
+let $w: String = first_word($text) otherwise word_failed.use_placeholder
+let $w: String = first_word($text) otherwise word_failed.*bail
+```
+
+- `*` goes on the use, never on the declaration; the compiler works out whether a handler can jump.
+- A handler's arms are checked at each use, against the failures still possible there, so one handler may cover
+  several failure families.
+- Not decided yet: handlers taking arguments, and `pub` on families and their members.
+
+Cyborg writes members by their full dotted name with no keyword (from Radium's spelling, with no decision of its own),
+except in its `fam.fn`, as Cyborg's design session described on 2026-11-13. The owner asked "Where's handler fam?" and
+"Ask"; Claude offered short names with a keyword everywhere, or full names everywhere; the owner chose: "A". (Owner,
+2026-11-13)
