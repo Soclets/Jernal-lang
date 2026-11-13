@@ -197,3 +197,16 @@ from Cyborg, which writes `[none]` (its D267) and `empty` (its D103), as Cyborg'
 Claude proposed Cyborg's `[none]`, `()` and `empty`; the owner said: "Nah, just leave them empty. If you want it to look
 finished, just use `//` comment? This is a question. Would it create mistakes?" Claude explained it wouldn't and asked
 whether `empty` for values goes too; the owner chose: "drop too". (Owner, 2026-11-13)
+
+**D15. `( )` runs, `[ ]` describes.** A call runs something, with `( )`. A declaration describes what goes in, with
+`[ ]`. So a declaration and a call never look alike. This is the core of Cyborg's D23 (from Radium), as Cyborg's design
+session described it on 2026-11-13, and the owner's sketch already wrote it this way.
+
+```
+fn greet[$name: String]:       // [ ] describes what goes in
+greet("Tankun")                // ( ) runs it
+```
+
+Not decided yet: grouping in maths, list literals, indexing, and type details.
+
+Claude proposed it; the owner chose: "yea. As for labels, I absolutely love them". (Owner, 2026-11-13)
