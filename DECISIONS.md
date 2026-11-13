@@ -343,3 +343,20 @@ chose: "yea". (Owner, 2026-11-13)
 and sized types such as `i32` (a 32-bit signed integer) are there for whoever needs them. Which sized types exist and
 what `Int`'s size is aren't settled; the sketch's comment says `Int` is `i64`. The sketch said "i32 style types are
 usable, just not here"; the owner said: "`i32` style types are all available, it's progressive". (Owner, 2026-11-13)
+
+**D26. `return early` leaves a function that returns nothing.** Reaching `end fn` ends such a function, so nothing is
+written at the end. Leaving before the end is the only leave the page doesn't otherwise show, so it says so:
+`return early`. A function with a result always uses `return $value`, wherever it is.
+
+```
+fn greet[$name: String]:
+    if $name == "":
+        return early
+    end if
+    println("Hi " $name)
+end fn greet
+```
+
+The owner asked: "How do you leave early? `return early`?" Claude first suggested a bare `return`; the owner asked: "If
+it's bare `return`, why don't you write at the end too? Even when not leaving early?" Claude agreed `return early` is
+the consistent choice; the owner chose: "yea". (Owner, 2026-11-13)
