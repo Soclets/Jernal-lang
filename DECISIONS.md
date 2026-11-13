@@ -431,3 +431,19 @@ end while
 Claude proposed `skip` and `stop`; the owner said "Ask Cyborg about `continue` `brea`k", then "Don't style guides
 dislike `continue`? I mean, I don't like it either", asked "yea but what does `break` do?", and chose: "`break`, `stop`
 just makes me think of the entire program". (Owner, 2026-11-13)
+
+**D31. Named loops.** A loop may have a name, written after `for` or `while`, and its closer then repeats it.
+`break name` leaves that loop and every loop inside it; a plain `break` still leaves the innermost one. As in Cyborg
+(its D128).
+
+```
+for rows $row in $grid:
+    for $cell in $row:
+        if $cell == $target:
+            break rows
+        end if
+    end for
+end for rows
+```
+
+Claude proposed it from Cyborg's design session's advice; the owner chose: "yea". (Owner, 2026-11-13)
