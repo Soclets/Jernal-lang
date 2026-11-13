@@ -87,3 +87,43 @@ but take work; the owner chose: "Ah, we could do 1 & 2 at start in compile, 3 is
 **D9. Runtime checks never give a wrong answer, and proven ones are dropped.** Adds to D8. A runtime check that fails
 stops with a clear error, never a wrong answer. A runtime check the compiler proves always passes is dropped, so safety
 costs nothing where the compiler can see it's safe. Claude proposed both; the owner chose: "added". (Owner, 2026-11-13)
+
+**D10. Error messages: Cyborg's format, with Jernal's own kinds.** The format is Cyborg's (its D16, which came from
+Radium), as Cyborg's design session described it on 2026-11-13, with two changes: the kinds are named plainly, and
+`why:` links the spec as well as the decision. The file name below is a placeholder.
+
+```
+CompileTimeError: main.jernal:3:16, line 3 column 16
+ 3 | let $c: List = $a
+   |                ^^
+ what: `$a` can change inside, so handing it off needs `Give` or `Copy`
+ why:  a hand-off says what it does (D7)
+```
+
+- **The first word is the kind:** `CompileTimeError:` (the compiler refused the program), `RuntimeError:` (a check
+  failed while running), `warning:`, `NotDesignedYet:` (not decided) and `NotBuiltYet:` (decided, not built). Cyborg's
+  `unproven:` is dropped, since Jernal has no prover (D8).
+- **The place is written twice:** `file:line:col` for tools, with the column in UTF-8 bytes, then `line N column M` for
+  people, with the column in grapheme clusters. A runtime error that no code line caused has no place line.
+- **The `^` run sits under exactly the part in question**, not the whole line.
+- **Labels**, one line each, with code in backticks:
+  - `what:` says what's wrong. It's always there, unless `fix:` replaces it.
+  - `why:` is always there. It names the rule, cites its decision number and links the spec section.
+  - `when:` gives the values that break it, where known.
+  - `because:` shows earlier lines that led here, only when the compiler knows they did.
+  - `fix:` appears only when there's exactly one possible fix, and replaces `what:`. No "did you mean" guesses.
+- **Every error is shown, not just the first.** Knock-on errors are found by applying the first error's fix in memory
+  and checking again; whatever disappears was caused by it and gets a `because:` pointing back. After an error,
+  checking skips only that statement.
+- **Runtime errors** have no stack trace, only the `because:` steps the compiler knows. Before the message, buffered
+  output nobody is using is flushed, so the last thing printed shows.
+- **Wording:** only what's certain. Neutral and about the program: no "you", no apologies. Jernal's own words. It never
+  says which implementation printed it.
+
+Still open, which Cyborg's design session advised deciding early: exit codes, the wording when the compiler itself
+fails, and what happens after an error on a line that opens a block, such as an `if`.
+
+Claude proposed Cyborg's format with `unproven:` dropped and a spec link in `why:`; the owner said: "Seems good, before
+you record. Maybe change `refused` and `check failed` to be more straightforward, `CompileTimeError` and
+`RuntimeError`?" Claude worried that "compile time" competes with "baked" (D5); the owner chose: "the baked worry, just
+use CompileTimeError and RuntimeError". (Owner, 2026-11-13)
