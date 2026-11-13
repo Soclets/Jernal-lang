@@ -626,3 +626,33 @@ first_word($text)                  // $limit is 40
 Any function can have labels and defaults, not only special ones, as CyborgPL's design session advised. This is
 Cyborg's (its D52, D113, D114), as Cyborg's design session described on 2026-11-13. Claude proposed it; the owner chose:
 "yea". (Owner, 2026-11-13)
+
+**D43. `mut` replaces `var`, everywhere.** "Can change" is written `mut`, after the word that declares the name.
+Replaces `var` in D5, D7, D33, D35 and D36.
+
+| Can't change | Can change |
+|---|---|
+| `let $x: Int = 1` | `let mut $x: Int = 1` |
+| `decl $x: Int` | `decl mut $x: Int` |
+| `shadow $x: Int = 1` | `shadow mut $x: Int = 1` |
+
+A method that changes the value it's called on says so once, in its declaration, with `mut $self`. Calls are written
+plainly, and calling such a method on a value that can't change is refused. A plain `$self` can't be changed inside the
+method.
+
+```
+fn warm_up[mut $self: Reading, $by: Int]:
+    labels [$by as by]
+    change $self.celsius = $self.celsius + $by
+end fn warm_up
+
+let mut $r: Reading = Reading.new(20)
+$r.warm_up(by: 2)               // fine
+let $s: Reading = Reading.new(5)
+$s.warm_up(by: 2)               // refused: $s can't change
+```
+
+Claude proposed marking changing methods, first with `change` at the call, then `%%`; the owner said "Maybe a symbol
+instead? `change` reads weird there" and "Do we really need this?" Claude proposed marking it once in the declaration,
+with `var $self`; the owner chose: "Actually, let's change to `let mut`, and `mut` everywhere. It just reads better".
+(Owner, 2026-11-13)
