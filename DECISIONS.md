@@ -378,3 +378,16 @@ if $age >= 18:           // refused, fix: `at_least`
 
 Claude proposed `==` and `!=`; the owner chose: "`==`, `!=`, `at_least`, `at_most`, `>=` is longer when you read in
 mind". (Owner, 2026-11-13)
+
+**D28. `and`, `or`, `not`, and `.both` to skip nothing.** Conditions combine with the words `and`, `or` and `not`.
+`and` and `or` short-circuit: the right side runs only if it can still change the answer. `and.both` and `or.both`
+always run both sides. `&&`, `||` and `!` are refused, with the word as the fix; `!=` stays (D27).
+
+```
+if $age at_least 18 and $has_ticket:
+if not $done:
+if $user_ok and load_profile():               // load_profile() runs only if $user_ok is true
+if check_a() and.both check_b():              // both always run
+```
+
+Claude proposed the words; the owner chose: "yea, they short-circuit, with `.both`, they don't". (Owner, 2026-11-13)
