@@ -2,12 +2,22 @@
 
 Straight to the fucking point.
 
-Cool features:
+## Cool features
 
 - **Families.** One name, many kinds. `fam.fn show` holds `show`, its narrowings like `show.stored` and `show.hex`,
   and versions like `area(3)` and `area(3, 4)`. A family can also be a toolbox (`geometry.area(3, 4)`) or a type's
   methods (`$r.warm_up(by: 2)`).
 - **Checked units.** Planned, not designed yet.
+
+## Cons
+
+The performance would likely be around Go, probably worse.
+It's a little bit more low-level than languages like Python or Ruby.
+With unique features, you'll have to learn more.
+
+## Hello, World!
+
+
 
 ## Licences
 
