@@ -13,3 +13,7 @@ commit, implementation and cores rules were added at the owner's request ("Where
 count rule?"); owner quotes in commits are exact ("owner quotes shouldn't be inexact, they should be exact. If too long,
 in commit say `(owner: too long)`"); the language-independent rules from Cyborg were all added ("all of the first
 group"); and the result was adopted ("yea"). (Owner, 2026-11-13)
+
+**D2. Commit and push automatically.** Sessions commit and push without asking, as Cyborg's do. Placeholders are
+allowed, and are marked as placeholders. Claude mentioned Cyborg's rule; the owner chose: "Use that rule too".
+(Owner, 2026-11-13)

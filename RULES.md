@@ -29,7 +29,8 @@ Each implementation session works in its own clone, on `main` with no branch, an
 9. **Commits.** `kind.folder.narrowing: sentence (owner: "their exact words"; D1)`. Kinds: `decision`, `design`,
    `feature`, `fix`, `test`, `house`. The owner quote is Tankun's exact words, never a paraphrase. If it's too long for
    the subject, write `(owner: too long)` instead. Each commit ends with its session's trailer, e.g.
-   `Co-Authored-By: Jernal Design Claude <noreply@anthropic.com>`.
+   `Co-Authored-By: Jernal Design Claude <noreply@anthropic.com>`. Commit and push automatically, without asking.
+   Placeholders are allowed, and are marked as placeholders. (D2)
 10. **No design in code.** Code follows the spec. Anything undecided gives a `NotDesignedYet` error, and the question goes
     to Tankun through Jernal Design Claude. Anything decided but not built yet gives `NotBuiltYet`.
 11. **Cores.** On Tankun's 10-core Mac: Jernal Design Claude 1. Other sessions get theirs when they exist, and builds and
