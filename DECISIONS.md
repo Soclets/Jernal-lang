@@ -245,3 +245,22 @@ Since variables start with `$` and types never do, the compiler never has to gue
 people. Cyborg instead keeps `< >` for types only and writes comparisons as `below` and `above`. The owner said: "We
 use `<` and `>`, and `<>` brackets. There's a simple solution: space sensitive"; Claude spelled it out; the owner chose:
 "yea". (Owner, 2026-11-13)
+
+**D19. No semicolons: one statement, one line.** A line break ends a statement, and there are no semicolons. An
+expression never continues onto the next line; a long one is split into named steps. The only exception is inside
+brackets: a call, list or declaration may break between its items.
+
+```
+let $subtotal: Int = $price * $count
+let $total: Int = $subtotal + $shipping
+
+let $user: User = make_user(
+    name: "Tankun",
+    age: 30,
+)
+```
+
+Whether a comma after the last item is allowed is not decided yet. Claude proposed no semicolons, with a trailing
+operator continuing the line; the owner said "Is cursed, though". Claude proposed a leading operator instead; the owner
+asked "Or just one line?". Claude proposed one line, except between items inside brackets; the owner chose: "yup".
+(Owner, 2026-11-13)
