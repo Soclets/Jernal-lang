@@ -577,3 +577,29 @@ let $total: Int = $prices.sum()
 
 How methods are declared is not decided yet. Claude proposed methods, citing D32's reading flow; the owner chose:
 "yea". (Owner, 2026-11-13)
+
+**D41. Narrowings on `fn`.** What kind of function it is goes on `fn` after a dot, and the closer repeats all of it,
+narrowings and name.
+
+- `fn.pure`: the same input always gives the same output, and nothing else changes or is seen: no I/O, and only pure
+  functions are called. The compiler refuses anything else inside it.
+- `fn.pure.baked`: pure, and can also run while compiling, for a `let baked` (D5). It runs normally otherwise.
+- Narrowings go strongest first, so it's `fn.pure.baked`, never `fn.baked.pure`; the wrong order is refused, with the
+  right one as the fix.
+- `fn main` stays plain.
+
+```
+fn.pure area[$w: Int, $h: Int] -> Int:
+    return $w * $h
+end fn.pure area
+
+fn.pure.baked seconds_in[$days: Int] -> Int:
+    return $days * 86400
+end fn.pure.baked seconds_in
+
+let baked $week: Int = seconds_in(7)
+```
+
+This is Cyborg's (its D86, D91, D121, D223), as Cyborg's design session described on 2026-11-13. The owner said
+"CyborgPL has an interesting function making system, ask", then "Fuck, I meant Cyborg"; Claude proposed narrowings,
+with the closer repeating them; the owner chose: "yes, and repeat". (Owner, 2026-11-13)
