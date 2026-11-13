@@ -17,7 +17,11 @@ With unique features, you'll have to learn more.
 
 ## Hello, World!
 
-
+```
+fn main[]:
+    println("Hello, World!")
+end fn main
+```
 
 ## Licences
 
