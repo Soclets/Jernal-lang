@@ -774,3 +774,21 @@ area(3, 4)      // 12
 This is CyborgPL's `versions` (2026-10-21), as CyborgPL's design session described on 2026-11-13; the owner had asked
 there: "Wait, why are there two `say`s? Isn't supposed to be one, and narrowings?". Claude proposed it for Jernal; the
 owner chose: "yea". (Owner, 2026-11-13)
+
+**D47. One family per type, in the same place as the type.** A type's makers and methods are exactly what's in its one
+`fam.fn` block. A second `fam.fn` with the same name is refused. To add helpers to a type you didn't write, such as a
+library's type or `String`, write your own family of plain functions:
+
+```
+fam.fn text_tools:
+    fn shout[$s: String] -> String:
+        ...
+    end fn shout
+end fam.fn text_tools
+
+text_tools.shout($name)       // not $name.shout()
+```
+
+Settles one of D45's open questions. Cyborg's design session flagged it as still open in Cyborg. Claude proposed one
+block per type; the owner asked "Wdym by that?" and "Can't you just write at the same place?", and chose: "yea".
+(Owner, 2026-11-13)
