@@ -746,3 +746,31 @@ function elsewhere. `fam.fn` descends from CyborgPL's `coll.fn` through Radium's
 the owner said: "`fam` comes from Radium's `narrowings` that then comes from CyborgPL's `coll`". The owner asked
 "What's more powerful?"; Claude said the block, and proposed `fam.fn` for all three uses; the owner asked "So, we would
 have no single functions?" and "Let me see fam.fn syntax", and chose: "yea". (Owner, 2026-11-13)
+
+**D46. Versions: one name, several parameter lists.** Settles D45's "versions". A `versions` block inside a family
+writes the name once, then each version as its parameter list and body. The compiler picks a version by the number of
+arguments and their exact types.
+
+```
+fam.fn area:
+    versions area:
+        [$side: Int] -> Int:
+            return $side * $side
+        end version
+        [$w: Int, $h: Int] -> Int:
+            return $w * $h
+        end version
+    end versions area
+end fam.fn area
+
+area(3)         // 9
+area(3, 4)      // 12
+```
+
+- Versions exist only inside a family. The same `fn` written twice anywhere else is refused.
+- Two versions that could take the same call are refused where they're written, and so is a default that would make
+  them overlap, so adding a default never changes which version a call reaches.
+
+This is CyborgPL's `versions` (2026-10-21), as CyborgPL's design session described on 2026-11-13; the owner had asked
+there: "Wait, why are there two `say`s? Isn't supposed to be one, and narrowings?". Claude proposed it for Jernal; the
+owner chose: "yea". (Owner, 2026-11-13)
