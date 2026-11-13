@@ -229,3 +229,19 @@ This is Cyborg's labelled indexing (its D23) without units: Cyborg writes `offse
 Jernal's v1. The owner said "As for labels, I absolutely love them", then "Woah there, you're also using another major
 Cyborg feature, checked units in example"; Claude proposed the two labels without units; the owner chose: "yea".
 (Owner, 2026-11-13)
+
+**D18. `<` and `>` are both comparisons and type brackets, told apart by spaces.** A comparison has a space on both
+sides. Type brackets stick to the name before them. Anything in between is refused, with the one fix shown (D10).
+
+```
+$age < 18              // comparison; so are >, <= and >=
+List<Int>              // type brackets
+List<List<Int>>        // the >> is two closers, never a shift
+$age<18                // refused, fix: `$age < 18`
+List <Int>             // refused, fix: `List<Int>`
+```
+
+Since variables start with `$` and types never do, the compiler never has to guess; the spacing keeps it readable for
+people. Cyborg instead keeps `< >` for types only and writes comparisons as `below` and `above`. The owner said: "We
+use `<` and `>`, and `<>` brackets. There's a simple solution: space sensitive"; Claude spelled it out; the owner chose:
+"yea". (Owner, 2026-11-13)
