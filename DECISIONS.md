@@ -656,3 +656,39 @@ Claude proposed marking changing methods, first with `change` at the call, then 
 instead? `change` reads weird there" and "Do we really need this?" Claude proposed marking it once in the declaration,
 with `var $self`; the owner chose: "Actually, let's change to `let mut`, and `mut` everywhere. It just reads better".
 (Owner, 2026-11-13)
+
+**D44. Function narrowings: one name, several named kinds.** After a function's name, `.` picks a kind of it:
+`show.stored`, `show.hex`. There are two sorts:
+
+- **A preset** only fills in some of the function's labelled arguments. It's declared in the header (D42), as a
+  `presets` line after `defaults`, and has no body of its own. `show.stored()` is exactly `show(digits: all)`.
+- **A narrowing with its own code** is a function with a dotted name, `fn show.hex`, for a kind that works too
+  differently to be a setting. It needs `show` to exist.
+
+```
+fn show[$x: Float, $digits: Digits] -> String:
+    labels [$digits as digits]
+    defaults [$digits = shortest]
+    presets [stored = [$digits = all]]
+    ...
+end fn show
+
+fn show.hex[$x: Float] -> String:
+    ...
+end fn show.hex
+
+$x.show()                 // shortest
+$x.show.stored()          // show(digits: all)
+$x.show.hex()             // its own function
+```
+
+- Presets stack, one per `.`. A chain that sets one parameter twice is refused.
+- There's no collection block: everything about `show` is in its header or in a `fn show.something`.
+- A dotted name in a declaration always means a narrowing, so methods are not declared as `fn Type.name`.
+
+This combines CyborgPL's (dotted functions, presets), Radium's (its D57, `narrowings.fn`, and its advice to give
+presets a visible word) and Cyborg's call-side `fmt_print.stored`, as their design sessions described on 2026-11-13.
+"Variants" are something else: one name with several parameter lists, CyborgPL's `versions`, which is not decided yet.
+The owner said "Ask Radium and CyborgPL, then", "Function narrowings, they call it. And also variants too, I think
+they're diff", confirmed variants are versions ("yea"), asked "What's the idea?", and chose: "Ah yea". (Owner,
+2026-11-13)
