@@ -1405,3 +1405,8 @@ Rational's representation are not decided yet. Cyborg instead has three float ki
 design session described on 2026-11-14. The owner asked "You know how big stable floats are, right?", and chose:
 "(a). There's just `Float` which is IEEE Binary64. `Decimal` is built in, but what IEEE size? And Rationale should
 also be built-in. Stable floats come later, if ever (as `f64.stable`)". (Owner, 2026-11-14)
+
+**D83. `Decimal` is decimal128, and `Rational` is arbitrary-size.** Settles D82's open questions. `Decimal` is IEEE 754
+decimal128: 34 significant digits, exponents up to about ±6144. `Rational` is an exact fraction whose numerator and
+denominator are arbitrary-size integers, so it never overflows. Claude proposed both; the owner chose: "yes yes".
+(Owner, 2026-11-14)

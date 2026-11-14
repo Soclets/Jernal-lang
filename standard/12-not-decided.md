@@ -4,7 +4,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.1 Language core
 
-- **Numbers and maths:** `Decimal`'s size and `Rational`'s representation (D82), `~` for inexact float literals, what `/` gives
+- **Numbers and maths:** `~` for inexact float literals, what `/` gives
   (`7 / 2`), integer division, remainder, which arithmetic operators exist and how they're spelled (`+`, `-`, `*` appear
   in examples), grouping with `( )` in maths, which sized types exist, and how numbers convert between types.
 - **`Bool`:** its name and its values (`true`, `false`).

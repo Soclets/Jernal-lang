@@ -12,8 +12,8 @@ Which sized types exist, and how they convert, isn't decided yet, nor is `Bool` 
 
 - `Float` is IEEE 754 binary64. NaN and infinity exist, as IEEE says. There are no float kinds; stable floats, the same
   bits on every machine, may come later as `f64.stable` (D82).
-- `Decimal` is built in: an exact decimal number (D82). Its size isn't decided yet.
-- `Rational` is built in: an exact fraction (D82). Its representation isn't decided yet.
+- `Decimal` is built in: IEEE 754 decimal128, with 34 significant digits, so `0.1 + 0.2` is exactly `0.3` (D82, D83).
+- `Rational` is built in: an exact fraction of arbitrary-size integers, so it never overflows (D82, D83).
 
 ## 2.2 Strings
 
