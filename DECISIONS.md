@@ -2204,3 +2204,26 @@ $xs.clear()
 ```
 
 Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D137. Error text: the oracle proposes wording, and four details of the format.** Asked by Jernal Oracle Claude before
+its tests start recording error text byte for byte.
+
+1. The wording of each message's `what:` and `why:` is written by JernOrac, flagged as proposed, and recorded in
+   `tests/`; that recording is the reference JernComp matches. Jernal Design Claude reviews the wording in batches. The
+   standard keeps the principles (7.3), not every message.
+2. `why:` cites the decision and the standard's section in one bracket: `why:  a hand-off says what it does (D7,
+   standard 3.6)`.
+3. A failure nobody handles is a `RuntimeError`, exit code 122, pointing at the call that failed:
+   ```
+   RuntimeError: main.jern:4:24, line 4 column 24
+    4 | let $n: String = read_line()
+      |                  ^^^^^^^^^^^
+    what: `read_line` failed with `end_of_input`, and nothing handled it
+    why:  a failure nobody handles crashes (D48, standard 6.3)
+   ```
+4. Chapter 13 as of today is `need std 2026y-11m-14d`; other dates give `NotBuiltYet`. A place line's file name is
+   relative to the package folder.
+5. `NotDesignedYet` and `NotBuiltYet` use the same layout, pointing at the construct, as in
+   `why:  not decided yet (standard 12.1)`.
+
+Claude recommended all five; the owner chose: "yea". (Owner, 2026-11-14)

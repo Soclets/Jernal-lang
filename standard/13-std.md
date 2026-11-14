@@ -3,7 +3,8 @@
 `std` is one package, organized by path (D107). Code writes short names (D59). This chapter says exactly what each part
 does, since JernOrac builds std from it alone (D127). Anything not listed here gives `NotDesignedYet`.
 
-`need std <date>` in the manifest means std as specified on that date (D128). The build mode picks the implementation:
+`need std <date>` in the manifest means std as specified on that date (D128). This chapter, as of now, is
+`need std 2026y-11m-14d` (D137). The build mode picks the implementation:
 JernOrac's built-in std under `--Interp`, JernComp's under the compiled modes. A date one of them doesn't implement gives
 `NotBuiltYet` in that one. Without a `need std` line, std's names aren't visible (D59).
 

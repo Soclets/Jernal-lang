@@ -39,7 +39,7 @@ CompileTimeError: main.jern:3:16, line 3 column 16
  3 | let $c: List<Int> = $a
    |                     ^^
  what: `$a` can change inside, so handing it off needs `give` or `copy`
- why:  a hand-off says what it does (D7)
+ why:  a hand-off says what it does (D7, standard 3.6)
 ```
 
 - The first word is the kind: `CompileTimeError:` (the compiler refused the program), `RuntimeError:` (a check failed
@@ -54,6 +54,11 @@ CompileTimeError: main.jern:3:16, line 3 column 16
   - `when:` gives the values that break it, where known.
   - `because:` shows earlier lines that led here, only when the compiler knows they did.
   - `fix:` appears only when there's exactly one possible fix, and replaces `what:`. No "did you mean" guesses.
+- `why:` cites the decision and the section together: `(D7, standard 3.6)` (D137).
+- A failure nobody handles is a `RuntimeError` pointing at the call that failed (D137).
+- `NotDesignedYet` and `NotBuiltYet` point at the construct, with `why:  not decided yet (standard 12.1)` (D137).
+- The file in a place line is named relative to the package folder (D137).
+- Each message's exact wording is written by JernOrac and recorded in `tests/`, which JernComp matches (D137).
 - Wording is only what's certain, neutral and about the program: no "you", no apologies. It uses Jernal's own words, and
   never says which implementation printed it.
 - A runtime error has no stack trace, only the `because:` steps the compiler knows. Before the message, buffered output
