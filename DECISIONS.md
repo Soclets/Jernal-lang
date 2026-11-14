@@ -1201,3 +1201,12 @@ them needs read barriers, a check on every pointer load, as well as D67's write 
 is the hardest GC design to get right; the model is Java's Generational ZGC. Claude compared stop-the-world, concurrent
 and mixed, and recommended mixed; the owner asked "What has better perf?", said "I mean, my ass is not used to a long-ass
 paused, tbh", asked "Concurent from statr?", and chose: "Fully concur, it seems fun." (Owner, 2026-11-14)
+
+**D69. An oracle that ignores speed and keeps every check, and is also `Interp` mode.** Jernal has two
+implementations. The oracle is a plain interpreter written straight from the spec: it never optimizes, and it never
+drops a check, even one the compiler proves always passes (D9), so it's the safest way to run a program and the slowest.
+The compiler must give byte-for-byte the same output as the oracle on every test and generated program; where they
+differ, the spec decides which is wrong. The two stay apart: neither is written from the other's source, so their bugs
+can't agree. The oracle is also the `Interp` build mode, which runs a program with no compiling. Other build modes are
+not decided yet. This follows Cyborg's oracle (its rule 3) and multifinity's notes. Claude proposed it; the owner chose:
+"Oracle that says fuck you to perf, and kisses safety's ass, and also somehow is in `Interp` mode." (Owner, 2026-11-14)
