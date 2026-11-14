@@ -1269,3 +1269,8 @@ jern run --Interp           // runs on the oracle
 
 Every command names its mode (D72). Not decided yet: the oracle's name, the manifest's name and format, and how a file
 or package is named on the command line. The owner chose these names. (Owner, 2026-11-14)
+
+**D75. The oracle is JernOrac, and the manifest uses siml.** The oracle (D69, D73) is named JernOrac. The manifest is
+written in siml, the format of Cyborg's `CyJet.siml`. The manifest's file name and contents are not decided yet. Claude
+proposed JernOrac and asked between a standard format and a custom one like Cyborg's; the owner chose: "Yes, as for
+the manifest though, `siml` is a lot more straight-forward". (Owner, 2026-11-14)
