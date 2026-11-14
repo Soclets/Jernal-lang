@@ -20,6 +20,7 @@ type t =
   | Range                       (* what range[...] gives: the Ints it goes through *)
   | Lines                       (* what lines() gives: a sequence of String *)
   | Struct of string
+  | Instance of string * (string * t) list   (* a generic struct with its types: Pair<left: Int, right: String> (D103) *)
   | Union of string
   | Case of string * string      (* a union value known to be one case, inside a case test or arm (D97) *)
   | Failure of string * (string * t) list   (* a failure's data, named in an `otherwise` arm (D48) *)
@@ -73,6 +74,8 @@ let rec name = function
   | Range -> "range"
   | Lines -> "lines"
   | Struct n | Union n -> n
+  | Instance (n, [ (_, t) ]) -> n ^ "<" ^ name t ^ ">"
+  | Instance (n, arguments) -> n ^ "<" ^ String.concat ", " (List.map (fun (l, t) -> l ^ ": " ^ name t) arguments) ^ ">"
   | Case (u, c) -> u ^ "." ^ c
   | Failure (f, _) -> f
   | New (n, _) -> n
@@ -91,7 +94,7 @@ let rec name = function
 
 (* Whether a value of the type can change inside, so handing it off needs `give` or `copy` (D7). *)
 let rec has_inside_that_changes = function
-  | List _ | Map _ | Array _ | Struct _ | Union _ | Case _ -> true
+  | List _ | Map _ | Array _ | Struct _ | Instance _ | Union _ | Case _ -> true
   | New (_, t) | Bounded (t, _) -> has_inside_that_changes t
   | _ -> false
 
@@ -120,4 +123,6 @@ let rec same a b =
   | Array (x, n), Array (y, m) -> n = m && same x y
   | Map (k1, a1, b1), Map (k2, a2, b2) -> k1 = k2 && same a1 a2 && same b1 b2
   | Case (u, _), Union v | Union u, Case (v, _) -> u = v
+  | Instance (a, xs), Instance (b, ys) ->
+      a = b && List.length xs = List.length ys && List.for_all2 (fun (_, x) (_, y) -> same x y) xs ys
   | _ -> a = b

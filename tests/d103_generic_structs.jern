@@ -1,0 +1,18 @@
+struct Pair<?Left: Any, ?Right: Any>:
+    first: ?Left
+    second: ?Right
+end struct Pair
+
+struct Box<?Item: Any>:
+    item: ?Item
+end struct Box
+
+fn.main[]:
+    let $p: Pair<left: Int, right: String> = Pair[first = 1, second = "a"]
+    println($p.first as String " " $p.second)
+    let $b: Box<String> = Box[item = "inside"]
+    println($b.item)
+    let $guessed: Box<Int> = Box[item = 7]
+    let $n: Int = $guessed.item
+    println($n as String)
+end fn.main

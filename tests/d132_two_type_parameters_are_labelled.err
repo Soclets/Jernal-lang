@@ -1,0 +1,5 @@
+CompileTimeError: d132_two_type_parameters_are_labelled.jern:7:13, line 7 column 13
+ 7 |     let $p: Pair<Int, String> = Pair[first = 1, second = "a"]
+   |             ^^^^^^^^^^^^^^^^^
+ what: `Pair` takes `left:` and `right:` in `< >`
+ why:  a type with one type parameter writes it bare; with two or more, each is labelled (D102, D132, standard 2.3)

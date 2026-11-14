@@ -131,6 +131,30 @@ let rec underlying = function Types.New (_, t) | Types.Bounded (t, _) -> underly
 
 (* ---------- Types ---------- *)
 
+(* A type parameter's label: ?Left is `left:`, ?KeyType is `key_type:` (D103, D132). *)
+let parameter_label (p : string) =
+  let buffer = Buffer.create 16 in
+  String.iteri
+    (fun i c ->
+      if c >= 'A' && c <= 'Z' then begin
+        if i > 0 then Buffer.add_char buffer '_';
+        Buffer.add_char buffer (Char.lowercase_ascii c)
+      end
+      else Buffer.add_char buffer c)
+    p;
+  Buffer.contents buffer
+
+(* A type with its type parameters filled in. *)
+let rec substitute_parameters (bindings : (string * Types.t) list) (t : Types.t) : Types.t =
+  match t with
+  | Types.Parameter p -> Option.value (List.assoc_opt p bindings) ~default:t
+  | Types.List item -> Types.List (substitute_parameters bindings item)
+  | Types.Map (k, a, b) -> Types.Map (k, substitute_parameters bindings a, substitute_parameters bindings b)
+  | Types.Bounded (t, b) -> Types.Bounded (substitute_parameters bindings t, b)
+  | Types.Array (t, n) -> Types.Array (substitute_parameters bindings t, n)
+  | Types.Instance (n, xs) -> Types.Instance (n, List.map (fun (l, t) -> (l, substitute_parameters bindings t)) xs)
+  | t -> t
+
 let sized_integer word =
   let n = String.length word in
   if n >= 2 && (word.[0] = 'i' || word.[0] = 'u')
@@ -217,7 +241,25 @@ let rec resolve_type context (t : type_expression) : Types.t =
             refuse context ~what:(Printf.sprintf "%s is wider than 8,388,607 bits" (quote word)) t.type_span
               "integers come in any width from 1 to 8,388,607 bits (D93, standard 2.1)"
           else no_arguments (Types.Integer integer)
-      | _, [ word ] when Hashtbl.mem context.structs word -> no_arguments (Types.Struct word)
+      | _, [ word ] when Hashtbl.mem context.structs word -> (
+          match (Hashtbl.find context.structs word).struct_declaration.struct_type_parameters with
+          | [] -> no_arguments (Types.Struct word)
+          | parameters ->
+              (* trace: D103, D132 — one type parameter is written bare; two or more are labelled by their names *)
+              let labels = List.map (fun ((p : name), _) -> parameter_label p.text) parameters in
+              let given =
+                match parameters, arguments with
+                | [ _ ], [ { argument_label = None; argument_type } ] -> [ (List.hd labels, argument_type) ]
+                | _ :: _ :: _, _ when List.for_all (fun a -> a.argument_label <> None) arguments ->
+                    List.map (fun a -> ((Option.get a.argument_label).text, a.argument_type)) arguments
+                | _ -> []
+              in
+              if List.sort compare (List.map fst given) <> List.sort compare labels then
+                refuse context
+                  ~what:(Printf.sprintf "%s takes %s in `< >`" (quote word)
+                           (match labels with [ _ ] -> "one type, written bare" | _ -> String.concat " and " (List.map (fun l -> quote (l ^ ":")) labels)))
+                  t.type_span "a type with one type parameter writes it bare; with two or more, each is labelled (D102, D132, standard 2.3)";
+              Types.Instance (word, List.map (fun l -> (l, resolve_type context (List.assoc l given))) labels))
       | _, [ word ] when Hashtbl.mem context.unions word -> no_arguments (Types.Union word)
       | _, [ word ] when Hashtbl.mem context.aliases word || Hashtbl.mem context.new_types word ->
           if List.mem word context.resolving then
@@ -594,7 +636,7 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         refuse context ~what:"an index says how it counts: `pos:` from 1, or `offset:` from 0" span
           "an index always says how it counts (D17, standard 4.4)"
     | Syntax.Member (target, field) -> check_member fctx e target field
-    | Syntax.Build { built; fields } -> check_build fctx e built fields
+    | Syntax.Build { built; fields } -> check_build fctx ~expected e built fields
     | Syntax.Copy inner ->
         let inner = check_expression fctx ~expected inner in
         { C.kind = C.Copy inner; type_ = inner.type_; span }
@@ -1053,10 +1095,16 @@ and check_member fctx (e : expression) target field =
   let span = e.expression_span in
   let target = check_expression fctx ~expected:None target in
   match underlying target.type_ with
-  | Types.Struct struct_name -> (
+  | Types.Struct struct_name | Types.Instance (struct_name, _) -> (
       let info = Hashtbl.find context.structs struct_name in
+      let bindings =
+        match underlying target.type_ with
+        | Types.Instance (_, arguments) ->
+            List.map2 (fun ((p : name), _) (_, t) -> (p.text, t)) info.struct_declaration.struct_type_parameters arguments
+        | _ -> []
+      in
       match List.find_opt (fun (n, _, _) -> n = field.text) info.resolved_fields with
-      | Some (_, t, _) -> { C.kind = C.Field (target, field.text); type_ = t; span }
+      | Some (_, t, _) -> { C.kind = C.Field (target, field.text); type_ = substitute_parameters bindings t; span }
       | None ->
           refuse context ~what:(Printf.sprintf "%s has no field called %s" (quote struct_name) (quote field.text)) field.span
             "fields are read with `.` (D56, standard 2.4)")
@@ -1096,12 +1144,42 @@ and check_member fctx (e : expression) target field =
       refuse context ~what:(Printf.sprintf "%s has no field called %s; a method call takes `( )`" (type_text t) (quote field.text))
         field.span "fields are read with `.`, and methods always take `( )` (D40, standard 13.3)"
 
-and check_build fctx (e : expression) built fields =
+and check_build fctx ~expected (e : expression) built fields =
   let context = fctx.context in
   let span = e.expression_span in
   match built.expression_kind with
   | Syntax.Name { word; _ } when Hashtbl.mem context.structs word ->
       let info = Hashtbl.find context.structs word in
+      let parameters = info.struct_declaration.struct_type_parameters in
+      (* a generic struct's types come from where it goes, or from its fields (D103) *)
+      let bindings =
+        if parameters = [] then []
+        else
+          match Option.map underlying expected with
+          | Some (Types.Instance (name, arguments)) when name = word ->
+              List.map2 (fun ((p : name), _) (_, t) -> (p.text, t)) parameters arguments
+          | _ ->
+              let found = Hashtbl.create 4 in
+              List.iter
+                (fun { field; field_value } ->
+                  match List.find_opt (fun (n, _, _) -> n = field.text) info.resolved_fields with
+                  | Some (_, Types.Parameter p, _) when not (Hashtbl.mem found p) -> (
+                      let saved = context.diagnostics in
+                      match (check_expression fctx ~expected:None field_value).type_ with
+                      | t -> context.diagnostics <- saved; if t <> Types.Unknown then Hashtbl.replace found p t
+                      | exception Skip -> context.diagnostics <- saved)
+                  | _ -> ())
+                fields;
+              List.map
+                (fun ((p : name), _) ->
+                  match Hashtbl.find_opt found p.text with
+                  | Some t -> (p.text, t)
+                  | None ->
+                      refuse context ~what:(Printf.sprintf "nothing here says what `?%s` is" p.text) span
+                        "a type parameter is worked out from the values or where the result goes (D103, standard 5.8)")
+                parameters
+      in
+      let field_type t = substitute_parameters bindings t in
       let seen = Hashtbl.create 8 in
       let given =
         List.map
@@ -1111,6 +1189,7 @@ and check_build fctx (e : expression) built fields =
                 refuse context ~what:(Printf.sprintf "%s has no field called %s" (quote word) (quote field.text)) field.span
                   "a struct is built with its own fields (D56, standard 2.4)"
             | Some (_, t, _) ->
+                let t = field_type t in
                 if Hashtbl.mem seen field.text then
                   refuse context ~what:(Printf.sprintf "%s is given twice" (quote field.text)) field.span
                     "a struct is built with each field once (D56, standard 2.4)";
@@ -1127,7 +1206,11 @@ and check_build fctx (e : expression) built fields =
             refuse context ~what:(Printf.sprintf "%s has no default, so it must be given" (quote n)) span
               "a field without a default must be given (D57, standard 2.4)")
         info.resolved_fields;
-      { C.kind = C.Build_struct { struct_name = word; fields = given }; type_ = Types.Struct word; span }
+      let type_ =
+        if parameters = [] then Types.Struct word
+        else Types.Instance (word, List.map (fun ((p : name), _) -> (parameter_label p.text, List.assoc p.text bindings)) parameters)
+      in
+      { C.kind = C.Build_struct { struct_name = word; fields = given }; type_; span }
   | Syntax.Member ({ expression_kind = Syntax.Name { word; _ }; _ }, case) when Hashtbl.mem context.unions word -> (
       let info = Hashtbl.find context.unions word in
       match List.assoc_opt case.text info.resolved_cases with
@@ -2512,10 +2595,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   Hashtbl.iter
     (fun _ info ->
       (match info.struct_declaration.struct_type_parameters with
-       | (first, _) :: _ ->
-           report context
-             (Diagnostic.make ~span:first.span ~what:"generic structs aren't built in the oracle yet" Diagnostic.Not_built_yet
-                "functions and types can take type parameters (D103, standard 5.8)");
+       | _ :: _ ->
            context.type_parameters <- List.map (fun ((n : name), (r : requirement)) -> (n.text, r.requirement_names)) info.struct_declaration.struct_type_parameters
        | [] -> ());
       info.resolved_fields <-
