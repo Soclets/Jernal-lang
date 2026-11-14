@@ -1,0 +1,8 @@
+struct.must_give Handle:
+    name: String
+end struct.must_give Handle
+
+fn.main[]:
+    let $h: Handle = Handle[name = "a"]
+    println($h.name)
+end fn.main

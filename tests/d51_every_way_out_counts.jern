@@ -1,0 +1,19 @@
+struct.must_give Handle:
+    name: String
+end struct.must_give Handle
+
+fn close[$h: Handle]:
+    println("close")
+end fn close
+
+fn work[$early: Bool]:
+    let $h: Handle = Handle[name = "a"]
+    if $early:
+        return early
+    end if
+    close(give $h)
+end fn work
+
+fn.main[]:
+    work(false)
+end fn.main

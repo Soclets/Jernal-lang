@@ -1,0 +1,14 @@
+struct.must_give Handle:
+    name: String
+end struct.must_give Handle
+
+fn close[$h: Handle]:
+    println("close")
+end fn close
+
+fn.main[]:
+    let $h: Handle = Handle[name = "a"]
+    for $i in range[from: 1, to: 2]:
+        close(give $h)
+    end for
+end fn.main

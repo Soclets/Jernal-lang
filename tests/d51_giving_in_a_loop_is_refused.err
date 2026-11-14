@@ -1,0 +1,5 @@
+CompileTimeError: d51_giving_in_a_loop_is_refused.jern:12:15, line 12 column 15
+ 12 |         close(give $h)
+    |               ^^^^^^^
+ what: this `give` is inside a loop, so it could give `$h` more than once
+ why:  a `must_give` value is given away exactly once on every path (D51, standard 8.3)

@@ -18,6 +18,9 @@ type variable_info = {
   mutable assigned : bool;          (* a `decl` gets its value later (D34) *)
   mutable given : bool;             (* retired by `give` (D7) *)
   mutable is_parameter : bool;      (* a parameter, or a frozen name for one: keeping it needs `copy` (D139) *)
+  mutable must_give : bool;         (* holds a `struct.must_give` value it must give away (D51) *)
+  mutable surely_given : bool;      (* given on every path so far *)
+  loop_depth : int;                 (* how many loops it was declared inside *)
   is_loop_variable : bool;
   declared_at : Span.t;
 }
@@ -383,6 +386,40 @@ let find_variable fctx name =
   in
   go fctx.scopes
 
+(* A `struct.must_give` type, and a type with one inside (D51, D52). *)
+let is_must_give context (t : Types.t) =
+  match t with
+  | Types.Struct n | Types.Instance (n, _) -> (
+      match Hashtbl.find_opt context.structs n with
+      | Some s -> List.exists (fun (m : name) -> m.text = "must_give") s.struct_declaration.struct_narrowings
+      | None -> false)
+  | _ -> false
+
+let rec has_must_give_part context (t : Types.t) =
+  is_must_give context t
+  ||
+  match t with
+  | Types.List x | Types.Array (x, _) | Types.Bounded (x, _) | Types.New (_, x) -> has_must_give_part context x
+  | Types.Map (_, a, b) -> has_must_give_part context a || has_must_give_part context b
+  | Types.Struct n -> (
+      match Hashtbl.find_opt context.structs n with
+      | Some s -> List.exists (fun (_, t, _) -> t <> Types.Struct n && has_must_give_part context t) s.resolved_fields
+      | None -> false)
+  | _ -> false
+
+(* At a way out, each `must_give` value still held must already be given (D51). *)
+let check_given_before_leaving context (scopes : (string, variable_info) Hashtbl.t list) (span : Span.t) (exit_text : string) =
+  List.iter
+    (fun scope ->
+      Hashtbl.iter
+        (fun name info ->
+          if info.must_give && not info.surely_given then
+            error context
+              ~what:(Printf.sprintf "`$%s` must be given away with `give` before %s" name exit_text)
+              span "a `must_give` value is given away exactly once on every path, and every way out counts (D51, standard 8.3)")
+        scope)
+    scopes
+
 let push_scope fctx = fctx.scopes <- Hashtbl.create 8 :: fctx.scopes
 let pop_scope fctx = fctx.scopes <- List.tl fctx.scopes
 
@@ -395,7 +432,9 @@ let in_scope fctx f =
 let add_variable fctx ?(is_loop_variable = false) ~(name : name) ~variable_type ~is_mutable ~assigned () =
   let variable = { C.variable_id = fresh_id fctx.context; variable_name = name.text } in
   let info =
-    { variable; variable_type; case_known_until = None; is_mutable; assigned; given = false; is_parameter = false; is_loop_variable;
+    { variable; variable_type; case_known_until = None; is_mutable; assigned; given = false; is_parameter = false;
+      must_give = is_must_give fctx.context variable_type; surely_given = false; loop_depth = List.length fctx.loops;
+      is_loop_variable;
       declared_at = name.span }
   in
   Hashtbl.replace (List.hd fctx.scopes) name.text info;
@@ -674,17 +713,29 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
           "an index always says how it counts (D17, standard 4.4)"
     | Syntax.Member (target, field) -> check_member fctx e target field
     | Syntax.Build { built; fields } -> check_build fctx ~expected e built fields
-    | Syntax.Copy inner ->
-        let inner = check_expression fctx ~expected inner in
+    | Syntax.Copy inner_source ->
+        let inner = check_expression fctx ~expected inner_source in
+        (* trace: D52 *)
+        if has_must_give_part context inner.type_ then
+          refuse context ~fix:(quote ("give " ^ Source.text_of inner_source.expression_span)) span
+            "a value with a `must_give` part can't be copied (D52, standard 8.3)";
         { C.kind = C.Copy inner; type_ = inner.type_; span }
     | Syntax.Give inner -> (
         let checked = check_expression fctx ~expected inner in
         match inner.expression_kind with
         | Syntax.Variable name ->
             let info = Option.get (find_variable fctx name) in
-            if not info.is_mutable then
-              () (* giving a frozen value is allowed and changes nothing *);
+            (* trace: D51 *)
+            if info.must_give && List.length fctx.loops > info.loop_depth then begin
+              (* the give still counts, so nothing else is refused because of it (D13) *)
+              info.given <- true;
+              info.surely_given <- true;
+              refuse context
+                ~what:(Printf.sprintf "this `give` is inside a loop, so it could give `$%s` more than once" name) span
+                "a `must_give` value is given away exactly once on every path (D51, standard 8.3)"
+            end;
             info.given <- true;
+            info.surely_given <- true;
             checked
         | _ ->
             refuse context ~what:"`give` hands off a whole variable, such as `give $list`" span
@@ -717,6 +768,8 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
                            (quote (if fctx.info.full_name = "" then "this" else fctx.info.full_name)))
                   span "`?` passes a failure up, refused unless this function lists it (D48, standard 6.3)")
           (failures_of context value);
+        (* trace: D51 — `?` is a way out *)
+        check_given_before_leaving context (List.filteri (fun i _ -> i < List.length fctx.scopes - 1) fctx.scopes) span "this `?`";
         { C.kind = C.Pass_up value; type_ = value.type_; span }
     | Syntax.Otherwise { value; handling } ->
         let value = check_expression fctx ~expected value in
@@ -1927,8 +1980,52 @@ and family_function_on fctx span (target : C.expression) receiver (words : name 
 (* A value stored where it can change is its own copy, so nothing frozen changes through it (D6, D52). *)
 let stored (c : C.expression) : C.expression = { c with kind = C.Copy c }
 
+(* The scopes of the function being checked, without its file's top-level scope. *)
+let function_scopes fctx = List.filteri (fun i _ -> i < List.length fctx.scopes - 1) fctx.scopes
+
+(* The `must_give` variables in scope and whether each is surely given, to merge branches (D51). *)
+let must_give_state fctx =
+  List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> if info.must_give then (info, info.surely_given) :: acc else acc) scope [])
+    fctx.scopes
+
+let restore_must_give state = List.iter (fun (info, surely) -> info.surely_given <- surely) state
+
+(* Every variable in scope and whether it might have been given (D7): branches are separate paths. *)
+let given_state fctx =
+  List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> (info, info.given) :: acc) scope []) fctx.scopes
+
+let restore_given state = List.iter (fun (info, given) -> info.given <- given) state
+
+(* After branches, a name might have been given if any branch that carries on gave it. *)
+let merge_given before (afters : (variable_info * bool) list list) =
+  List.iter
+    (fun (info, was) ->
+      info.given <- was || List.exists (fun after -> match List.assq_opt info after with Some g -> g | None -> false) afters)
+    before
+
+(* After branches, a value is surely given only if every branch that carries on gave it. *)
+let merge_must_give before (afters : (variable_info * bool) list list) =
+  List.iter
+    (fun (info, _) ->
+      info.surely_given <-
+        (match afters with
+         | [] -> true
+         | _ -> List.for_all (fun after -> match List.assq_opt info after with Some s -> s | None -> false) afters))
+    before
+
 let rec check_block fctx (statements : statement list) : C.statement list =
-  in_scope fctx (fun () -> check_statements fctx statements)
+  in_scope fctx (fun () ->
+      let checked = check_statements fctx statements in
+      (* trace: D51 — a block's own must_give values are given before it ends *)
+      if not (ends_every_path statements) then
+        Hashtbl.iter
+          (fun name info ->
+            if info.must_give && not info.surely_given then
+              error fctx.context
+                ~what:(Printf.sprintf "`$%s` must be given away with `give` before its block ends" name)
+                info.declared_at "a `must_give` value is given away exactly once on every path (D51, standard 8.3)")
+          (List.hd fctx.scopes);
+      checked)
 
 and check_statements fctx statements = List.concat_map (check_statement fctx) statements
 
@@ -2024,6 +2121,7 @@ and check_statement fctx (s : statement) : C.statement list =
         make (C.Evaluate c)
       with Skip -> [])
   | Return_early -> (
+      check_given_before_leaving context (function_scopes fctx) span "this `return early`";
       match fctx.info.result_type with
       | Types.Nothing -> make (C.Return None)
       | t ->
@@ -2039,6 +2137,7 @@ and check_statement fctx (s : statement) : C.statement list =
       | t -> (
           try
             let v = check_value ~escapes:true fctx t value in
+            check_given_before_leaving context (function_scopes fctx) span "this `return`";
             make (C.Return (Some v))
           with Skip -> []))
   | If { branches; else_body } -> check_if fctx span branches else_body
@@ -2118,6 +2217,7 @@ and check_statement fctx (s : statement) : C.statement list =
                   refuse context ~what:(Printf.sprintf "%s needs %s" (quote failure.text) (quote n)) span
                     "a failure's data is all given (D48, standard 6.2)")
               shape;
+            check_given_before_leaving context (function_scopes fctx) span "this `fail`";
             make (C.Fail { failure = failure.text; fields = given })
           with Skip -> []))
   | Instead value -> (
@@ -2266,7 +2366,19 @@ and check_if fctx span branches else_body =
     List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> if info.assigned then acc else info :: acc) scope []) fctx.scopes
   in
   let before = unassigned () in
+  let given_before = must_give_state fctx in
+  let given_afters = ref [] in
+  let maybe_before = given_state fctx in
+  let maybe_afters = ref [] in
   let assigned_in_all = ref None in
+  let record_given (body : statement list) =
+    if not (ends_every_path body) then begin
+      given_afters := must_give_state fctx :: !given_afters;
+      maybe_afters := given_state fctx :: !maybe_afters
+    end;
+    restore_must_give given_before;
+    restore_given maybe_before
+  in
   let record () =
     let now = List.filter (fun info -> info.assigned) before in
     (match !assigned_in_all with
@@ -2283,6 +2395,7 @@ and check_if fctx span branches else_body =
             Option.iter (fun c -> try expect_type context Types.Bool c with Skip -> ()) c;
             let body = check_block fctx branch_body in
             record ();
+            record_given branch_body;
             Option.map (fun c -> (c, body)) c
         | Case_test (value, tested) -> (
             let checked = try Some (check_case_test fctx value tested) with Skip -> None in
@@ -2306,10 +2419,14 @@ and check_if fctx span branches else_body =
                 in
                 (* what the inner copy learnt about assignment goes back to the variable *)
                 record ();
+                record_given branch_body;
                 Some (condition, body)))
       branches
   in
-  let else_checked = Option.map (fun body -> let b = check_block fctx body in record (); b) else_body in
+  let else_checked = Option.map (fun body -> let b = check_block fctx body in record (); record_given body; b) else_body in
+  if else_body = None then given_afters := given_before :: !given_afters;
+  merge_must_give given_before !given_afters;
+  merge_given maybe_before !maybe_afters;
   (* Without an `else`, the path that skips every branch assigns nothing. *)
   if else_body = None then assigned_in_all := Some [];
   List.iter (fun info -> info.assigned <- List.memq info (Option.value !assigned_in_all ~default:[])) before;
@@ -2376,9 +2493,13 @@ and check_match fctx span subject (match_arms : match_arms) : C.statement list =
         List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> if info.assigned then acc else info :: acc) scope []) fctx.scopes
       in
       let assigned_in_all = ref None in
+      let given_before = must_give_state fctx and maybe_before = given_state fctx in
+      let given_afters = ref [] and maybe_afters = ref [] in
       let checked_arms =
         List.filter_map
           (fun arm ->
+            restore_must_give given_before;
+            restore_given maybe_before;
             let arm_ok =
               match cases with
               | None -> false
@@ -2416,9 +2537,16 @@ and check_match fctx span subject (match_arms : match_arms) : C.statement list =
              | None -> assigned_in_all := Some now
              | Some previous -> assigned_in_all := Some (List.filter (fun i -> List.memq i now) previous));
             List.iter (fun info -> info.assigned <- false) unassigned;
+            if not (ends_every_path arm.arm_body) then begin
+              given_afters := must_give_state fctx :: !given_afters;
+              maybe_afters := given_state fctx :: !maybe_afters
+            end;
             if arm_ok then Some (arm.case_name.text, binding, body) else None)
           arms
       in
+      merge_must_give given_before !given_afters;
+      restore_given maybe_before;
+      merge_given maybe_before !maybe_afters;
       List.iter (fun info -> info.assigned <- List.memq info (Option.value !assigned_in_all ~default:[])) unassigned;
       match checked, cases with
       | Some subject, Some (_, names) ->
@@ -2553,6 +2681,7 @@ let check_function context (info : function_info) =
       (fun p t ->
         let info = add_variable fctx ~name:p.parameter ~variable_type:t ~is_mutable:p.self_mutable ~assigned:true () in
         info.is_parameter <- not p.self_mutable;
+        info.must_give <- false;   (* a parameter is the caller's to give *)
         info.variable)
       declaration.parameters info.parameter_types
   in
@@ -2577,6 +2706,17 @@ let check_function context (info : function_info) =
       (Diagnostic.make ~span:(List.hd declaration.ensures).expression_span ~what:"how `ensures` names the result isn't decided yet"
          Diagnostic.Not_designed_yet "not decided yet (D42, standard 12.2)");
   let body = check_statements fctx declaration.body in
+  if not (ends_every_path declaration.body) then
+    List.iter
+      (fun scope ->
+        Hashtbl.iter
+          (fun name info ->
+            if info.must_give && not info.surely_given then
+              error context
+                ~what:(Printf.sprintf "`$%s` must be given away with `give` before the function ends" name)
+                info.declared_at "a `must_give` value is given away exactly once on every path (D51, standard 8.3)")
+          scope)
+      (function_scopes fctx);
   (* A function with a result returns on every path (D26). *)
   let rec always_returns (statements : statement list) =
     List.exists

@@ -1,0 +1,5 @@
+CompileTimeError: d51_every_way_out_counts.jern:12:9, line 12 column 9
+ 12 |         return early
+    |         ^^^^^^^^^^^^
+ what: `$h` must be given away with `give` before this `return early`
+ why:  a `must_give` value is given away exactly once on every path, and every way out counts (D51, standard 8.3)

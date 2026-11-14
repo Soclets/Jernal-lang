@@ -1,0 +1,27 @@
+struct.must_give Handle:
+    name: String
+end struct.must_give Handle
+
+fn open[$name: String] -> Handle:
+    println("open " $name)
+    return Handle[name = $name]
+end fn open
+
+fn close[$h: Handle]:
+    println("close " $h.name)
+end fn close
+
+fn use_it[$fast: Bool]:
+    let $h: Handle = open("a")
+    if $fast:
+        close(give $h)
+        return early
+    end if
+    println("working on " $h.name)
+    close(give $h)
+end fn use_it
+
+fn.main[]:
+    use_it(true)
+    use_it(false)
+end fn.main

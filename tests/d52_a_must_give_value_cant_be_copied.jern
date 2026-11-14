@@ -1,0 +1,14 @@
+struct.must_give Handle:
+    name: String
+end struct.must_give Handle
+
+fn close[$h: Handle]:
+    println("close")
+end fn close
+
+fn.main[]:
+    let $h: Handle = Handle[name = "a"]
+    let $other: Handle = copy $h
+    close(give $h)
+    close(give $other)
+end fn.main

@@ -1,0 +1,11 @@
+fn.main[]:
+    let mut $xs: List<Int> = [1, 2]
+    let $big: Bool = true
+    decl $kept: List<Int>
+    if $big:
+        assign $kept = give $xs
+    else:
+        assign $kept = give $xs
+    end if
+    println($kept.len() as String)
+end fn.main
