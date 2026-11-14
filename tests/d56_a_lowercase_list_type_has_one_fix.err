@@ -1,0 +1,5 @@
+CompileTimeError: d56_a_lowercase_list_type_has_one_fix.jern:2:14, line 2 column 14
+ 2 |     let $ls: list[Int] = [1, 2, 3, 4, 5]
+   |              ^^^^^^^^^
+ fix:  `List<Int>`
+ why:  types are capitalized, and a type's parameters go in `< >` (D56, D102, standard 2.3)

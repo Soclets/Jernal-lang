@@ -156,6 +156,29 @@ and span_from (first : Span.t) state =
 
 (* ---------- Types ---------- *)
 
+(* Type names as other languages write them, and Jernal's own spelling (D56). *)
+let lowercase_types =
+  [ ("list", "List"); ("map", "Map"); ("int", "Int"); ("string", "String"); ("str", "String"); ("float", "Float");
+    ("bool", "Bool"); ("array", "Array"); ("decimal", "Decimal"); ("rational", "Rational"); ("dict", "Map") ]
+
+(* A type as Jernal writes it, for a fix. *)
+let rec type_text (t : type_expression) =
+  match t.type_kind with
+  | Parameter_type p -> "?" ^ p
+  | Named_type { my; words; arguments; _ } ->
+      (if my then "my::" else "")
+      ^ String.concat "." words
+      ^
+      match arguments with
+      | [] -> ""
+      | _ ->
+          "<"
+          ^ String.concat ", "
+              (List.map
+                 (fun a -> (match a.argument_label with Some l -> l.text ^ ": " | None -> "") ^ type_text a.argument_type)
+                 arguments)
+          ^ ">"
+
 let rec parse_type state : type_expression =
   let first = peek state in
   match first.kind with
@@ -170,6 +193,9 @@ let rec parse_type state : type_expression =
       let head = expect_name state "a type" in
       let rest = dotted_words state in
       let words = head.text :: List.map (fun n -> n.text) rest in
+      (match List.assoc_opt head.text lowercase_types with
+      | Some capitalized when (not my) && rest = [] -> lowercase_type state first head capitalized
+      | _ -> (
       let arguments =
         if peek_kind state = Type_open then begin
           ignore (advance state);
@@ -192,8 +218,42 @@ let rec parse_type state : type_expression =
       let details =
         if peek_kind state = Left_bracket && not (peek state).space_before then parse_details state else []
       in
-      { type_kind = Named_type { my; words; arguments; details }; type_span = span_from first.span state }
+      { type_kind = Named_type { my; words; arguments; details }; type_span = span_from first.span state }))
   | _ -> unexpected state "a type"
+
+(* `list[Int]` or `int` where a type goes: one fix, Jernal's spelling, and reading carries on as if it were
+   written so (D56, D102). *)
+and lowercase_type state (first : Token.t) (head : name) (capitalized : string) : type_expression =
+  let bracketed = peek_kind state = Left_bracket && not (peek state).space_before in
+  let items =
+    if bracketed then begin
+      ignore (advance state);
+      let rec go acc =
+        if peek_kind state = Right_bracket then List.rev acc
+        else
+          let t = parse_type state in
+          if peek_kind state = Comma then (ignore (advance state); go (t :: acc)) else List.rev (t :: acc)
+      in
+      let result = go [] in
+      ignore (expect state Right_bracket "`]`");
+      result
+    end
+    else []
+  in
+  let arguments =
+    match capitalized, items with
+    | "Map", [ key; value ] ->
+        [ { argument_label = Some { head with text = "key" }; argument_type = key };
+          { argument_label = Some { head with text = "val" }; argument_type = value } ]
+    | _ -> List.map (fun t -> { argument_label = None; argument_type = t }) items
+  in
+  let fixed = { type_kind = Named_type { my = false; words = [ capitalized ]; arguments; details = [] }; type_span = span_from first.span state } in
+  (* trace: D56, D102 *)
+  report state
+    (error_diagnostic ~fix:("`" ^ type_text fixed ^ "`") fixed.type_span
+       (if bracketed then "types are capitalized, and a type's parameters go in `< >` (D56, D102, standard 2.3)"
+        else "types are capitalized (D56, standard 1.3)"));
+  fixed
 
 (* [min: 0, max: 100], [len.min: 1] (D135) *)
 and parse_details state =

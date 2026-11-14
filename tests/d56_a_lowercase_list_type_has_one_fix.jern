@@ -1,0 +1,4 @@
+fn.main[]:
+    let $ls: list[Int] = [1, 2, 3, 4, 5]
+    println($ls.len() as String)
+end fn.main

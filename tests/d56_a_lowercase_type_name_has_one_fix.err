@@ -1,0 +1,5 @@
+CompileTimeError: d56_a_lowercase_type_name_has_one_fix.jern:2:13, line 2 column 13
+ 2 |     let $n: int = 1
+   |             ^^^
+ fix:  `Int`
+ why:  types are capitalized (D56, standard 1.3)

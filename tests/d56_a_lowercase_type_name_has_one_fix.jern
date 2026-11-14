@@ -1,0 +1,4 @@
+fn.main[]:
+    let $n: int = 1
+    println($n as String)
+end fn.main
