@@ -1,0 +1,7 @@
+fn.main[]:
+    let $s: String.utf8 = "spelled out"
+    let $t: String = $s
+    let $n: i64 = 5
+    let $m: Int = $n
+    println($t " " $m as String)
+end fn.main

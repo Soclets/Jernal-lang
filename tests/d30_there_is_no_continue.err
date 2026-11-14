@@ -1,0 +1,5 @@
+CompileTimeError: d30_there_is_no_continue.jern:3:9, line 3 column 9
+ 3 |         continue
+   |         ^^^^^^^^
+ what: there's no `continue`; an item is skipped by wrapping the work in an `if`
+ why:  `break` leaves a loop, and there is no `continue` (D30, standard 4.6)

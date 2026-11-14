@@ -1,0 +1,7 @@
+fn println[$text: String]:
+    return early
+end fn println
+
+fn.main[]:
+    println("which one?")
+end fn.main

@@ -1,0 +1,5 @@
+CompileTimeError: d34_a_let_always_writes_its_type.jern:2:9, line 2 column 9
+ 2 |     let $x = 5
+   |         ^^
+ what: `let $x` doesn't write its type
+ why:  a `let` always writes its type (D34, standard 3.1)

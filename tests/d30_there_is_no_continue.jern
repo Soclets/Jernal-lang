@@ -1,0 +1,5 @@
+fn.main[]:
+    for $i in range[from: 1, to: 3]:
+        continue
+    end for
+end fn.main

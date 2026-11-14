@@ -1,0 +1,9 @@
+fn.main[]:
+    let mut $xs: List<Int> = [1, 2]
+    let $kept: List<Int> = give $xs
+    shadow mut $xs: List<Int> = [3]
+    $xs.add(4)
+    let $a: Int = $kept.len()
+    let $b: Int = $xs.len()
+    println($a as String " " $b as String)
+end fn.main

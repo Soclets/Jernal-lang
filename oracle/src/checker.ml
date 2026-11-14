@@ -701,6 +701,10 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
             "unary `-` works on numbers (D90, standard 2.1a)";
         { C.kind = C.Negate inner; type_ = inner.type_; span }
     | Syntax.Call { callee; arguments } -> check_call fctx ~expected e callee arguments
+    | Syntax.Name { word = "continue"; path = []; my = false } ->
+        (* trace: D30 *)
+        refuse context ~what:"there's no `continue`; an item is skipped by wrapping the work in an `if`" span
+          "`break` leaves a loop, and there is no `continue` (D30, standard 4.6)"
     | Syntax.Name { word; _ } ->
         refuse context ~what:(Printf.sprintf "`%s` names a function or type, not a value; a call takes `( )`" word) span
           "`( )` runs something (D15, standard 1.4)"
