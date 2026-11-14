@@ -904,3 +904,17 @@ close(give $f)                 // leaving this out is a CompileTimeError
 
 From Cyborg's `must_Give` (its D2). The owner said: "Cyborg has a `must_Give` struct"; Claude proposed it for files and
 connections, after D50 left them without cleanup; the owner chose: "Yes". (Owner, 2026-11-14)
+
+**D52. `copy` is deep.** `copy` duplicates everything that can change, all the way down, so changing the copy never
+changes the original, however deeply nested. Frozen parts, such as `let` values, numbers and strings, are shared instead
+of duplicated, since nobody can tell the difference; so `copy` of a `let` value costs nothing. A value with a
+`must_give` part inside (D51) can't be copied, and is refused with `give` as the fix.
+
+```
+let mut $grid: List<List<Int>> = [[1, 2], [3, 4]]
+let mut $other: List<List<Int>> = copy $grid
+change $other[pos: 1][pos: 1] = 9      // $grid is still [[1, 2], [3, 4]]
+```
+
+The owner asked: "How deep does `copy` copy?"; Claude proposed deep, sharing frozen parts; the owner chose: "yea".
+(Owner, 2026-11-14)
