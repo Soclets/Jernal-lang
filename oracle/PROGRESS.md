@@ -79,6 +79,11 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - Tests run with empty standard input and no arguments.
 - `$m.remove(key:)` with a missing key is a check, like `$m[key:]`.
 - An `assign` inside a loop is refused, even when a `break` follows it (to ask: how precise "once on each path" is).
+- A number literal with nowhere to land (`println(5 as String)`, `if 3 < 4:`) is an `Int`; a literal with a `.` there
+  is refused, since it has no type.
+- A map literal that gives one key twice keeps the last value.
+- Arguments, operands and fields are worked out left to right.
+- `-0.0` as text is `-0`.
 - An item or entry (`$xs[pos: 1]`, `$m[key: $k]`) may stand in a join like a field, as D138's example does.
 - A literal `Status.ok[]` builds a case with no data; `Status.ok` alone isn't a value.
 - A value stored where it can change (`let mut`, `change`, `add`) is copied, so nothing frozen changes through it.
@@ -86,6 +91,9 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 ## Next batch for Jernal Design Claude (send about hourly)
 
 - How tightly `??`, `?`, `otherwise` and `as` bind next to D90's operators: `$m.get(key: $k) ?? 0 + 1` [`??` loosest].
+- A number literal with nowhere to land, as in `println(5 as String)` [an `Int`; `2.5 as String` is refused].
+- A map literal giving one key twice, `["a" => 1, "a" => 2]` [the last one wins; refusing it is the other option].
+- Order of evaluation: arguments, operands and struct fields [left to right, as written].
 
 ## Open questions (sent to Jernal Design Claude, waiting on Tankun)
 
