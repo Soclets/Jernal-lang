@@ -43,6 +43,13 @@ let rec problem (t : Types.t) (v : Value.t) : string option =
             in
             if breaks then Some (Printf.sprintf "it is %s" (if Float.is_nan f then "NaN" else if f > 0.0 then "inf" else "-inf"))
             else None
+        | Value.Decimal ((Decimal.Infinity _ | Decimal.Not_a_number) as d) ->
+            let breaks =
+              (d = Decimal.Not_a_number && (b.min <> None || b.max <> None))
+              || (d = Decimal.Infinity false && b.max <> None)
+              || (d = Decimal.Infinity true && b.min <> None)
+            in
+            if breaks then Some (Printf.sprintf "it is %s" (Decimal.to_text d)) else None
         | _ -> (
             match number_of v with
             | None -> if b.min <> None || b.max <> None then Some (Printf.sprintf "it is %s" (shown v)) else None
