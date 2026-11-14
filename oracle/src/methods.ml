@@ -90,6 +90,11 @@ let sum (item_type : Types.t) span = function
               span "a number too big for its type is a check (D54, standard 7.2)";
           Value.integer_of_z t total
       | Types.Float k -> Value.Float (Numbers.float_sum ~kind:k (List.map (function Value.Float (f, _) -> f | _ -> 0.0) values), k)
+      | Types.Decimal ->
+          (* trace: D38 — the exact sum, rounded once *)
+          let finite = List.filter_map (function Value.Decimal (Decimal.Finite q) -> Some q | _ -> None) values in
+          if List.length finite = List.length values then Value.Decimal (Decimal.round (List.fold_left Q.add Q.zero finite))
+          else Value.Decimal (List.fold_left (fun total v -> match v with Value.Decimal d -> Decimal.add total d | _ -> total) (Decimal.Finite Q.zero) values)
       | Types.Rational -> Value.Rational (List.fold_left (fun total v -> match v with Value.Rational q -> Q.add total q | _ -> total) Q.zero values)
       | _ -> Value.Nothing)
   | _ -> Value.Nothing

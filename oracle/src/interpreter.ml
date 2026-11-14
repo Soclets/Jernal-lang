@@ -109,6 +109,7 @@ let rec to_text span (narrowings : string list) (value : Value.t) : string =
   | Value.Float (f, _), [ "stored" ] ->
       if not (Float.is_finite f) then to_text span [] value else exact_decimal_of_q (Q.of_float f)
   | Value.Float (f, kind), _ -> float_text ~kind span f
+  | Value.Decimal d, _ -> Decimal.to_text d   (* trace: D139 *)
   | Value.Rational q, _ ->
       (* trace: D139 — always reduced: 7/2, -7/2, 4 *)
       if Z.equal (Q.den q) Z.one then Z.to_string (Q.num q) else Z.to_string (Q.num q) ^ "/" ^ Z.to_string (Q.den q)
@@ -211,6 +212,7 @@ and evaluate_plain context (e : C.expression) : Value.t =
           Value.integer_of_z t result
       | Value.Float (f, k) -> Value.Float (Float.neg f, k)
       | Value.Rational q -> Value.Rational (Q.neg q)
+      | Value.Decimal d -> Value.Decimal (Decimal.negate d)
       | v -> v)
   | C.Compare { operator; left; right } ->
       let l = evaluate context left and r = evaluate context right in
@@ -367,6 +369,18 @@ and convert (e : C.expression) (narrowings : string list) (target : Types.t) (v 
       if not (Float.is_finite f) then doesnt_fit (float_text span f) else Value.Rational (Q.of_float f)
   | Value.Float (f, _), Types.Float k -> Value.Float (Numbers.round_float k f, k)
   | Value.Rational q, Types.Integer t -> into_integer t q
+  | (Value.Int64_integer _ | Value.Wide_integer _), Types.Decimal -> Value.Decimal (Decimal.round (Q.of_bigint (Value.integer_to_z v)))
+  | Value.Decimal d, (Types.Integer _ | Types.Float _ | Types.Rational) -> (
+      match d with
+      | Decimal.Finite q -> (
+          match target with
+          | Types.Integer t -> into_integer t q
+          | Types.Float k -> Value.Float (Numbers.round_rational (Numbers.format_of k) q, k)
+          | _ -> Value.Rational q)
+      | _ -> (
+          match target with
+          | Types.Float k -> Value.Float ((match d with Decimal.Infinity true -> Float.neg_infinity | Decimal.Infinity false -> Float.infinity | _ -> Float.nan), k)
+          | _ -> doesnt_fit (Decimal.to_text d)))
   | Value.Rational q, Types.Float k -> Value.Float (Numbers.round_rational (Numbers.format_of k) q, k)
   | _ -> v
 
@@ -394,6 +408,7 @@ and compare_values operator l r =
     | (Value.Int64_integer _ | Value.Wide_integer _), _ -> Some (Z.compare (Value.integer_to_z l) (Value.integer_to_z r))
     | Value.Float (a, _), Value.Float (b, _) -> if Float.is_nan a || Float.is_nan b then None else Some (Float.compare a b)
     | Value.Rational a, Value.Rational b -> Some (Q.compare a b)
+    | Value.Decimal a, Value.Decimal b -> Decimal.compare_values a b
     | Value.String a, Value.String b -> Some (String.compare a b)   (* trace: D138 *)
     | _ -> None
   in
@@ -462,6 +477,14 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
       | "-" -> Value.Float (Numbers.round_float k (a -. b), k)
       | "x" -> Value.Float (Numbers.round_float k (a *. b), k)
       | "div" -> Value.Float (Numbers.round_float k (a /. b), k)
+      | _ -> l)
+  | Value.Decimal a, Value.Decimal b -> (
+      (* trace: D83 — each result rounded once to decimal128 *)
+      match operator with
+      | "+" -> Value.Decimal (Decimal.add a b)
+      | "-" -> Value.Decimal (Decimal.subtract a b)
+      | "x" -> Value.Decimal (Decimal.multiply a b)
+      | "div" -> Value.Decimal (Decimal.divide a b)
       | _ -> l)
   | Value.Rational a, Value.Rational b -> (
       match operator with

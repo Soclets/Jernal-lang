@@ -1,0 +1,23 @@
+fn.main[]:
+    let $a: Decimal = 0.1
+    let $b: Decimal = 0.2
+    let $c: Decimal = $a + $b
+    println($c as String)
+    let $expected: Decimal = 0.3
+    println(($c == $expected) as String)
+    let $third: Decimal = 1 div 3
+    println($third as String)
+    let $two_thirds: Decimal = 2 div 3
+    println($two_thirds as String)
+    let $price: Decimal = 19.99
+    let $count: Decimal = 3
+    println(($price x $count) as String)
+    let $n: Int = 7
+    let $seven: Decimal = $n as Decimal
+    println(($seven div 2) as String)
+    println(($price as.round.even Int) as String)
+    let $f: Float = $a as Float
+    println($f as String)
+    let $xs: List<Decimal> = [0.1, 0.2, 0.3]
+    println($xs.sum() as String)
+end fn.main

@@ -145,9 +145,7 @@ let rec resolve_type context (t : type_expression) : Types.t =
       | false, [ "f32" ] -> no_arguments (Types.Float Types.F32)
       | false, [ "f16" ] -> no_arguments (Types.Float Types.F16)
       | false, [ "bf16" ] -> no_arguments (Types.Float Types.Bf16)
-      | false, [ "Decimal" ] ->
-          not_built context ~what:"`Decimal` isn't built in the oracle yet" t.type_span
-            "`Decimal` is IEEE 754 decimal128 (D82, D83, standard 2.1a)"
+      | false, [ "Decimal" ] -> no_arguments Types.Decimal
       | false, [ "Rational" ] -> no_arguments Types.Rational
       | false, [ "Bool" ] -> no_arguments Types.Bool
       | false, ([ "String" ] | [ "String"; "utf8" ]) -> no_arguments Types.String
@@ -320,6 +318,24 @@ let rec check_number_literal fctx ~(expected : Types.t option) (e : expression) 
       in
       if tilde then refuse context ~fix:(quote ((if negative then "-" else "") ^ digits)) span tilde_why;
       constant ~span (Value.Rational q) Types.Rational
+  | (Syntax.Integer_literal { digits; negative; tilde } | Syntax.Decimal_literal { digits; negative; tilde }),
+    Some Types.Decimal ->
+      (* trace: D82, D83, D84 *)
+      let q =
+        match e.expression_kind with
+        | Syntax.Integer_literal _ -> Q.of_bigint (integer_literal_value ~negative digits)
+        | _ -> decimal_literal_value ~negative digits
+      in
+      let rounded = Decimal.round q in
+      (match rounded with
+       | Decimal.Infinity _ ->
+           refuse context ~what:(Printf.sprintf "%s is outside the range of `Decimal`" (quote text)) span
+             "a literal outside its type's range is refused (D120, standard 2.1a)"
+       | _ -> ());
+      let exact = Decimal.holds_exactly q in
+      if exact && tilde then refuse context ~fix:(quote ((if negative then "-" else "") ^ digits)) span tilde_why;
+      if (not exact) && not tilde then refuse context ~fix:(quote ("~" ^ (if negative then "-" else "") ^ digits)) span tilde_why;
+      constant ~span (Value.Decimal rounded) (Option.get expected)
   | Syntax.Decimal_literal _, None ->
       refuse context ~what:(Printf.sprintf "%s needs a type to land in" (quote text)) span
         "a number literal takes the type of where it lands (D84, standard 2.1a)"
@@ -663,7 +679,7 @@ and check_convert fctx (e : expression) value narrowings target =
                     | _ -> false) -> ()
    | Types.String, (Types.Integer _ | Types.Bool | Types.String), [] -> ()
    | Types.String, Types.Float _, ([] | [ "stored" ]) -> ()
-   | Types.String, Types.Rational, [] -> ()   (* trace: D139 *)
+   | Types.String, (Types.Rational | Types.Decimal), [] -> ()   (* trace: D139 *)
    | Types.String, (Types.Struct _ | Types.Union _), _ ->
        not_designed context ~what:"what a struct looks like as text isn't decided yet" span
          "not decided yet (D120, standard 12.1)"
@@ -677,15 +693,21 @@ and check_convert fctx (e : expression) value narrowings target =
          ~what:(Printf.sprintf "%s isn't a conversion between integers: it's plain `as`, `as.wrap` or `as.saturate`"
                   (quote (String.concat "." ("as" :: narrowing_words))))
          span "conversions say what they do whenever there's a choice (D91, standard 2.1a)"
-   | Types.Integer _, (Types.Float _ | Types.Rational),
+   | Types.Integer _, (Types.Float _ | Types.Rational | Types.Decimal),
      ([ "trunc" ] | [ "floor" ] | [ "ceil" ] | [ "round"; "even" ] | [ "round"; "away" ] | [ "exact" ]) -> ()
-   | Types.Integer _, (Types.Float _ | Types.Rational), [] ->
+   | Types.Integer _, (Types.Float _ | Types.Rational | Types.Decimal), [] ->
        refuse context
          ~what:(Printf.sprintf "converting %s to an integer says how it rounds: `as.trunc`, `as.floor`, `as.ceil`, `as.round.even`, `as.round.away` or `as.exact`"
                   (type_text value.type_))
          span "there's no bare rounding, since ties are a real choice (D91, standard 2.1a)"
    | (Types.Float _ | Types.Rational), (Types.Integer _ | Types.Float _ | Types.Rational), [] -> ()
-   | (Types.Integer _ | Types.Float _ | Types.Rational), (Types.Integer _ | Types.Float _ | Types.Rational), _ ->
+   | (Types.Float _ | Types.Rational), Types.Decimal, [] -> ()
+   | Types.Decimal, Types.Decimal, [] -> ()
+   | Types.Decimal, Types.Integer { width; _ }, [] when width <= 112 -> ()   (* 2^112 has fewer than 34 digits *)
+   | Types.Decimal, (Types.Integer _ | Types.Float _ | Types.Rational), [] ->
+       not_designed context ~what:(Printf.sprintf "how %s rounds into `Decimal` isn't decided yet" (type_text value.type_)) span
+         "not decided yet (D91, standard 12.1)"
+   | (Types.Integer _ | Types.Float _ | Types.Rational | Types.Decimal), (Types.Integer _ | Types.Float _ | Types.Rational | Types.Decimal), _ ->
        refuse context
          ~what:(Printf.sprintf "%s doesn't say anything this conversion needs" (quote (String.concat "." ("as" :: narrowing_words))))
          span "conversions say what they do whenever there's a choice (D91, standard 2.1a)"
@@ -740,7 +762,7 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
           operator.operator_span "both sides of a comparison have the same type (D27, D61, standard 4.1)";
       let ordered = operator.word <> "==" && operator.word <> "!=" in
       (match underlying l.type_ with
-       | Types.Integer _ | Types.Float _ | Types.Rational | Types.Unknown -> ()
+       | Types.Integer _ | Types.Float _ | Types.Rational | Types.Decimal | Types.Unknown -> ()
        | Types.String -> ()   (* trace: D138 — strings order by code point *)
        | Types.Bool when not ordered -> ()
        | Types.Bool ->
@@ -807,9 +829,9 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
            refuse context ~what:(Printf.sprintf "%s isn't an operator" (quote operator_text)) operator.operator_span
              "dividing is `div`, and on integers it says which kind (D88, standard 2.1a)");
       (match t, operator.word, operator.narrowings with
-       | Types.Rational, ("x" | "+" | "-" | "div"), [] -> ()
-       | Types.Rational, _, _ ->
-           not_designed context ~what:(Printf.sprintf "%s on `Rational` isn't decided yet" (quote operator_text))
+       | (Types.Rational | Types.Decimal), ("x" | "+" | "-" | "div"), [] -> ()
+       | (Types.Rational | Types.Decimal), _, _ ->
+           not_designed context ~what:(Printf.sprintf "%s on %s isn't decided yet" (quote operator_text) (type_text l.type_))
              operator.operator_span "not decided yet (D92, standard 12.1)"
        | _ -> ());
       { C.kind = C.Arithmetic { operator = operator.word; narrowings = operator.narrowings; left = l; right = r };
@@ -1355,7 +1377,7 @@ and check_method_call fctx span (base : expression) (words : name list) argument
   | Types.List item, "sum", [] -> (
       ignore (positional 0);
       match underlying item with
-      | Types.Integer _ | Types.Float _ | Types.Rational -> builtin "sum" (Methods.sum (underlying item)) item []
+      | Types.Integer _ | Types.Float _ | Types.Rational | Types.Decimal -> builtin "sum" (Methods.sum (underlying item)) item []
       | _ ->
           refuse context ~what:(Printf.sprintf "`sum` adds numbers, and these are %s" (type_text item)) method_name.span
             "`sum` is the exact sum of a list of numbers (D38, standard 13.3)")

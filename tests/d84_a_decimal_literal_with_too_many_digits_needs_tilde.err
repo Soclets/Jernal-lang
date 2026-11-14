@@ -1,0 +1,5 @@
+CompileTimeError: d84_a_decimal_literal_with_too_many_digits_needs_tilde.jern:2:23, line 2 column 23
+ 2 |     let $d: Decimal = 0.12345678901234567890123456789012345
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ fix:  `~0.12345678901234567890123456789012345`
+ why:  a number literal its type can't hold exactly is written with `~`, and one it can is written without (D84, standard 2.1a)

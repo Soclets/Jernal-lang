@@ -5,6 +5,7 @@ type t =
   | Wide_integer of Z.t * Types.integer_type       (* widths whose range doesn't fit an Int64 *)
   | Float of float * Types.float_kind
   | Rational of Q.t
+  | Decimal of Decimal.t
   | Bool of bool
   | String of string
   | List of list_value
@@ -40,6 +41,7 @@ let rec equal a b =
   | (Int64_integer _ | Wide_integer _), (Int64_integer _ | Wide_integer _) -> Z.equal (integer_to_z a) (integer_to_z b)
   | Float (x, _), Float (y, _) -> Float.equal x y && not (Float.is_nan x)
   | Rational x, Rational y -> Q.equal x y
+  | Decimal x, Decimal y -> Decimal.equal x y
   | Bool x, Bool y -> x = y
   | String x, String y -> String.equal x y
   | List x, List y ->
