@@ -1467,13 +1467,11 @@ and check_call fctx ~expected (e : expression) callee arguments =
   | Syntax.Member _ -> (
       let base, words = flatten callee [] in
       match base.expression_kind with
-      | Syntax.Name { my = false; path = []; word } when not (is_variable_like base) ->
+      | Syntax.Name { my = false; path = []; word } ->
           check_path_call fctx span callee (word, base.expression_span) words arguments
       | _ -> check_method_call fctx span base words arguments)
   | _ ->
       refuse context ~what:"this can't be called" callee.expression_span "`( )` runs a function (D15, standard 1.4)"
-
-and is_variable_like (_ : expression) = false
 
 (* geometry.area(...), Reading.new(...), greet.casual.loud(...): a family member, maybe with presets (D45). *)
 and check_path_call fctx span callee (head, head_span) (words : name list) arguments =
