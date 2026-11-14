@@ -11,14 +11,26 @@ let read_or_empty path = if Sys.file_exists path then Package.read_file path els
 let expected_exit path =
   if Sys.file_exists path then int_of_string_opt (String.trim (Package.read_file path)) else Some 0
 
-(* Each test runs as its own process: `jernorac run-test <folder> <file>`. *)
+(* Proposed to Jernal Design Claude, not decided yet, and unused until it is: a subfolder of the tests folder
+   with its own Journey.siml is one test, a whole package; and a `.in` file beside a test is its standard
+   input. With neither present, nothing changes. *)
+let is_package_test folder name =
+  let path = Filename.concat folder name in
+  Sys.is_directory path && Sys.file_exists (Filename.concat path Manifest.file_name)
+
+(* Each test runs as its own process: `jernorac run-test <folder> <file>`, or `jernorac -C <package> run`. *)
 let start ~executable ~folder ~scratch test =
   let base = Filename.concat scratch (Filename.remove_extension test) in
   let stdout_file = base ^ ".stdout" and stderr_file = base ^ ".stderr" in
   let open_out_file f = Unix.openfile f [ Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC ] 0o644 in
   let out = open_out_file stdout_file and err = open_out_file stderr_file in
-  let input = Unix.openfile "/dev/null" [ Unix.O_RDONLY ] 0 in
-  let pid = Unix.create_process executable [| executable; "run-test"; folder; test |] input out err in
+  let given_input = Filename.concat folder (Filename.remove_extension test ^ ".in") in
+  let input = Unix.openfile (if Sys.file_exists given_input then given_input else "/dev/null") [ Unix.O_RDONLY ] 0 in
+  let command =
+    if is_package_test folder test then [| executable; "-C"; Filename.concat folder test; "run" |]
+    else [| executable; "run-test"; folder; test |]
+  in
+  let pid = Unix.create_process executable command input out err in
   Unix.close out; Unix.close err; Unix.close input;
   (pid, test, stdout_file, stderr_file)
 
@@ -41,7 +53,10 @@ let finish ~folder (test, stdout_file, stderr_file, status) =
 
 let run ~(folder : string) ~(only : string list) : int =
   let executable = Sys.executable_name in
-  let tests = Package.jern_files folder in
+  let packages =
+    Sys.readdir folder |> Array.to_list |> List.filter (is_package_test folder) |> List.sort compare
+  in
+  let tests = List.sort compare (Package.jern_files folder @ packages) in
   let tests = if only = [] then tests else List.filter (fun t -> List.exists (fun o -> Filename.remove_extension t = Filename.remove_extension o) only) tests in
   let scratch = Filename.concat (Filename.get_temp_dir_name ()) (Printf.sprintf "jernorac-tests-%d" (Unix.getpid ())) in
   (try Unix.mkdir scratch 0o755 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());

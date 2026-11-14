@@ -63,7 +63,9 @@ for columns and `len()`).
 
 ## Next
 
-- Tests for multi-file packages, `pub` and `use` errors, once package tests are decided (asked).
+- Tests for multi-file packages, `pub` and `use` errors, once package tests are decided (asked). The runner already
+  supports both proposals (a subfolder with its own Journey.siml is one test; a `.in` file is standard input), unused
+  until decided; checked by hand in a scratch folder.
 - Bounds written as a `let baked` value work (D135), top-level or earlier in the same function; one whose value
   calls a function that isn't checked yet gives NotBuiltYet, since types are resolved before it's worked out.
 - Whatever Tankun decides on the open questions below.
