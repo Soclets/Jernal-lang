@@ -6,11 +6,13 @@
 `FinalPerf`, where `+`, `-` and `*` wrap (D71). Sized types such as `i32` (a 32-bit signed integer) are all available
 for whoever needs them (D25). Spelling out a default is always allowed: `i64` works wherever `Int` does (D64).
 
-Which sized types exist, and how they convert, isn't decided yet, nor is `Bool` (chapter 12).
+Integers come in any width from 1 to 8,388,607 bits, signed (`i…`) and unsigned (`u…`) (D93). A power-of-two width is
+bare (`u1`, `u4`, `i8`, `i64`, `u128`, `u256`); any other width needs the `not_two_pow.` gate (`not_two_pow.u24`), and a
+bare one is refused. Widths other than 8, 16, 32, 64 and 128 are slower.
 
 ## 2.1a Floats, decimals and rationals
 
-- `Float` is IEEE 754 binary64. NaN and infinity exist, as IEEE says. There are no float kinds; stable floats, the same
+- Floats are `f16`, `bf16`, `f32` and `f64` (D93). `Float` is `f64`, IEEE 754 binary64. NaN and infinity exist, as IEEE says. There are no float kinds; stable floats, the same
   bits on every machine, may come later as `f64.stable` (D82).
 - `Decimal` is built in: IEEE 754 decimal128, with 34 significant digits, so `0.1 + 0.2` is exactly `0.3` (D82, D83).
 - `Rational` is built in: an exact fraction of arbitrary-size integers, so it never overflows (D82, D83).

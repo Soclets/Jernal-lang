@@ -1549,3 +1549,22 @@ let $mix: u64 = $a times.wrap 31
 
 Settles D89's open `times.` kinds. This is Cyborg's (its D294, D295), as Cyborg's design session described on
 2026-11-14. Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D93. Sized types: any integer width, gated unless it's a power of two, and four float sizes.** Integers come in any
+width LLVM allows, from 1 to 8,388,607 bits, signed (`i…`) and unsigned (`u…`). A width that's a power of two is
+written bare: `u1`, `u4`, `i8`, `i64`, `u128`, `u256`, `u512`. Any other width needs the `not_two_pow.` gate, and a bare
+one is refused, so a typo such as `i46` for `i64` can't slip through. Floats are `f16`, `bf16`, `f32` and `f64`, where
+`f64` is `Float` (D82). Widths other than 8, 16, 32, 64 and 128 are slower, since the CPU works in those; huge ones are
+much slower to compute and to compile.
+
+```
+let $flag: u1 = 1
+let $hash: u256 = $sha
+let $pixel: not_two_pow.u24 = $rgb
+let $odd: i46 = 0                       // refused: 46 isn't a power of two
+let $half: f16 = 0.5
+```
+
+The owner asked for "`i8` to `i128`, `u8` to `u128`, `f16` to `f64`?", "`bf16` too? And doesn't LLVM somehow support every
+fucking int?", "where the uck is u8000000", suggested gating odd widths ("`let x: not_std.i80000`?"), asked "Does
+`u256` count as odd", proposed "`not_two_pow.`", and chose: "yeA". (Owner, 2026-11-14)

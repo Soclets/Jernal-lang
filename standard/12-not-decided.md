@@ -4,8 +4,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.1 Language core
 
-- **Numbers and maths:** what `div.exact` does per build mode (D85),
-  which sized types exist.
+- **Numbers and maths:** what `div.exact` does per build mode (D85).
 - **`Bool`:** its name and its values (`true`, `false`).
 - **Comments:** `//` is used in every example, but isn't decided.
 - **String escapes**, such as a newline or a quote inside a string.
