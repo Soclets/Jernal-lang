@@ -1694,3 +1694,9 @@ match $key with key_actions.*bail
 ```
 
 Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D101. `match` works on tagged unions and `Bool`, with no guards.** Since `match` covers every case with no catch-all
+(D99), it works only on what has a short list of cases: tagged unions and `Bool`. Integers, strings and ranges use `if`
+and `else if`. Arms have no guards, since a guarded arm would hide whether every case is covered; a check goes inside the
+arm. The case test has no naming form, since `$s.code` can already be read inside `if $s: Status.failed:` (D97). This
+settles everything D97 left open. Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
