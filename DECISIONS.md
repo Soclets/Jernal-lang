@@ -1534,3 +1534,18 @@ let $exact: Int = $r as.exact Int ?? 0
 
 Settles D85's open list of rounding words. This is Cyborg's (its D424, D425), as Cyborg's design session described on
 2026-11-14. Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D92. Overflow on purpose: `plus.`, `minus.` and `times.`** Wrapping or capping on purpose is written as a narrowing
+of the operation's word: `plus.wrap`, `plus.saturate`, `minus.wrap`, `minus.saturate`, `times.wrap`,
+`times.saturate`. They behave the same in every build mode, `FinalPerf` included. On `Float`, `.wrap` is refused, and
+overflow follows IEEE (D82).
+
+```
+let $h: u32 = $h plus.wrap $byte
+let $vol: u8 = $vol plus.saturate 10          // sticks at 255
+let $left: u8 = $left minus.saturate 1        // sticks at 0
+let $mix: u64 = $a times.wrap 31
+```
+
+Settles D89's open `times.` kinds. This is Cyborg's (its D294, D295), as Cyborg's design session described on
+2026-11-14. Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)

@@ -31,7 +31,9 @@ Operators bind the way school maths says, tightest first: calls and `.`; unary `
 `-`; comparisons; then `not`, `and`, `or` (D90). `( )` groups, and where maths gives no order between two operators,
 grouping with `( )` is required: `2 + 3 x 4` is 14, and `(2 + 3) x 4` is 20.
 
-Multiplying is `x`, and its narrowed forms are written `times.`, such as `times.wrap` (D89). Dividing is `div` (D88). On integers, it says which kind, and a bare `div` is refused:
+Multiplying is `x` (D89). Overflow on purpose is a narrowing of the operation's word, the same in every build mode:
+`plus.wrap`, `plus.saturate`, `minus.wrap`, `minus.saturate`, `times.wrap`, `times.saturate` (D92). On `Float`,
+`.wrap` is refused. Dividing is `div` (D88). On integers, it says which kind, and a bare `div` is refused:
 
 ```
 7 div.trunc 2        // 3: rounds toward zero
