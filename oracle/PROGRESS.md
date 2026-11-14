@@ -80,7 +80,11 @@ for columns and `len()`).
 
 ## Error wording proposed by the oracle (D137)
 
-Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal Design Claude reviews it.
+Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal (D137). Jernal Design Claude reviewed all of them at
+13:40 on 2026-11-14 and asked for seven small changes, now applied (50fdfe5); new texts since then are unreviewed.
+Rules from that review: show values with `when:` where a reader wants them; decision numbers in ascending order; a
+CompileTimeError for a check found while compiling uses "a baked value that breaks a check is refused when compiling
+(D8, D9, standard 7.1)".
 `python3 -I oracle/tools/wording.py` lists each distinct text once (173 so far), with a test that shows it.
 
 ## Choices made without a decision (to confirm)
