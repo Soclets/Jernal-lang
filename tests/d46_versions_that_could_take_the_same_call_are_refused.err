@@ -1,0 +1,5 @@
+CompileTimeError: d46_versions_that_could_take_the_same_call_are_refused.jern:6:9, line 6 column 9
+ 6 |         [$w: Int, $h: Int] -> Int:
+   |         ^
+ what: this version of `area` could take the same call as the one on line 3
+ why:  two versions that could take the same call are refused (D46, standard 5.7)

@@ -1,0 +1,15 @@
+fam.fn area:
+    versions area:
+        [$side: Int] -> Int:
+            return $side x $side
+        end version
+        [$w: Int, $h: Int] -> Int:
+            defaults [$h = 1]
+            return $w x $h
+        end version
+    end versions area
+end fam.fn area
+
+fn.main[]:
+    println(area(3) as String)
+end fn.main

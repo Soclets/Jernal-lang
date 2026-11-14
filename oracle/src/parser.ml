@@ -1299,6 +1299,60 @@ let parse_function state ~(keyword : string) : function_declaration =
   { narrowings; function_name; function_my; type_parameters; parameters; result; fails; labels;
     defaults; requires; ensures; body; function_span = start.span }
 
+(* Skips a block the oracle doesn't build yet, up to its matching `end`. *)
+let skip_block state =
+  skip_line state;
+  let depth = ref 1 in
+  while !depth > 0 && peek_kind state <> End_of_file do
+    skip_blank_lines state;
+    if peek_kind state <> End_of_file then begin
+      if is_word state "end" then decr depth
+      else if line_opens_block state && not (is_word state "case") && not (is_word state "else") then incr depth;
+      skip_line state
+    end
+  done
+
+(* `versions name:`, then each version as its parameter list and body, `end version`, up to
+   `end versions name` (D46). *)
+let parse_versions state : family_member =
+  let start = expect_word state "versions" in
+  let versions_name = expect_name state "the name the versions share" in
+  ignore (expect state Colon "`:`");
+  end_of_line state;
+  let closer = "versions " ^ versions_name.text in
+  let versions =
+    with_block state closer (fun () ->
+        let rec go acc =
+          skip_blank_lines state;
+          if is_word state "end" || peek_kind state = End_of_file then List.rev acc
+          else
+            match
+              let opener = peek state in
+              let parameters = parse_parameters state in
+              let result = if peek_kind state = Arrow then (ignore (advance state); Some (parse_type state)) else None in
+              let fails = parse_fails state in
+              ignore (expect state Colon "`:`");
+              end_of_line state;
+              let labels, defaults, requires, ensures, body =
+                with_block state "version" (fun () ->
+                    let labels, defaults, requires, ensures = parse_body_top state in
+                    (labels, defaults, requires, ensures, parse_statements state))
+              in
+              expect_closer state ~opener:opener.span ~expected:"version";
+              end_of_line state;
+              { narrowings = []; function_name = { versions_name with span = opener.span }; function_my = false;
+                type_parameters = []; parameters; result; fails; labels; defaults; requires; ensures; body;
+                function_span = opener.span }
+            with
+            | v -> go (v :: acc)
+            | exception Line_error d -> report state d; skip_block state; go acc
+        in
+        go [])
+  in
+  expect_closer state ~opener:start.span ~expected:closer;
+  end_of_line state;
+  Member_versions { versions_name; versions }
+
 let parse_visibility state : visibility * Token.t option =
   if is_word state "pub" then begin
     let t = advance state in
@@ -1312,19 +1366,6 @@ let parse_visibility state : visibility * Token.t option =
     | _ -> unexpected state "`pub.pkg` or `pub.all`"
   end
   else (File_only, None)
-
-(* Skips a block the oracle doesn't build yet, up to its matching `end`. *)
-let skip_block state =
-  skip_line state;
-  let depth = ref 1 in
-  while !depth > 0 && peek_kind state <> End_of_file do
-    skip_blank_lines state;
-    if peek_kind state <> End_of_file then begin
-      if is_word state "end" then decr depth
-      else if line_opens_block state && not (is_word state "case") && not (is_word state "else") then incr depth;
-      skip_line state
-    end
-  done
 
 let unfinished_declaration state ~what ~why ~designed : declaration_kind =
   if line_opens_block state then skip_block state else skip_line state;
@@ -1441,13 +1482,10 @@ let parse_family state : declaration_kind =
                 with
                 | m -> go (m :: acc)
                 | exception Line_error d -> report state d; skip_line state; go acc
-              else if is_word state "versions" then begin
-                let t = peek state in
-                report state (Diagnostic.make ~span:t.span ~what:"`versions` isn't built in the oracle yet"
-                                Diagnostic.Not_built_yet "one name can have several parameter lists (D46, standard 5.7)");
-                skip_block state;
-                go acc
-              end
+              else if is_word state "versions" then
+                match parse_versions state with
+                | m -> go (m :: acc)
+                | exception Line_error d -> report state d; skip_block state; go acc
               else
                 match unexpected state "`fn`, `preset` or `versions`" with
                 | _ -> go acc

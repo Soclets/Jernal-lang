@@ -64,6 +64,8 @@ type context = {
   handler_families : (string, handler_set list) Hashtbl.t;
   mutable globals : C.statement list;
   baked_variables : (int, unit) Hashtbl.t;                       (* the ids of `let baked` variables *)
+  versions : (string, function_info list) Hashtbl.t;             (* a name with several parameter lists (D46) *)
+  overlapping_versions : (string, unit) Hashtbl.t;               (* already refused where they're written *)
   mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
 }
 
@@ -1142,6 +1144,8 @@ and check_call fctx ~expected (e : expression) callee arguments =
     | _ -> (x, words)
   in
   match callee.expression_kind with
+  | Syntax.Name { path = []; my = false; word } when Hashtbl.mem context.versions word ->
+      check_versions_call fctx span word (Hashtbl.find context.versions word) arguments
   | Syntax.Name { my; path; word } -> (
       let user = if path = [] || path = [ "pkg" ] then Hashtbl.find_opt context.functions word else None in
       let std =
@@ -1196,6 +1200,9 @@ and check_path_call fctx span callee (head, head_span) (words : name list) argum
       | Some f -> Some (f, List.filteri (fun i _ -> i >= k - 1) (List.map (fun n -> n) ({ text = head; span = head_span } :: words)) |> List.tl)
       | None -> longest (k - 1)
   in
+  let full = String.concat "." all in
+  if Hashtbl.mem context.versions full then check_versions_call fctx span full (Hashtbl.find context.versions full) arguments
+  else
   match longest (List.length all) with
   | None ->
       refuse context ~what:(Printf.sprintf "there's no function called %s" (quote (String.concat "." all))) callee.expression_span
@@ -1222,6 +1229,56 @@ and check_path_call fctx span callee (head, head_span) (words : name list) argum
           [] presets
       in
       check_user_call fctx span f settings None arguments
+
+(* A call of a name with versions picks the one whose parameters fit the arguments' number and exact
+   types (D46). The arguments' types are found first without keeping anything that finding them did. *)
+and check_versions_call fctx span call_name (infos : function_info list) arguments =
+  let context = fctx.context in
+  let saved_diagnostics = context.diagnostics in
+  let variables = List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> info :: acc) scope []) fctx.scopes in
+  let saved_given = List.map (fun info -> (info, info.given)) variables in
+  let argument_type (a : argument) =
+    if is_literal a.value then None
+    else Some (try (check_expression fctx ~expected:None a.value).type_ with Skip -> Types.Unknown)
+  in
+  let found = List.map (fun (a : argument) -> (a, argument_type a)) arguments in
+  context.diagnostics <- saved_diagnostics;
+  List.iter (fun (info, given) -> info.given <- given) saved_given;
+  let fits (f : function_info) =
+    let labels = List.map (fun ((v : name), (l : name)) -> (v.text, l.text)) f.declaration.labels in
+    let defaults = List.map (fun ((v : name), _) -> v.text) f.declaration.defaults in
+    let parameters = List.combine (List.map (fun p -> p.parameter.text) f.declaration.parameters) f.parameter_types in
+    let positional_parameters = List.filter (fun (p, _) -> not (List.mem_assoc p labels)) parameters in
+    let positional = List.filter (fun ((a : argument), _) -> a.label = None) found in
+    let labelled = List.filter (fun ((a : argument), _) -> a.label <> None) found in
+    let type_fits t (a, found_type) =
+      match found_type with
+      | Some actual -> Types.same t actual
+      | None -> ( try ignore (check_number_literal { fctx with scopes = [ Hashtbl.create 1 ] } ~expected:(Some t) a.value); true with Skip -> false)
+    in
+    let given = ref [] in
+    List.length positional <= List.length positional_parameters
+    && List.for_all2 (fun (p, t) arg -> given := p :: !given; type_fits t arg)
+         (List.filteri (fun i _ -> i < List.length positional) positional_parameters) positional
+    && List.for_all
+         (fun (((a : argument), _) as arg) ->
+           match List.find_opt (fun (_, l) -> Some l = Option.map (fun (n : name) -> n.text) a.label) labels with
+           | Some (p, _) -> given := p :: !given; type_fits (List.assoc p parameters) arg
+           | None -> false)
+         labelled
+    && List.for_all (fun (p, _) -> List.mem p !given || List.mem p defaults) parameters
+  in
+  let candidates = List.filter fits infos in
+  context.diagnostics <- saved_diagnostics;
+  match candidates with
+  | [ f ] -> check_user_call fctx span f [] None arguments
+  | [] ->
+      refuse context ~what:(Printf.sprintf "no version of %s takes these arguments" (quote call_name)) span
+        "a version is picked by the number of arguments and their exact types (D46, standard 5.7)"
+  | _ when Hashtbl.mem context.overlapping_versions call_name -> raise Skip
+  | _ ->
+      refuse context ~what:(Printf.sprintf "more than one version of %s takes these arguments" (quote call_name)) span
+        "a version is picked by the number of arguments and their exact types (D46, standard 5.7)"
 
 and check_arguments fctx span ~(function_name : string) ~(parameters : (string * Types.t) list)
     ~(labels : (string * string) list) ~(defaults : (string * expression) list) (arguments : argument list) =
@@ -2198,7 +2255,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   let context =
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
-      presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = [];
+      presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = []; versions = Hashtbl.create 8; overlapping_versions = Hashtbl.create 4;
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
@@ -2260,7 +2317,24 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
                         declare_function ~family_pure file.file_name f full_name
                     | Member_preset { preset_name; settings } ->
                         Hashtbl.replace context.presets (family_name.text ^ "." ^ preset_name.text) settings
-                    | Member_versions _ -> ())
+                    | Member_versions { versions_name; versions } ->
+                        (* trace: D46 *)
+                        let call_name =
+                          if versions_name.text = family_name.text then family_name.text
+                          else family_name.text ^ "." ^ versions_name.text
+                        in
+                        let infos =
+                          List.mapi
+                            (fun i (v : function_declaration) ->
+                              let hidden = Printf.sprintf "%s (version %d)" call_name (i + 1) in
+                              declare_function ~family_pure file.file_name v hidden;
+                              let info = Hashtbl.find context.functions hidden in
+                              Hashtbl.remove context.functions hidden;
+                              { info with full_name = call_name })
+                            versions
+                        in
+                        List.iter (fun (info : function_info) -> Hashtbl.replace context.function_by_id info.function_id info) infos;
+                        Hashtbl.replace context.versions call_name infos)
                   members
               end
           | Type_alias { alias_name; aliased } -> Hashtbl.replace context.aliases alias_name.text aliased
@@ -2331,6 +2405,46 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
     info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown)
   in
   Hashtbl.iter (fun _ info -> resolve_signature info) context.functions;
+  Hashtbl.iter (fun _ infos -> List.iter resolve_signature infos) context.versions;
+  (* Two versions that could take the same call are refused where they're written (D46). *)
+  Hashtbl.iter
+    (fun call_name (infos : function_info list) ->
+      let shape (f : function_info) =
+        let labelled = List.map (fun ((v : name), _) -> v.text) f.declaration.labels in
+        let defaulted = List.map (fun ((v : name), _) -> v.text) f.declaration.defaults in
+        let positional =
+          List.filter_map
+            (fun ((p : parameter), t) -> if List.mem p.parameter.text labelled then None else Some (p.parameter.text, t))
+            (List.combine f.declaration.parameters f.parameter_types)
+        in
+        let required = List.length (List.filter (fun (n, _) -> not (List.mem n defaulted)) positional) in
+        (positional, required)
+      in
+      let rec pairs = function
+        | [] -> ()
+        | f :: rest ->
+            List.iter
+              (fun (g : function_info) ->
+                let pf, rf = shape f and pg, rg = shape g in
+                let overlap =
+                  List.exists
+                    (fun n ->
+                      n >= rf && n <= List.length pf && n >= rg && n <= List.length pg
+                      && List.for_all2 (fun (_, a) (_, b) -> Types.same a b)
+                           (List.filteri (fun i _ -> i < n) pf) (List.filteri (fun i _ -> i < n) pg))
+                    (List.init (max (List.length pf) (List.length pg) + 1) (fun n -> n))
+                in
+                if overlap then Hashtbl.replace context.overlapping_versions call_name ();
+                if overlap then
+                  error context
+                    ~what:(Printf.sprintf "this version of %s could take the same call as the one on line %d" (quote call_name)
+                             f.declaration.function_span.line)
+                    g.declaration.function_span "two versions that could take the same call are refused (D46, standard 5.7)")
+              rest;
+            pairs rest
+      in
+      pairs infos)
+    context.versions;
   (* Top-level `let`s, in the order they're written, each seen in its own file (D139, D106). *)
   List.iter
     (fun (file, statement) ->
@@ -2361,6 +2475,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
        error context ~what:"the program has more than one `fn.main`" second.function_name.span
          "a program starts at its one `fn.main` (D62, standard 5.9)");
   Hashtbl.iter (fun _ info -> check_function context info) context.functions;
+  Hashtbl.iter (fun _ infos -> List.iter (check_function context) infos) context.versions;
   let diagnostics = List.rev context.diagnostics in
   let program =
     { C.functions = context.checked; main = main_id; struct_defaults = Hashtbl.create 1; globals = context.globals }
