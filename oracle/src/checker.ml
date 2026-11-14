@@ -522,10 +522,6 @@ let case_fields context (u : string) (arguments : (string * Types.t) list) (case
 (* The float nearest an exact fraction, rounding to nearest, ties to even. *)
 let float_of_rational (q : Q.t) : float = Numbers.float_of_rational q
 
-let float_exactly (q : Q.t) : bool =
-  let f = float_of_rational q in
-  Float.is_finite f && Q.equal (Q.of_float f) q
-
 (* ---------- Expressions ---------- *)
 
 let constant ?(span = Span.none) value type_ = { C.kind = C.Constant value; type_; span }

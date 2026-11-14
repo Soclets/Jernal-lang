@@ -1116,8 +1116,6 @@ and parse_match state : statement =
 
 (* ---------- Declarations ---------- *)
 
-let expected_narrowing_order = [ "pure"; "baked" ]
-
 let peek_kind_at_next_is_not_colon state = (peek_at state 1).kind <> Colon
 
 let parse_type_parameters ?(requirement_optional = false) state : (name * requirement) list =
