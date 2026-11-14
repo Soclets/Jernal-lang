@@ -987,3 +987,21 @@ Not decided yet: field defaults, building with fields out of order, and `pub` on
 (its D57, from Radium), as Cyborg's design session described on 2026-11-14, except that Cyborg's type names are
 lowercase. The owner said "Ask Cyborg"; Claude proposed this form with capitalized names; the owner chose: "yea".
 (Owner, 2026-11-14)
+
+**D57. Field defaults, and any order when building.** A field may have a default, written `= value` after its type; it
+can then be left out when building, while a field without one must always be given. Fields can be given in any order
+when building, since each is named.
+
+```
+struct Reading:
+    celsius: Int
+    place: String = "home"
+end struct Reading
+
+let $a: Reading = Reading[celsius = 22]                       // place is "home"
+let $b: Reading = Reading[place = "Bangkok", celsius = 22]
+let $c: Reading = Reading[place = "Bangkok"]                  // refused: celsius has no default
+```
+
+Settles two of D56's open questions; both are still open in Cyborg. Claude proposed them; the owner chose: "yea".
+(Owner, 2026-11-14)
