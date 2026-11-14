@@ -112,3 +112,21 @@ $xs.sum()
 
 The exact sum of a list of numbers (D38, D40): exact for integers, `Decimal` and `Rational`, and for floats the true sum
 rounded once at the end, like Python's `math.fsum`. An empty list sums to `0`, and the result has the items' type.
+
+### List and Array operations
+
+Methods that change a list need it to be `let mut`, and positions say how they count (D136):
+
+```
+$xs.add(<item>)                       // onto the end
+$xs.add(<item>, <pos or offset>: <n>) // at that place, shifting the rest
+$xs.remove(<pos or offset>: <n>) -> <item type>   // removes the item there and gives it back
+$xs.clear()
+$xs.contains(<item>) -> Bool
+$xs.first() -> <item type>
+$xs.last() -> <item type>
+```
+
+A position outside the list is a check, and so are `first()` and `last()` on an empty list. Adding past `len.max` or
+removing below `len.min` is a check (D135). An `Array` has `contains`, `first`, `last`, `len()` and indexing, but nothing
+that changes its length.

@@ -2181,3 +2181,26 @@ bounds the same way, as its design session described on 2026-11-14. The owner sa
 "What `len` does List use? `len.max`?", "Shouldn't it be `len.min` too? And you could do `Int[min: 100, max: 200]`, you
 know?" and "Can you put a bounded Int inside a list? And why runtime check for list max?", and chose: "yesssss".
 (Owner, 2026-11-14)
+
+**D136. The basic list operations.** Methods that change a list need it to be `let mut` (D43), and positions say how
+they count (D17):
+
+- `add(<item>)` adds onto the end; `add(<item>, pos: <n>)` or `offset: <n>` puts it at that place, shifting the rest.
+- `remove(pos: <n>)` or `offset: <n>` removes the item there and gives it back.
+- `clear()` removes everything.
+- `contains(<item>)` gives a `Bool`.
+- `first()` and `last()` give the first and last item.
+
+A position outside the list is a check, as with indexing (D53), and so are `first()` and `last()` on an empty list.
+Adding past `len.max` or removing below `len.min` is a check (D135). An `Array` has `contains`, `first`, `last`, `len()`
+and indexing, but nothing that changes its length.
+
+```
+let mut $xs: List<Int> = [10, 20, 30]
+$xs.add(40)
+$xs.add(5, pos: 1)
+let $gone: Int = $xs.remove(pos: 2)
+$xs.clear()
+```
+
+Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
