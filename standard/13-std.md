@@ -138,7 +138,7 @@ A map is read and changed by key, labelled like indexing (D138):
 
 ```
 $m[key: <key>] -> <value type>             // a missing key is a check
-$m.get(key: <key>) -> <value type>         // fails instead of a check
+$m.get(key: <key>) -> <value type> fails [not_found]   // fails instead of a check (D141)
 $m.contains(key: <key>) -> Bool
 change $m[key: <key>] = <value>            // adds or replaces
 $m.remove(key: <key>) -> <value type>

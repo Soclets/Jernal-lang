@@ -2297,3 +2297,6 @@ end otherwise
 The owner asked "Why doesn't it say `file_failed.not_found` when singlar?", "Where's `use` for that?", "Why are arms
 short?" and "But why don't handlers use that too, thne?", said "But failures are written elsewhere", and chose: "yes".
 (Owner, 2026-11-14)
+
+**D141. `get` fails with `not_found`.** A map's `get(key:)` (D138) fails with the inline failure `not_found` when the
+key is missing. Claude proposed it, and explained inline failures; the owner chose: "Ah yes". (Owner, 2026-11-14)
