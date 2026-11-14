@@ -1322,3 +1322,27 @@ versioned, what "verified" means, and whether quills must keep builds reproducib
 D311, D334 to D338), as Cyborg's design session described on 2026-11-14. The owner said "Let's decide modding" and "Ask
 Cyborg", chose "yea" to both levels, asked "What should a kit and limb be called in Jernal?", and chose "Tes" to book
 and quill. (Owner, 2026-11-14)
+
+**D78. Quills use no marker, only Jernal's own shapes.** Settles D77's marker: there is none. A quill's names are
+ordinary names, and a clash is an error (D59, D63). Quill syntax must use shapes Jernal already has:
+
+- names: calls, types and narrowings;
+- blocks in the `word ...:` / `end word` shape, so any tool can find where a block ends without knowing the quill;
+- raw code in another language, always inside an `inline.something:` block, which tools leave alone.
+
+There is no prefix-before-a-call form and no form in place of `=`; those become ordinary calls.
+
+```
+let $price: Float = round.half_even($raw)
+kernel add_all[$xs: List<Float>]:
+    ...
+end kernel add_all
+inline.llvm_ir:
+    %sum = add i64 %a, %b
+end inline.llvm_ir
+spawn(on: $pool, run: sum($xs))
+```
+
+The manifest lists which quills a project uses; a file doesn't show which lines come from one. Cyborg marks every quill
+item with `@`. The owner asked "Wait, how would you write in `.jern`" and "Do we really need `@`?", said "It doesn't
+always mean dangerous, though. And I mean, you can just look at the manifest", and chose: "yea". (Owner, 2026-11-14)
