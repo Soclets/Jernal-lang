@@ -1346,3 +1346,25 @@ spawn(on: $pool, run: sum($xs))
 The manifest lists which quills a project uses; a file doesn't show which lines come from one. Cyborg marks every quill
 item with `@`. The owner asked "Wait, how would you write in `.jern`" and "Do we really need `@`?", said "It doesn't
 always mean dangerous, though. And I mean, you can just look at the manifest", and chose: "yea". (Owner, 2026-11-14)
+
+**D79. What needs a shield, and Jernal isn't freestanding.** A shield is where code the compiler can't check lives.
+These need one:
+
+| Kind | Example |
+|---|---|
+| calling foreign code | a C library's function, a raw system call |
+| raw pointers | making one, reading or writing through one, pointer arithmetic |
+| inline foreign code | `inline.llvm_ir:`, inline assembly |
+| reinterpreting memory | treating bytes as another type, C's untagged unions |
+| memory outside the GC | manual `malloc`/`free`-style memory |
+| handing a GC object to the outside | passing a list's buffer to C, which needs it pinned (D67, D68) |
+| a quill's unchecked LLVM IR (D77) | counts as shield code automatically |
+
+These don't: `FinalPerf` dropping checks (a build mode, D71), a quill producing Jernal code (checked, D77), files,
+network, the clock and the environment (safe calls with failures, D48), and `give`, `copy`, `must_give` and `mut`
+(checked when compiling). Threads changing shared data without coordination may need a shield once threads are
+designed. How a shield is written is not decided yet.
+
+Jernal isn't freestanding: every program runs with its runtime, including JernGC, on an operating system. The owner
+asked "would we like shields?" and "First, define what kinds need shield", chose "Yes" to this list, and said: "Jernal
+can't freestand, right? That's fine". (Owner, 2026-11-14)
