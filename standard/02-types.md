@@ -15,6 +15,21 @@ Which sized types exist, and how they convert, isn't decided yet, nor is `Bool` 
 - `Decimal` is built in: IEEE 754 decimal128, with 34 significant digits, so `0.1 + 0.2` is exactly `0.3` (D82, D83).
 - `Rational` is built in: an exact fraction of arbitrary-size integers, so it never overflows (D82, D83).
 
+A number literal that the type it lands in can't hold exactly is written with `~` in front, and one it can hold exactly
+is written without; the compiler checks both ways (D84). `~` covers literals only, not calculations that round.
+
+```
+let $a: Float = 0.5          // exact in binary
+let $b: Float = ~0.1         // inexact, so it says so
+let $c: Float = 0.1          // refused, fix: `~0.1`
+let $d: Float = ~0.5         // refused: 0.5 is exact
+let $e: Decimal = 0.1        // exact in decimal
+let $f: Rational = 0.1       // exact as 1/10
+```
+
+A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals never need it; one that doesn't fit is a
+`CompileTimeError`. A negative is written `~-0.1`.
+
 ## 2.2 Strings
 
 A string is written in double quotes. Inside a string, `$` is just a character, so `"Price: $5"` needs no escape (D20).

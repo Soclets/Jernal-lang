@@ -1410,3 +1410,24 @@ also be built-in. Stable floats come later, if ever (as `f64.stable`)". (Owner, 
 decimal128: 34 significant digits, exponents up to about ±6144. `Rational` is an exact fraction whose numerator and
 denominator are arbitrary-size integers, so it never overflows. Claude proposed both; the owner chose: "yes yes".
 (Owner, 2026-11-14)
+
+**D84. `~` marks a literal its type can't hold exactly.** A number literal that the type it lands in can't hold exactly
+must be written with `~` in front, and one it can hold exactly must not. The compiler checks both ways.
+
+```
+let $a: Float = 0.5          // exact in binary
+let $b: Float = ~0.1         // inexact, so it says so
+let $c: Float = 0.1          // refused, fix: `~0.1`
+let $d: Float = ~0.5         // refused: 0.5 is exact
+let $e: Decimal = 0.1        // exact in decimal
+let $f: Rational = 0.1       // exact as 1/10
+```
+
+- The type decides: `0.1` is inexact as a `Float` but exact as a `Decimal` or `Rational`.
+- A `Decimal` literal with more than its 34 digits needs `~` too.
+- `Int` literals never need it; one that doesn't fit is a `CompileTimeError`.
+- A negative is written `~-0.1`.
+- `~` covers literals only, not calculations that round.
+
+This is Cyborg's `~` (its D59), as Cyborg's design session described on 2026-11-14; the owner proposed it there.
+Claude proposed it for Jernal's types; the owner chose: "yes". (Owner, 2026-11-14)
