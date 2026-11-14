@@ -1,0 +1,14 @@
+struct Shelf:
+    items: List<Int>
+end struct Shelf
+
+fam.fn Shelf:
+    fn replace[mut $self: Shelf, $new: List<Int>]:
+        change $self.items = $new
+    end fn replace
+end fam.fn Shelf
+
+fn.main[]:
+    let mut $s: Shelf = Shelf[items = []]
+    $s.replace([1, 2])
+end fn.main

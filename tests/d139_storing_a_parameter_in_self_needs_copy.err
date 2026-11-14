@@ -1,0 +1,5 @@
+CompileTimeError: d139_storing_a_parameter_in_self_needs_copy.jern:7:30, line 7 column 30
+ 7 |         change $self.items = $new
+   |                              ^^^^
+ fix:  `copy $new`
+ why:  a function sees a parameter frozen for the call, and keeping it after returning needs `copy` (D139, standard 3.6)

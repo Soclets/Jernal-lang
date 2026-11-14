@@ -1907,7 +1907,7 @@ and check_method_call_checked fctx span (target : C.expression) (receiver : expr
   let checked_item item_type (x : expression) =
     let c = check_expression fctx ~expected:(Some item_type) x in
     expect_type context item_type c;
-    check_hand_off fctx c x;
+    check_hand_off ~escapes:(match root_variable receiver with Some ("self", _) -> true | _ -> false) fctx c x;
     let c = fit context item_type c in
     { c with kind = C.Copy c }
   in
@@ -2401,6 +2401,8 @@ and check_change fctx span target value =
           refuse context ~what:(Printf.sprintf "there's no variable called `$%s` here" name) name_span
             "every new name says how it's made (D5, D34, standard 3.1)"
       | Some info ->
+          (* storing into `mut $self` keeps the value after the call returns (D139) *)
+          let escapes = name = "self" in
           if info.is_loop_variable then
             refuse context ~what:(Printf.sprintf "`$%s` is the loop's own variable, which can't be changed inside the loop" name)
               name_span "the loop's own variable can't be changed inside the loop (D37, standard 4.7)";
@@ -2412,7 +2414,7 @@ and check_change fctx span target value =
           match target.expression_kind with
           | Syntax.Variable _ ->
               let declared = match info.variable_type with Types.Case (u, _) -> Types.Union u | t -> t in
-              let v = check_value fctx declared value in
+              let v = check_value ~escapes fctx declared value in
               (* trace: D97 — a change ends what a case test knew *)
               (match info.variable_type with
                | Types.Case _ -> info.variable_type <- declared; info.case_known_until <- Some (keyword_span span "change")
@@ -2421,13 +2423,13 @@ and check_change fctx span target value =
           | Syntax.Member (inner, field) ->
               let t = check_expression fctx ~expected:None target in
               let inner = check_expression fctx ~expected:None inner in
-              let v = check_value fctx t.type_ value in
+              let v = check_value ~escapes fctx t.type_ value in
               [ { C.statement_kind = C.Set_field { target = inner; field = field.text; value = stored v }; statement_span = span } ]
           | Syntax.Index { target = inner; counting; position } ->
               let t = check_expression fctx ~expected:None target in
               let inner = check_expression fctx ~expected:None inner in
               let position = check_expression fctx ~expected:(Some Types.int) position in
-              let v = check_value fctx t.type_ value in
+              let v = check_value ~escapes fctx t.type_ value in
               [ { C.statement_kind = C.Set_index { target = inner; counting; position; value = stored v }; statement_span = span } ]
           | Syntax.Key_index { target = inner; key } ->
               let t = check_expression fctx ~expected:None target in
@@ -2440,7 +2442,7 @@ and check_change fctx span target value =
                     k
                 | _ -> raise Skip
               in
-              let v = check_value fctx t.type_ value in
+              let v = check_value ~escapes fctx t.type_ value in
               (* trace: D138 *)
               [ { C.statement_kind = C.Set_key { target = inner; key = key_checked; value = stored v }; statement_span = span } ]
           | _ -> refuse context ~what:"`change` updates a variable, one of its fields or one of its items" target.expression_span why)
