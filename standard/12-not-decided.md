@@ -9,8 +9,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 - **A raw pointer type**, such as the `Ptr<u8>` in 11.2's example.
 
 - **Most of std (chapter 13):** functions used in examples but never specified, such as `open`, `close`, `now`, `trim`, `upper`, and files and the network in general, and which Unicode version each std date
-  follows (D130), how a failure raised while a `for` loop gets its next item is handled, and the `.raw()` result types
-  (D133).
+  follows (D130), and the `.raw()` result types (D133).
 
 ## 12.2 Functions and failures
 

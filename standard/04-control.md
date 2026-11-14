@@ -127,6 +127,15 @@ while $count < 10:
 end while
 ```
 
+When getting a loop's next item can fail, as with `lines()`, the `for` line takes `?`, `?? <value>` (a stand-in item,
+and the loop carries on) or `otherwise <family>.<handler>`; unhandled, the failure crashes (D134).
+
+```
+for $line in lines() ?? "(not text)":
+    println($line)
+end for
+```
+
 ## 4.7 Ranges
 
 A range is labelled: `from:` is required, then either `to:`, which includes the end, or `before:`, which stops before

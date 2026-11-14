@@ -2133,3 +2133,26 @@ end for
 Not decided yet: how a failure raised while a `for` loop gets its next item is handled, and the `.raw()` result types.
 The owner asked "What does it read?", "What the fuck is `< names.txt`?" and "Does it read only a line?"; Claude
 proposed the three; the owner chose: "EYs", taken as yes to all three. (Owner, 2026-11-14)
+
+**D134. A failure while a `for` gets its next item is handled on the `for` line.** When getting a loop's next item can
+fail, as with `lines()` (D133), the `for` line takes D48's one-line tools: `?` passes the failure up, `?? <value>` uses a
+stand-in item and keeps looping, and `otherwise <family>.<handler>` uses a ready-made handler, with `*` if it can jump
+out (D49). There's no inline `otherwise:` block on a `for`. Unhandled, the failure crashes, as any unhandled failure
+does (D48).
+
+```
+for $line in lines()?:
+    println($line)
+end for
+
+for $line in lines() ?? "(not text)":
+    println($line)
+end for
+
+for $line in lines() otherwise text_failed.*stop:
+    println($line)
+end for
+```
+
+The owner said "You can handle it", taken as "the failure can be handled in the `for`"; Claude proposed this; the owner
+chose: "yes". (Owner, 2026-11-14)
