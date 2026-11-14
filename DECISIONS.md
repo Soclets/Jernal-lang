@@ -1257,3 +1257,15 @@ mode, which collects on every allocation, makes sure collections and timing wind
 owner said "SPARK?", then "No, no, no. I was joking"; asked "would they reuse the GC together? Comp and Orac" and "how
 does testing against the oracle doesn't test the GC?", said "Yes, but should oracle use Rust or OCaml?", and chose:
 "OCaml". (Owner, 2026-11-14)
+
+**D74. Names: JernComp, JernGC, `.jern`, and the `jern` command.** The compiler is JernComp, and the garbage collector is
+JernGC. Jernal files end in `.jern`, replacing the `.jernal` placeholder in earlier examples. The command is `jern`:
+
+```
+jern comp --FinalSafe       // compiles
+jern run --FinalSafe        // compiles, then runs
+jern run --Interp           // runs on the oracle
+```
+
+Every command names its mode (D72). Not decided yet: the oracle's name, the manifest's name and format, and how a file
+or package is named on the command line. The owner chose these names. (Owner, 2026-11-14)
