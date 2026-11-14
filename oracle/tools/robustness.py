@@ -10,8 +10,11 @@ import concurrent.futures, glob, os, shutil, subprocess, sys
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 tests = os.path.join(root, "tests")
-exe = os.path.join(root, "oracle", "_build", "default", "bin", "jernorac.exe")
 scratch = sys.argv[1]
+os.makedirs(scratch, exist_ok=True)
+# its own copy, so rebuilding the oracle meanwhile can't break the run
+exe = os.path.join(scratch, "jernorac.exe")
+shutil.copy(os.path.join(root, "oracle", "_build", "default", "bin", "jernorac.exe"), exe)
 
 variants = []
 for path in sorted(glob.glob(tests + "/*.jern")):
