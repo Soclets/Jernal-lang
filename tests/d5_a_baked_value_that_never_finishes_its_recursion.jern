@@ -1,0 +1,9 @@
+fn.pure.baked forever[$n: Int] -> Int:
+    return forever($n)
+end fn.pure.baked forever
+
+let baked $x: Int = forever(1)
+
+fn.main[]:
+    println("never")
+end fn.main

@@ -3202,7 +3202,12 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
       | exception Std_library.Exit_program _ -> ()
       | exception Not_found ->
           (* it calls a function that was refused, so it's unknown, and nothing more is said (D13) *)
-          ())
+          ()
+      | exception (Stack_overflow | Out_of_memory) ->
+          (* trace: D5, D53 — running out of memory is a check, here while compiling *)
+          report context
+            (Diagnostic.make ~span:value.span ~what:(Printf.sprintf "working out `$%s` ran out of memory" variable.variable_name)
+               Diagnostic.Compile_time_error "running out of memory is a check, and a baked value is worked out when compiling (D5, D53, standard 7.2)"))
     context.baked_values;
   let diagnostics = diagnostics @ List.rev (List.filter (fun d -> not (List.memq d diagnostics)) context.diagnostics) in
   (Some program, diagnostics)
