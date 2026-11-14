@@ -1,0 +1,17 @@
+union.tagged Status:
+    ok
+    failed[code: Int]
+end union.tagged Status
+
+fn show[$s: Status]:
+    if $s: Status.failed:
+        println("code " $s.code as String)
+    else:
+        println("no code")
+    end if
+end fn show
+
+fn.main[]:
+    show(Status.failed[code = 7])
+    show(Status.ok[])
+end fn.main

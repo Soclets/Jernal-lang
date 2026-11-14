@@ -1,0 +1,6 @@
+CompileTimeError: d97_a_change_ends_the_case_test.jern:10:20, line 10 column 20
+ 10 |         println($s.code as String)
+    |                    ^^^^
+ what: which case of `Status` this is isn't known here, so its fields can't be read
+ why:  a case's fields are read inside `if <value>: <type>.<case>:` or a `match` arm (D97, standard 4.5a)
+ because: the `change` at line 9 column 9 ends what the case test knew

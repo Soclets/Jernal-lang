@@ -36,6 +36,7 @@ and expression_kind =
   | Ignore of expression
   | Otherwise of { value : expression; arms : arm list }
   | Pass_up of expression
+  | Is_case of { value : expression; case_name : string }   (* the case test (D97) *)
 
 and builtin = {
   builtin_name : string;

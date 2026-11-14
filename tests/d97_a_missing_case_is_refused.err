@@ -1,0 +1,5 @@
+CompileTimeError: d97_a_missing_case_is_refused.jern:8:5, line 8 column 5
+ 8 |     match $s:
+   |     ^^^^^
+ what: this `match` doesn't cover `failed`
+ why:  `match` must cover every case, with no catch-all (D97, D99, standard 4.5a)

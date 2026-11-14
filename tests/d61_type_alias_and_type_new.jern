@@ -1,0 +1,13 @@
+type.alias Numbers = List<Int>
+type.new UserId = Int
+
+fn.main[]:
+    let $xs: Numbers = [1, 2, 3]
+    let $ys: List<Int> = $xs
+    println($ys.len() as String)
+    let $u: UserId = 5
+    let $n: Int = $u as Int
+    let $back: UserId = $n as UserId
+    println($n as String)
+    println(($back as Int) as String)
+end fn.main

@@ -1,0 +1,12 @@
+union.tagged Status:
+    ok
+    failed[code: Int]
+end union.tagged Status
+
+fn.main[]:
+    let $s: Status = Status.ok[]
+    match $s:
+        case ok:
+            println("worked")
+    end match
+end fn.main

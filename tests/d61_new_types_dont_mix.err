@@ -1,0 +1,5 @@
+CompileTimeError: d61_new_types_dont_mix.jern:7:11, line 7 column 11
+ 7 |     if $u == $o:
+   |           ^^
+ what: `==` compares `UserId` with `OrderId`
+ why:  both sides of a comparison have the same type (D27, D61, standard 4.1)

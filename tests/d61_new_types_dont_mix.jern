@@ -1,0 +1,10 @@
+type.new UserId = Int
+type.new OrderId = Int
+
+fn.main[]:
+    let $u: UserId = 5
+    let $o: OrderId = 7
+    if $u == $o:
+        println("same")
+    end if
+end fn.main

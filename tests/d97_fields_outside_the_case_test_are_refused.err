@@ -1,0 +1,5 @@
+CompileTimeError: d97_fields_outside_the_case_test_are_refused.jern:8:16, line 8 column 16
+ 8 |     println($s.code as String)
+   |                ^^^^
+ what: which case of `Status` this is isn't known here, so its fields can't be read
+ why:  a case's fields are read inside `if <value>: <type>.<case>:` or a `match` arm (D97, standard 4.5a)

@@ -1,0 +1,16 @@
+union.tagged Status:
+    ok
+    failed[code: Int]
+end union.tagged Status
+
+fn.main[]:
+    let $s: Status = Status.failed[code = 4]
+    decl $label: String
+    match $s:
+        case ok:
+            assign $label = "fine"
+        case failed $f:
+            assign $label = "error " $f.code as String
+    end match
+    println($label)
+end fn.main

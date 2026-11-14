@@ -252,6 +252,8 @@ and evaluate_plain context (e : C.expression) : Value.t =
       let reaches = if Z.gt step Z.zero then Z.leq from last else Z.geq from last in
       Value.Range { from; last = (if reaches then Some last else None); step }
   | C.Copy inner -> Value.deep_copy (evaluate context inner)
+  | C.Is_case { value; case_name } -> (
+      match evaluate context value with Value.Union u -> Value.Bool (u.case_name = case_name) | _ -> Value.Bool false)
   | C.Fallback { value; instead } -> (
       try evaluate_call context value with C.Failure_raised _ -> evaluate context instead)
   | C.Ignore value -> (try ignore (evaluate_call context value); Value.Nothing with C.Failure_raised _ -> Value.Nothing)
@@ -463,7 +465,17 @@ and execute context (s : C.statement) =
       match evaluate context condition with
       | Value.Bool true -> ()
       | _ -> runtime_error ~what:(Printf.sprintf "`%s` is false" text) condition.span why)
-  | C.Case_test _ | C.Match _ -> ()
+  | C.Match { subject; arms } -> (
+      let value = evaluate context subject in
+      let case_name =
+        match value with Value.Union u -> u.case_name | Value.Bool b -> if b then "true" else "false" | _ -> ""
+      in
+      match List.find_opt (fun (name, _, _) -> name = case_name) arms with
+      | Some (_, binding, body) ->
+          Option.iter (fun v -> define context v value) binding;
+          execute_block context body
+      | None -> ())
+  | C.Case_test _ -> ()
 
 and call_function (program : C.program) span function_id (arguments : Value.t list) : Value.t =
   let f = Hashtbl.find program.functions function_id in

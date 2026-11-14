@@ -12,7 +12,8 @@ module C = Checked
 
 type variable_info = {
   variable : C.variable;
-  variable_type : Types.t;
+  mutable variable_type : Types.t;
+  mutable case_known_until : Span.t option;   (* the `change` that ended a case test's knowledge (D97) *)
   is_mutable : bool;
   mutable assigned : bool;          (* a `decl` gets its value later (D34) *)
   mutable given : bool;             (* retired by `give` (D7) *)
@@ -46,8 +47,9 @@ type context = {
   functions : (string, function_info) Hashtbl.t;     (* by full name *)
   structs : (string, struct_info) Hashtbl.t;
   unions : (string, union_info) Hashtbl.t;
-  aliases : (string, Types.t) Hashtbl.t;
-  new_types : (string, Types.t) Hashtbl.t;
+  aliases : (string, type_expression) Hashtbl.t;     (* type.alias, resolved where it's used (D61) *)
+  new_types : (string, type_expression) Hashtbl.t;   (* type.new *)
+  mutable resolving : string list;                   (* aliases being resolved, to refuse a cycle *)
   std_visible : bool;
   mutable next_id : int;
   checked : (int, C.function_) Hashtbl.t;
@@ -180,9 +182,21 @@ let rec resolve_type context (t : type_expression) : Types.t =
           else no_arguments (Types.Integer integer)
       | _, [ word ] when Hashtbl.mem context.structs word -> no_arguments (Types.Struct word)
       | _, [ word ] when Hashtbl.mem context.unions word -> no_arguments (Types.Union word)
-      | _, [ word ] when Hashtbl.mem context.aliases word -> no_arguments (Hashtbl.find context.aliases word)
-      | _, [ word ] when Hashtbl.mem context.new_types word ->
-          no_arguments (Types.New (word, Hashtbl.find context.new_types word))
+      | _, [ word ] when Hashtbl.mem context.aliases word || Hashtbl.mem context.new_types word ->
+          if List.mem word context.resolving then
+            refuse context ~what:(Printf.sprintf "%s is defined in terms of itself" (quote word)) t.type_span
+              "a type name stands for a type (D61, standard 2.5)";
+          context.resolving <- word :: context.resolving;
+          let resolved =
+            match
+              (match Hashtbl.find_opt context.aliases word with
+               | Some aliased -> resolve_type context aliased
+               | None -> Types.New (word, resolve_type context (Hashtbl.find context.new_types word)))
+            with
+            | r -> context.resolving <- List.tl context.resolving; r
+            | exception e -> context.resolving <- List.tl context.resolving; raise e
+          in
+          no_arguments resolved
       | _ ->
           refuse context ~what:(Printf.sprintf "there's no type called %s" (quote (String.concat "." words))) t.type_span
             "a type is a built-in type or one the program declares (D56, standard 2)")
@@ -211,7 +225,8 @@ let in_scope fctx f =
 let add_variable fctx ?(is_loop_variable = false) ~(name : name) ~variable_type ~is_mutable ~assigned () =
   let variable = { C.variable_id = fresh_id fctx.context; variable_name = name.text } in
   let info =
-    { variable; variable_type; is_mutable; assigned; given = false; is_loop_variable; declared_at = name.span }
+    { variable; variable_type; case_known_until = None; is_mutable; assigned; given = false; is_loop_variable;
+      declared_at = name.span }
   in
   Hashtbl.replace (List.hd fctx.scopes) name.text info;
   info
@@ -467,6 +482,10 @@ and check_convert fctx (e : expression) value narrowings target =
   let from = underlying value.type_ in
   (match underlying target_type, from, narrowing_words with
    | _, Types.Unknown, _ -> ()
+   (* trace: D61 — crossing between a new type and its data uses `as`, which can't fail *)
+   | _, _, [] when (match target_type, value.type_ with
+                    | Types.New (_, u), t | t, Types.New (_, u) -> Types.same (underlying u) (underlying t)
+                    | _ -> false) -> ()
    | Types.String, (Types.Integer _ | Types.Bool | Types.String), [] -> ()
    | Types.String, Types.Float Types.F64, ([] | [ "stored" ]) -> ()
    | Types.String, (Types.Struct _ | Types.Union _), _ ->
@@ -649,6 +668,31 @@ and check_member fctx (e : expression) target field =
           refuse context ~what:(Printf.sprintf "%s has no field called %s" (quote struct_name) (quote field.text)) field.span
             "fields are read with `.` (D56, standard 2.4)")
   | Types.Unknown -> { C.kind = C.Field (target, field.text); type_ = Types.Unknown; span }
+  | Types.Case (union_name, case_name) -> (
+      let info = Hashtbl.find context.unions union_name in
+      match List.assoc_opt field.text (Option.value (List.assoc_opt case_name info.resolved_cases) ~default:[]) with
+      | Some t -> { C.kind = C.Field (target, field.text); type_ = t; span }
+      | None ->
+          refuse context
+            ~what:(Printf.sprintf "%s has no field called %s" (quote (union_name ^ "." ^ case_name)) (quote field.text))
+            field.span "a case's data goes in `[ ]` with labelled fields (D97, standard 2.4a)")
+  | Types.Union union_name ->
+      (* trace: D97 *)
+      let because =
+        match target.kind with
+        | C.Read v -> (
+            match find_variable fctx v.variable_name with
+            | Some { case_known_until = Some change_span; _ } ->
+                [ Printf.sprintf "the `change` at line %d column %d ends what the case test knew" change_span.line
+                    (Diagnostic.grapheme_column change_span) ]
+            | _ -> [])
+        | _ -> []
+      in
+      report context
+        (Diagnostic.make ~span:field.span ~because
+           ~what:(Printf.sprintf "which case of %s this is isn't known here, so its fields can't be read" (quote union_name))
+           Diagnostic.Compile_time_error "a case's fields are read inside `if <value>: <type>.<case>:` or a `match` arm (D97, standard 4.5a)");
+      raise Skip
   | t ->
       refuse context ~what:(Printf.sprintf "%s has no field called %s; a method call takes `( )`" (type_text t) (quote field.text))
         field.span "fields are read with `.`, and methods always take `( )` (D40, standard 13.3)"
@@ -1238,7 +1282,8 @@ and check_statement fctx (s : statement) : C.statement list =
       report context
         (Diagnostic.make ~span ~what (if designed then Diagnostic.Not_built_yet else Diagnostic.Not_designed_yet) why);
       []
-  | Match _ | Fail _ | Instead _ ->
+  | Match { subject; match_arms } -> check_match fctx span subject match_arms
+  | Fail _ | Instead _ ->
       report context
         (Diagnostic.make ~span ~what:"this statement isn't built in the oracle yet" Diagnostic.Not_built_yet
            (match s.statement_kind with
@@ -1293,7 +1338,12 @@ and check_change fctx span target value =
             refuse context ~fix:(quote "assign") (keyword_span span "change") "`assign` gives a `decl` its first value (D34, standard 3.3)";
           match target.expression_kind with
           | Syntax.Variable _ ->
-              let v = check_value fctx info.variable_type value in
+              let declared = match info.variable_type with Types.Case (u, _) -> Types.Union u | t -> t in
+              let v = check_value fctx declared value in
+              (* trace: D97 — a change ends what a case test knew *)
+              (match info.variable_type with
+               | Types.Case _ -> info.variable_type <- declared; info.case_known_until <- Some (keyword_span span "change")
+               | _ -> ());
               [ { C.statement_kind = C.Set (info.variable, stored v); statement_span = span } ]
           | Syntax.Member (inner, field) ->
               let t = check_expression fctx ~expected:None target in
@@ -1333,13 +1383,29 @@ and check_if fctx span branches else_body =
             let body = check_block fctx branch_body in
             record ();
             Option.map (fun c -> (c, body)) c
-        | Case_test (_, t) ->
-            report context
-              (Diagnostic.make ~span:t.type_span ~what:"the case test isn't built in the oracle yet" Diagnostic.Not_built_yet
-                 "`if <value>: <type>.<case>:` tests which case a value is (D97, standard 4.5a)");
-            ignore (check_block fctx branch_body);
-            record ();
-            None)
+        | Case_test (value, tested) -> (
+            let checked = try Some (check_case_test fctx value tested) with Skip -> None in
+            match checked with
+            | None ->
+                ignore (check_block fctx branch_body);
+                record ();
+                None
+            | Some (condition, narrowed) ->
+                let body =
+                  in_scope fctx (fun () ->
+                      (* inside, the value is known to be that case (D97) *)
+                      (match value.expression_kind, narrowed with
+                       | Syntax.Variable name, Some case_type -> (
+                           match find_variable fctx name with
+                           | Some info ->
+                               Hashtbl.replace (List.hd fctx.scopes) name { info with variable_type = case_type; case_known_until = None }
+                           | None -> ())
+                       | _ -> ());
+                      check_statements fctx branch_body)
+                in
+                (* what the inner copy learnt about assignment goes back to the variable *)
+                record ();
+                Some (condition, body)))
       branches
   in
   let else_checked = Option.map (fun body -> let b = check_block fctx body in record (); b) else_body in
@@ -1348,6 +1414,118 @@ and check_if fctx span branches else_body =
   List.iter (fun info -> info.assigned <- List.memq info (Option.value !assigned_in_all ~default:[])) before;
   if List.length checked_branches <> List.length branches then []
   else [ { C.statement_kind = C.If (checked_branches, else_checked); statement_span = span } ]
+
+(* `if <value>: <type>.<case>:` (D97): the condition, and the type the value has inside. *)
+and check_case_test fctx (value : expression) (tested : type_expression) : C.expression * Types.t option =
+  let context = fctx.context in
+  let checked = check_expression fctx ~expected:None value in
+  match tested.type_kind with
+  | Named_type { words = [ union_name; case_name ]; arguments = []; details = []; my = false } -> (
+      match underlying checked.type_ with
+      | Types.Unknown -> raise Skip
+      | Types.Union u | Types.Case (u, _) when u = union_name -> (
+          let info = Hashtbl.find context.unions u in
+          match List.assoc_opt case_name info.resolved_cases with
+          | None ->
+              refuse context ~what:(Printf.sprintf "%s has no case called %s" (quote u) (quote case_name)) tested.type_span
+                "a union's cases are its narrowings (D97, standard 2.4a)"
+          | Some _ ->
+              ( { C.kind = C.Is_case { value = checked; case_name }; type_ = Types.Bool; span = tested.type_span },
+                Some (Types.Case (u, case_name)) ))
+      | t ->
+          refuse context ~what:(Printf.sprintf "this is %s, and the test asks about %s" (type_text t) (quote (union_name ^ "." ^ case_name)))
+            tested.type_span "the case test asks which case a value is (D97, standard 4.5a)")
+  | Named_type { details = _ :: _; _ } ->
+      not_built context ~what:"the case test on bounds isn't built in the oracle yet" tested.type_span
+        "the case test works on bounds (D135, standard 2.3a)"
+  | _ ->
+      refuse context ~what:"the case test names a union's case, such as `Status.failed`" tested.type_span
+        "`if <value>: <type>.<case>:` tests which case a value is (D97, standard 4.5a)"
+
+(* `match` (D97, D98, D101): every case is covered once, with no catch-all. *)
+and check_match fctx span subject (match_arms : match_arms) : C.statement list =
+  let context = fctx.context in
+  match match_arms with
+  | Match_with _ ->
+      report context
+        (Diagnostic.make ~span ~what:"`match ... with` a handler isn't built in the oracle yet" Diagnostic.Not_built_yet
+           "a set of arms can be written once in a `fam.handler` (D100, standard 4.5a)");
+      []
+  | Match_arms arms -> (
+      let checked = try Some (check_expression fctx ~expected:None subject) with Skip -> None in
+      let cases =
+        match Option.map (fun (c : C.expression) -> underlying c.type_) checked with
+        | Some (Types.Union u | Types.Case (u, _)) ->
+            Some (u, List.map (fun (name, _) -> name) (Hashtbl.find context.unions u).resolved_cases)
+        | Some Types.Bool -> Some ("Bool", [ "true"; "false" ])
+        | Some Types.Unknown | None -> None
+        | Some t ->
+            error context ~what:(Printf.sprintf "`match` works on tagged unions and `Bool`, and this is %s" (type_text t))
+              subject.expression_span "integers, strings and ranges use `if` and `else if` (D101, standard 4.5a)";
+            None
+      in
+      let seen = Hashtbl.create 8 in
+      let unassigned =
+        List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> if info.assigned then acc else info :: acc) scope []) fctx.scopes
+      in
+      let assigned_in_all = ref None in
+      let checked_arms =
+        List.filter_map
+          (fun arm ->
+            let arm_ok =
+              match cases with
+              | None -> false
+              | Some (type_name, names) ->
+                  if not (List.mem arm.case_name.text names) then begin
+                    error context ~what:(Printf.sprintf "%s has no case called %s" (quote type_name) (quote arm.case_name.text))
+                      arm.case_name.span "arms use the case's short name (D97, standard 4.5a)";
+                    false
+                  end
+                  else if Hashtbl.mem seen arm.case_name.text then begin
+                    error context ~what:(Printf.sprintf "%s is covered twice" (quote arm.case_name.text)) arm.case_name.span
+                      "`match` covers every case once (D97, standard 4.5a)";
+                    false
+                  end
+                  else (Hashtbl.add seen arm.case_name.text (); true)
+            in
+            let binding, body =
+              in_scope fctx (fun () ->
+                  let binding =
+                    Option.map
+                      (fun (b : name) ->
+                        let t =
+                          match cases with
+                          | Some ("Bool", _) -> Types.Bool
+                          | Some (u, _) when arm_ok -> Types.Case (u, arm.case_name.text)
+                          | _ -> Types.Unknown
+                        in
+                        (add_variable fctx ~name:b ~variable_type:t ~is_mutable:false ~assigned:true ()).variable)
+                      arm.binding
+                  in
+                  (binding, check_statements fctx arm.arm_body))
+            in
+            let now = List.filter (fun info -> info.assigned) unassigned in
+            (match !assigned_in_all with
+             | None -> assigned_in_all := Some now
+             | Some previous -> assigned_in_all := Some (List.filter (fun i -> List.memq i now) previous));
+            List.iter (fun info -> info.assigned <- false) unassigned;
+            if arm_ok then Some (arm.case_name.text, binding, body) else None)
+          arms
+      in
+      List.iter (fun info -> info.assigned <- List.memq info (Option.value !assigned_in_all ~default:[])) unassigned;
+      match checked, cases with
+      | Some subject, Some (_, names) ->
+          let missing = List.filter (fun n -> not (Hashtbl.mem seen n)) names in
+          if missing <> [] then begin
+            (* trace: D97, D99 *)
+            error context
+              ~what:(Printf.sprintf "this `match` doesn't cover %s" (String.concat ", " (List.map quote missing)))
+              (keyword_span span "match") "`match` must cover every case, with no catch-all (D97, D99, standard 4.5a)";
+            []
+          end
+          else if List.length checked_arms <> List.length arms then []
+          else [ { C.statement_kind = C.Match { subject; arms = checked_arms }; statement_span = span } ]
+      | _ -> [])
 
 and check_for fctx span loop_name (variable : name) iterable at handling body =
   let context = fctx.context in
@@ -1466,7 +1644,7 @@ let check_function context (info : function_info) =
 let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program option * Diagnostic.t list) =
   let context =
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
-      aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32;
+      aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
       presets = Hashtbl.create 8; families = Hashtbl.create 8 }
   in
   let mains = ref [] in
@@ -1526,7 +1704,9 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
                     | Member_versions _ -> ())
                   members
               end
-          | Type_alias _ | Type_new _ | Family_failure _ | Family_handler _ ->
+          | Type_alias { alias_name; aliased } -> Hashtbl.replace context.aliases alias_name.text aliased
+          | Type_new { new_name; underlying } -> Hashtbl.replace context.new_types new_name.text underlying
+          | Family_failure _ | Family_handler _ ->
               report context
                 (Diagnostic.make ~span:d.declaration_span ~what:"this declaration isn't built in the oracle yet" Diagnostic.Not_built_yet
                    (match d.declaration_kind with

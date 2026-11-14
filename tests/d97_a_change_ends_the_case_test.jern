@@ -1,0 +1,12 @@
+union.tagged Status:
+    ok
+    failed[code: Int]
+end union.tagged Status
+
+fn.main[]:
+    let mut $s: Status = Status.failed[code = 3]
+    if $s: Status.failed:
+        change $s = Status.ok[]
+        println($s.code as String)
+    end if
+end fn.main

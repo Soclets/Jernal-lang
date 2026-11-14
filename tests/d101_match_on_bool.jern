@@ -1,0 +1,9 @@
+fn.main[]:
+    let $done: Bool = true
+    match $done:
+        case true:
+            println("done")
+        case false:
+            println("not done")
+    end match
+end fn.main

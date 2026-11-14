@@ -1,0 +1,39 @@
+union.tagged Light:
+    red
+    amber
+    green
+end union.tagged Light
+
+fn next[$l: Light] -> Light:
+    decl $result: Light
+    match $l:
+        case red:
+            assign $result = Light.green[]
+        case amber:
+            assign $result = Light.red[]
+        case green:
+            assign $result = Light.amber[]
+    end match
+    return $result
+end fn next
+
+fn name[$l: Light] -> String:
+    decl $text: String
+    match $l:
+        case red:
+            assign $text = "red"
+        case amber:
+            assign $text = "amber"
+        case green:
+            assign $text = "green"
+    end match
+    return $text
+end fn name
+
+fn.main[]:
+    let mut $l: Light = Light.red[]
+    for $i in range[from: 1, to: 4]:
+        println(name($l))
+        change $l = next($l)
+    end for
+end fn.main

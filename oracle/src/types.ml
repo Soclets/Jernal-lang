@@ -21,6 +21,7 @@ type t =
   | Lines                       (* what lines() gives: a sequence of String *)
   | Struct of string
   | Union of string
+  | Case of string * string      (* a union value known to be one case, inside a case test or arm (D97) *)
   | New of string * t           (* type.new: a distinct type over the same data (D61) *)
   | Unknown                     (* after an error: nothing is guessed about it (D13) *)
   | Nothing                     (* what a function that returns nothing gives *)
@@ -48,13 +49,14 @@ let rec name = function
   | Range -> "range"
   | Lines -> "lines"
   | Struct n | Union n -> n
+  | Case (u, c) -> u ^ "." ^ c
   | New (n, _) -> n
   | Unknown -> "?"
   | Nothing -> "nothing"
 
 (* Whether a value of the type can change inside, so handing it off needs `give` or `copy` (D7). *)
 let rec has_inside_that_changes = function
-  | List _ | Map _ | Array _ | Struct _ | Union _ -> true
+  | List _ | Map _ | Array _ | Struct _ | Union _ | Case _ -> true
   | New (_, t) -> has_inside_that_changes t
   | _ -> false
 
@@ -81,4 +83,5 @@ let rec same a b =
   | List x, List y -> same x y
   | Array (x, n), Array (y, m) -> n = m && same x y
   | Map (k1, a1, b1), Map (k2, a2, b2) -> k1 = k2 && same a1 a2 && same b1 b2
+  | Case (u, _), Union v | Union u, Case (v, _) -> u = v
   | _ -> a = b

@@ -1,0 +1,9 @@
+union.tagged Status:
+    ok
+    failed[code: Int]
+end union.tagged Status
+
+fn.main[]:
+    let $s: Status = Status.failed[code = 7]
+    println($s.code as String)
+end fn.main
