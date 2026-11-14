@@ -1360,7 +1360,7 @@ and check_method_call fctx span (base : expression) (words : name list) argument
           let k = check_expression fctx ~expected:(Some key_type) key in
           expect_type context key_type k;
           match method_name.text with
-          | "get" -> builtin ~fails:[ "(not decided)" ] "get" Methods.map_get value_type [ k ]
+          | "get" -> builtin ~fails:[ "not_found" ] "get" Methods.map_get value_type [ k ]
           | "contains" -> builtin "contains" Methods.map_contains Types.Bool [ k ]
           | _ -> builtin ~changes:true "remove" Methods.map_remove value_type [ k ])
       | _ ->

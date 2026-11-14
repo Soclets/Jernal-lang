@@ -1,0 +1,9 @@
+fn.main[]:
+    let $ages: Map<key: String, val: Int> = ["Ann" => 30]
+    let $age: Int = $ages.get(key: "Zoe") otherwise:
+        case not_found:
+            instead -1
+    end otherwise
+    println($age as String)
+    let $crash: Int = $ages.get(key: "Zoe")
+end fn.main

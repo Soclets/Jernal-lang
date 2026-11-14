@@ -71,4 +71,4 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 
 ## Open questions (sent to Jernal Design Claude)
 
-- The name of `get`'s failure on a missing key (D138): NotDesignedYet when it crashes.
+(none open)

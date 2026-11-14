@@ -1,0 +1,5 @@
+RuntimeError: d141_get_fails_with_not_found.jern:8:23, line 8 column 23
+ 8 |     let $crash: Int = $ages.get(key: "Zoe")
+   |                       ^^^^^^^^^^^^^^^^^^^^^
+ what: `get` failed with `not_found`, and nothing handled it
+ why:  a failure nobody handles crashes (D48, standard 6.3)
