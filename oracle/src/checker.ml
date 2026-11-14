@@ -3214,6 +3214,10 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
       | exception Not_found ->
           (* it calls a function that was refused, so it's unknown, and nothing more is said (D13) *)
           ()
+      | exception (Checked.Impossible _ as bug) ->
+          (* with errors already found, the value may lean on something refused, so it's unknown (D13);
+             in a program with no errors, it's a bug in the oracle *)
+          if not (List.exists Diagnostic.stops_the_program context.diagnostics) then raise bug
       | exception (Stack_overflow | Out_of_memory) ->
           (* trace: D5, D53 — running out of memory is a check, here while compiling *)
           report context
