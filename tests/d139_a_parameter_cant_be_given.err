@@ -1,0 +1,5 @@
+CompileTimeError: d139_a_parameter_cant_be_given.jern:2:12, line 2 column 12
+ 2 |     return give $xs
+   |            ^^^^^^^^
+ fix:  `copy $xs`
+ why:  a function sees a parameter frozen for the call, and keeping it after returning needs `copy` (D139, standard 3.6)

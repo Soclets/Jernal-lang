@@ -1,0 +1,7 @@
+fn keep[$xs: List<Int>] -> List<Int>:
+    return give $xs
+end fn keep
+
+fn.main[]:
+    let $kept: List<Int> = keep([1])
+end fn.main
