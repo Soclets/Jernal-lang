@@ -27,6 +27,11 @@ let $e: Decimal = 0.1        // exact in decimal
 let $f: Rational = 0.1       // exact as 1/10
 ```
 
+Dividing two integers with `/` gives the exact `Rational`, never a truncated integer: `7 / 2` is `7/2` (D85). Getting
+back to an `Int` says how to round, such as `(7 / 2) as.trunc Int`. Integer division has no bare form: `div.trunc`,
+`div.floor`, or `div.exact`, which fails if there's a remainder, with `mod.trunc` and `mod.floor` for the matching
+remainder. `Float / Float` gives a `Float`, and `Decimal / Decimal` a `Decimal`.
+
 A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals never need it; one that doesn't fit is a
 `CompileTimeError`. A negative is written `~-0.1`.
 

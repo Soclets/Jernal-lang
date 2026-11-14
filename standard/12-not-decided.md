@@ -4,8 +4,8 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.1 Language core
 
-- **Numbers and maths:** what `/` gives
-  (`7 / 2`), integer division, remainder, which arithmetic operators exist and how they're spelled (`+`, `-`, `*` appear
+- **Numbers and maths:** the full list of `as`
+  rounding words and what `div.exact` does per build mode (D85), which arithmetic operators exist and how they're spelled (`+`, `-`, `*` appear
   in examples), grouping with `( )` in maths, which sized types exist, and how numbers convert between types.
 - **`Bool`:** its name and its values (`true`, `false`).
 - **Comments:** `//` is used in every example, but isn't decided.

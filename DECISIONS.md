@@ -1431,3 +1431,20 @@ let $f: Rational = 0.1       // exact as 1/10
 
 This is Cyborg's `~` (its D59), as Cyborg's design session described on 2026-11-14; the owner proposed it there.
 Claude proposed it for Jernal's types; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D85. `Int / Int` is an exact `Rational`, and integer division is written out.** Dividing two integers with `/` gives
+the exact `Rational`, never a silently truncated integer: `7 / 2` is `7/2`, and `1 / 3` is `1/3`. Getting back to an
+`Int` says how to round, with `as.trunc`, `as.floor` and the like. Integer division has no bare form: `div.trunc`,
+`div.floor`, or `div.exact`, which fails if there's a remainder, with `mod.trunc` and `mod.floor` for the matching
+remainder. `Float / Float` gives a `Float`, and `Decimal / Decimal` a `Decimal`, each rounded to its own type.
+
+```
+let $half: Rational = 7 / 2
+let $n: Int = (7 / 2) as.trunc Int           // 3
+let $m: Int = 7 div.floor 2                  // 3
+let $r: Int = -7 mod.floor 2                 // 1
+```
+
+The integer division and remainder words are Cyborg's (its D48, D97), as Cyborg's design session described on
+2026-11-14. The full list of `as` rounding words, and what `div.exact` does per build mode, are not decided yet. Claude
+proposed `7 / 2` as a `Rational`; the owner chose: "Oh I love 7 or 2", taken as the exact `7/2`. (Owner, 2026-11-14)
