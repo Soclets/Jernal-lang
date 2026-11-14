@@ -5,7 +5,8 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 ## 12.1 Language core
 
 - **Text:** what a struct looks like as text, and exponent literals (D120). There's no formatting tool for now (D118).
-- **Generics:** value parameters, and naming a type at a call (D103).
+- **Generics:** a generic over a value, such as a function taking an `Array` of any length (values go in `[ ]`,
+  D135), and naming a type at a call (D103).
 - **A raw pointer type**, such as the `Ptr<u8>` in 11.2's example.
 
 - **Most of std (chapter 13):** functions used in examples but never specified, such as `open`, `close`, `now`, `trim`, `upper`, and files and the network in general, and which Unicode version each std date

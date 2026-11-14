@@ -2156,3 +2156,28 @@ end for
 
 The owner said "You can handle it", taken as "the failure can be handled in the `for`"; Claude proposed this; the owner
 chose: "yes". (Owner, 2026-11-14)
+
+**D135. `Array`, and bounds as type details in `[ ]`.** A type's details, values about which values it allows, go in
+`[ ]` after the type (D15); `< >` holds only types. All bounds must be `baked` (D5).
+
+- `List<T>` has no limit by default, and may say `[len.min: N]` and `[len.max: N]`.
+- `Array<T>` is a fixed-size array that lives inline, inside a struct or on the stack, and always says `[len: N]`.
+- Numbers may say `[min: N, max: N]`: `Int[min: 100, max: 200]`, `Float[min: 0.0, max: 1.0]`.
+- A bounded type is a type, so it can go inside `< >`: `List<Int[min: 0, max: 100]>[len.max: 3]`.
+- A literal that breaks a bound is a `CompileTimeError`. Otherwise putting in a value, or adding or removing an item,
+  that might break a bound is checked, at compile time when the compiler can tell (D8), at runtime otherwise (D53).
+- Arithmetic gives back the plain type: `$score + 50` is a plain `Int`, checked where it's stored.
+- The case test works on bounds: `if $input: Int[min: 100, max: 200]:` (D97).
+
+```
+let $xs: List<Int>[len.min: 1] = [5]
+let $pixel: Array<u8>[len: 4] = [255, 128, 0, 255]
+let $score: Int[min: 100, max: 200] = 150
+let $top: List<Int[min: 0, max: 100]>[len.max: 3] = [90, 75, 100]
+```
+
+This also settles part of D103's value parameters: values about a type go in `[ ]`, never in `< >`. Cyborg writes its
+bounds the same way, as its design session described on 2026-11-14. The owner said "Designing arr anf list", asked
+"What `len` does List use? `len.max`?", "Shouldn't it be `len.min` too? And you could do `Int[min: 100, max: 200]`, you
+know?" and "Can you put a bounded Int inside a list? And why runtime check for list max?", and chose: "yesssss".
+(Owner, 2026-11-14)

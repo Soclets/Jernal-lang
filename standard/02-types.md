@@ -117,6 +117,27 @@ Maps come in kinds, as narrowings (D64):
 
 A bare `Map` is `Map.insertion`. There are no tuples, since a struct names its fields, and no set literal (D64).
 
+## 2.3a Arrays and bounds
+
+A type's details, values about which values it allows, go in `[ ]` after the type; `< >` holds only types (D135). All
+bounds are `baked`.
+
+- `List<<item type>>` has no limit by default, and may say `[len.min: <n>]` and `[len.max: <n>]`.
+- `Array<<item type>>[len: <n>]` is a fixed-size array that lives inline, inside a struct or on the stack.
+- Numbers may say `[min: <n>, max: <n>]`.
+- A bounded type is a type, so it can go inside `< >`.
+
+```
+let $xs: List<Int>[len.min: 1] = [5]
+let $pixel: Array<u8>[len: 4] = [255, 128, 0, 255]
+let $score: Int[min: 100, max: 200] = 150
+let $top: List<Int[min: 0, max: 100]>[len.max: 3] = [90, 75, 100]
+```
+
+A literal that breaks a bound is a `CompileTimeError`. Otherwise a value or an item count that might break a bound is
+checked: at compile time when the compiler can tell, at runtime otherwise. Arithmetic gives back the plain type, checked
+where it's stored. The case test works on bounds: `if $input: Int[min: 100, max: 200]:`.
+
 ## 2.4 Structs
 
 A struct is a block of fields, each written without `$` (D56). A field may have a default, written `= value` after its
