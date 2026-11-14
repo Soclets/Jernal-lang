@@ -1901,3 +1901,19 @@ end main.jern
 
 Not decided yet: whether a block can apply to every file. The owner said "nah, it's all in Journey, you say the file",
 and, asked how: "you make a block." (Owner, 2026-11-14)
+
+**D115. An `all` block gives every file a short name.** In `Journey.siml`, `all:` ... `end all` holds `use` lines for
+every file in the package. A short name in `all` that a file's own block also gives is a clash, and Journey refuses
+the manifest. Settles D114's open question.
+
+```
+all:
+use time.seconds as seconds
+end all
+
+main.jern:
+use show.stored as "show_stored"
+end main.jern
+```
+
+Claude proposed `all`; the owner chose: "B, Journey won't compile if you clash with specific". (Owner, 2026-11-14)

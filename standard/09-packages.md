@@ -83,7 +83,8 @@ gives raw bytes.
 ## 9.3 `use`
 
 `use path as name` gives something a short name in one file (D60). `use` lines live in `Journey.siml`, inside a block
-named after the file, never in a `.jern` file (D114). The path is written short. One name per `use`, with
+named after the file, never in a `.jern` file (D114). An `all:` ... `end all` block applies to every file; the same
+short name in `all` and a file's block is a clash, and the manifest is refused (D115). The path is written short. One name per `use`, with
 no wildcards.
 
 - An unquoted name must match the last word of its path.
