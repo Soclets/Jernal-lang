@@ -9,6 +9,7 @@
 - f32 and f16 (D93): sums rounded to the format must equal Python's struct rounding ('f' and 'e').
 - sum (D38): `$xs.sum()` on a List<Float> must equal math.fsum, which D38 names as the model.
 - rounding words (D91): as.trunc, as.floor, as.ceil, as.round.even and as.round.away from Float to Int.
+- overflow on purpose (D91, D92): plus/minus/times .wrap and .saturate, as.wrap and as.saturate, on random widths.
 
 Usage, from the repository root:  python3 -I oracle/tools/crosscheck.py <scratch folder>
 """
@@ -144,4 +145,28 @@ for i in range(300):
     expected.append(str({"trunc": int(x), "floor": math.floor(x), "ceil": math.ceil(x), "round.even": round(x),
                          "round.away": away}[word]))
 rounding_ok = run("rounding", lines, expected)
-sys.exit(0 if floats_ok and decimals_ok and integers_ok and rationals_ok and small_floats_ok and sums_ok and rounding_ok else 1)
+random.seed(92)
+lines, expected = [], []
+for i in range(300):
+    width = random.choice([1, 2, 4, 8, 16, 32, 64, 128, 256])
+    signed = random.random() < 0.5
+    if signed and width == 1:
+        width = 2
+    name = ("i" if signed else "u") + str(width)
+    low, high = (-(1 << (width - 1)), (1 << (width - 1)) - 1) if signed else (0, (1 << width) - 1)
+    a, b = random.randint(low, high), random.randint(low, high)
+    word = random.choice(["plus", "minus", "times"])
+    how = random.choice(["wrap", "saturate"])
+    exact = {"plus": a + b, "minus": a - b, "times": a * b}[word]
+    wrap = lambda x: (x - low) % (1 << width) + low
+    saturate = lambda x: max(low, min(high, x))
+    lines += ["    let $a%d: %s = %d" % (i, name, a), "    let $b%d: %s = %d" % (i, name, b),
+              "    let $c%d: %s = $a%d %s.%s $b%d" % (i, name, i, word, how, i), "    println($c%d as String)" % i]
+    expected.append(str(wrap(exact) if how == "wrap" else saturate(exact)))
+    big = random.randint(-(1 << 300), 1 << 300)
+    lines += ["    let $w%d: not_two_pow.i301 = %d" % (i, big), "    let $x%d: %s = $w%d as.%s %s" % (i, name, i, how, name),
+              "    println($x%d as String)" % i]
+    expected.append(str(wrap(big) if how == "wrap" else saturate(big)))
+overflow_ok = run("overflow", lines, expected)
+sys.exit(0 if floats_ok and decimals_ok and integers_ok and rationals_ok and small_floats_ok and sums_ok and rounding_ok
+         and overflow_ok else 1)
