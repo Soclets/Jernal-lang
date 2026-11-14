@@ -86,7 +86,8 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 ## Choices made without a decision (to confirm)
 
 - A package's `.jern` files are the ones directly in its folder, not in subfolders.
-- Tests run with empty standard input and no arguments.
+- Tests run with empty standard input and no arguments, and a test running longer than 60 seconds is stopped and
+  fails (`JERNORAC_TEST_SECONDS` changes the limit, for checking the runner itself).
 - `$m.remove(key:)` with a missing key is a check, like `$m[key:]`.
 - An `assign` inside a loop is refused, even when a `break` follows it (to ask: how precise "once on each path" is).
 - A number literal with nowhere to land (`println(5 as String)`, `if 3 < 4:`) is an `Int`; a literal with a `.` there

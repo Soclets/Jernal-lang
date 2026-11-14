@@ -46,20 +46,43 @@ let run ~(folder : string) ~(only : string list) : int =
   let scratch = Filename.concat (Filename.get_temp_dir_name ()) (Printf.sprintf "jernorac-tests-%d" (Unix.getpid ())) in
   (try Unix.mkdir scratch 0o755 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
   let pending = ref tests and running = ref [] and outcomes = ref [] in
+  (* a test that runs longer than this is stopped and counts as failed, so one endless loop can't hang the run *)
+  let limit = match Sys.getenv_opt "JERNORAC_TEST_SECONDS" with Some s -> float_of_string s | None -> 60.0 in
+  let started = Hashtbl.create 8 in
+  Sys.set_signal Sys.sigalrm (Sys.Signal_handle (fun _ -> ()));
+  ignore (Unix.setitimer Unix.ITIMER_REAL { Unix.it_interval = 1.0; it_value = 1.0 });
   while !pending <> [] || !running <> [] do
     while !pending <> [] && List.length !running < cores do
       let test = List.hd !pending in
       pending := List.tl !pending;
-      running := start ~executable ~folder ~scratch test :: !running
+      let (pid, _, _, _) as started_test = start ~executable ~folder ~scratch test in
+      Hashtbl.replace started pid (Unix.gettimeofday ());
+      running := started_test :: !running
     done;
-    let pid, status = Unix.wait () in
-    match List.find_opt (fun (p, _, _, _) -> p = pid) !running with
-    | Some (_, test, o, e) ->
-        running := List.filter (fun (p, _, _, _) -> p <> pid) !running;
-        outcomes := finish ~folder (test, o, e, status) :: !outcomes;
-        (try Sys.remove o; Sys.remove e with Sys_error _ -> ())
-    | None -> ()
+    (* wait for a test to end; a timer interrupts the wait once a second to look at the time limit *)
+    let pid, status = try Unix.wait () with Unix.Unix_error (Unix.EINTR, _, _) -> (0, Unix.WEXITED 0) in
+    if pid = 0 then begin
+      let now = Unix.gettimeofday () in
+      List.iter
+        (fun (p, test, o, e) ->
+          if now -. Hashtbl.find started p > limit then begin
+            (try Unix.kill p Sys.sigkill with Unix.Unix_error _ -> ());
+            ignore (Unix.waitpid [] p);
+            running := List.filter (fun (q, _, _, _) -> q <> p) !running;
+            outcomes := { test; passed = false; problems = [ Printf.sprintf "it ran longer than %.0f seconds and was stopped" limit ] } :: !outcomes;
+            (try Sys.remove o; Sys.remove e with Sys_error _ -> ())
+          end)
+        !running
+    end
+    else
+      match List.find_opt (fun (p, _, _, _) -> p = pid) !running with
+      | Some (_, test, o, e) ->
+          running := List.filter (fun (p, _, _, _) -> p <> pid) !running;
+          outcomes := finish ~folder (test, o, e, status) :: !outcomes;
+          (try Sys.remove o; Sys.remove e with Sys_error _ -> ())
+      | None -> ()
   done;
+  ignore (Unix.setitimer Unix.ITIMER_REAL { Unix.it_interval = 0.0; it_value = 0.0 });
   (try Unix.rmdir scratch with Unix.Unix_error _ -> ());
   let outcomes = List.sort (fun a b -> compare a.test b.test) !outcomes in
   let failed = List.filter (fun o -> not o.passed) outcomes in
