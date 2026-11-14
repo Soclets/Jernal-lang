@@ -6,7 +6,14 @@
 `FinalPerf`, where `+`, `-` and `*` wrap (D71). Sized types such as `i32` (a 32-bit signed integer) are all available
 for whoever needs them (D25). Spelling out a default is always allowed: `i64` works wherever `Int` does (D64).
 
-Which sized types exist, and how they convert, isn't decided yet, nor are floats, decimals and `Bool` (chapter 12).
+Which sized types exist, and how they convert, isn't decided yet, nor is `Bool` (chapter 12).
+
+## 2.1a Floats, decimals and rationals
+
+- `Float` is IEEE 754 binary64. NaN and infinity exist, as IEEE says. There are no float kinds; stable floats, the same
+  bits on every machine, may come later as `f64.stable` (D82).
+- `Decimal` is built in: an exact decimal number (D82). Its size isn't decided yet.
+- `Rational` is built in: an exact fraction (D82). Its representation isn't decided yet.
 
 ## 2.2 Strings
 

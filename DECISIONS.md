@@ -1397,3 +1397,11 @@ one file per chapter and a last chapter listing every open question. `DECISIONS.
 chosen. Every decision updates both, in the same commit. JernComp and JernOrac are built from the standard, and
 anything in its "Not decided yet" chapter gives `NotDesignedYet`. The owner asked "Should we have a standard?"; Claude
 proposed this; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D82. `Float` is IEEE binary64, and `Decimal` and `Rational` are built in.** There is one float type, `Float`, which
+is IEEE 754 binary64; NaN and infinity exist, as IEEE says. There are no float kinds for now. Stable floats, the same
+bits on every machine, come later if ever, as `f64.stable`. `Decimal` and `Rational` are built in. Decimal's size and
+Rational's representation are not decided yet. Cyborg instead has three float kinds and no built-in decimal, as its
+design session described on 2026-11-14. The owner asked "You know how big stable floats are, right?", and chose:
+"(a). There's just `Float` which is IEEE Binary64. `Decimal` is built in, but what IEEE size? And Rationale should
+also be built-in. Stable floats come later, if ever (as `f64.stable`)". (Owner, 2026-11-14)
