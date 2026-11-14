@@ -1,0 +1,5 @@
+CompileTimeError: d41_a_pure_function_cant_change_self.jern:6:17, line 6 column 17
+ 6 |     fn bump[mut $self: Counter]:
+   |                 ^^^^^
+ what: a pure function can't change `$self`, since that changes its caller's value
+ why:  a pure function changes nothing else (D41, standard 5.2)

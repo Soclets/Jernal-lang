@@ -1,0 +1,13 @@
+struct Counter:
+    count: Int
+end struct Counter
+
+fam.fn.pure Counter:
+    fn bump[mut $self: Counter]:
+        change $self.count = $self.count + 1
+    end fn bump
+end fam.fn.pure Counter
+
+fn.main[]:
+    println("never")
+end fn.main

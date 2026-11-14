@@ -2781,6 +2781,14 @@ let file_scope context file =
 
 let check_function context (info : function_info) =
   let declaration = info.declaration in
+  (* trace: D41 — a pure function changes nothing else, and `mut $self` would change the caller's value *)
+  if info.pure then
+    List.iter
+      (fun (p : parameter) ->
+        if p.self_mutable then
+          error context ~what:"a pure function can't change `$self`, since that changes its caller's value" p.parameter.span
+            "a pure function changes nothing else (D41, standard 5.2)")
+      declaration.parameters;
   context.current_file <- info.file;
   context.type_parameters <- List.map (fun ((n : name), (r : requirement)) -> (n.text, r.requirement_names)) declaration.type_parameters;
   let fctx = { context; info; scopes = [ Hashtbl.create 8; file_scope context info.file ]; loops = []; arm_values = [] } in
