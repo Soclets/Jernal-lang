@@ -880,3 +880,11 @@ Cyborg writes members by their full dotted name with no keyword (from Radium's s
 except in its `fam.fn`, as Cyborg's design session described on 2026-11-13. The owner asked "Where's handler fam?" and
 "Ask"; Claude offered short names with a keyword everywhere, or full names everywhere; the owner chose: "A". (Owner,
 2026-11-13)
+
+**D50. Garbage collection only.** Memory is managed by a garbage collector alone, with no reference counting. Passing
+references around costs nothing, and cycles need no special handling. `give` already proves when a value has a single
+owner, so reference counts would add nothing for that. `copy` copies right away, where it's written; a compiler may
+make it lazy (copy-on-write) only where it can prove nobody could notice. Things like open files aren't freed the moment
+they're unused, so they need explicit cleanup, which is not decided yet. The owner's sketch already said "GC"; the owner
+asked "What if we change to copy-on-write?", "What if we go both RC and GC? And copy-on-write" and "What if we go GC
+only?"; Claude proposed GC only, with `copy` copying right away; the owner chose: "yea". (Owner, 2026-11-14)
