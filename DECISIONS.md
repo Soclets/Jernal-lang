@@ -1194,3 +1194,10 @@ collected often; objects that survive move to an old area collected by mark-and-
 `gc.relocate`. Write barriers catch an old object getting a pointer to a new one; frozen `let` values (D6) never change,
 so they never trigger one. Claude compared non-moving, copying and generational collectors; the owner chose: "Gener".
 (Owner, 2026-11-14)
+
+**D68. A fully concurrent GC, from the start.** Both generations (D67) are collected alongside the running program,
+so there are no long pauses, only brief ones to start and finish a collection. Moving objects while the program uses
+them needs read barriers, a check on every pointer load, as well as D67's write barriers. That costs some throughput and
+is the hardest GC design to get right; the model is Java's Generational ZGC. Claude compared stop-the-world, concurrent
+and mixed, and recommended mixed; the owner asked "What has better perf?", said "I mean, my ass is not used to a long-ass
+paused, tbh", asked "Concurent from statr?", and chose: "Fully concur, it seems fun." (Owner, 2026-11-14)
