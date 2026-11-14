@@ -4,9 +4,6 @@ Straight to the fucking point.
 
 The language is described in [`standard/`](standard/), and every decision behind it is in [`DECISIONS.md`](DECISIONS.md).
 
-**Status:** JernOrac, the oracle that runs Jernal straight from the standard (`jern run --Interp`), is being built in
-[`oracle/`](oracle/), with its tests in [`tests/`](tests/). JernComp, the compiler, comes after.
-
 ## Cool features
 
 - **Families.** One name, many kinds. `fam.fn show` holds `show`, its narrowings like `show.stored` and `show.hex`,
