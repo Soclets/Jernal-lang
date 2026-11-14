@@ -31,6 +31,9 @@ target.windows need win_console 2026y-11m-01d
 mode.Working rule unused.variable warn
 ```
 
+The manifest is checked, with errors in 7.3's format, and compiled into the fastest form for the tools to load,
+recompiled whenever it changes (D113).
+
 siml is one fact per line: what the line is, then its values separated by spaces. There are no sections, `=` or `;`.
 Blank lines group, quotes are used only when needed, comments are `//`, and a list is repeated lines (D76).
 

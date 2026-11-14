@@ -1881,3 +1881,8 @@ Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
 **D112. No package features.** A `need` has no `with` and a package has no optional parts; an optional part is a
 separate package. Claude proposed none for now; the owner said: "There's none, just don't fucking have it in there".
 (Owner, 2026-11-14)
+
+**D113. The manifest is checked and compiled.** `Journey.siml` isn't just read: it's checked, with errors in D10's
+format, and compiled into the fastest form for the tools to load, recompiled whenever it changes. The time saved is
+small, and it's done anyway. Claude described the manifest as only read; the owner said: "Nope, it's checked, and
+compiles to the fastest thing, even though it saves less time than just not compiling it". (Owner, 2026-11-14)
