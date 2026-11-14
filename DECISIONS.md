@@ -918,3 +918,34 @@ change $other[pos: 1][pos: 1] = 9      // $grid is still [[1, 2], [3, 4]]
 
 The owner asked: "How deep does `copy` copy?"; Claude proposed deep, sharing frozen parts; the owner chose: "yea".
 (Owner, 2026-11-14)
+
+**D53. Which problems are failures and which are checks.** Failures are real-world events a program can handle (D48).
+Checks are bugs in the program's own assumptions: they are `RuntimeError`s, can't be handled, and are prevented up
+front instead, with an `if` first or by D8's compile-time checks.
+
+Failures:
+
+| Problem | Example |
+|---|---|
+| a file not found, no permission, a full disk | `open($path)` |
+| the network down, a connection lost | `connect($host)` |
+| text that isn't a number | turning `"abc"` into an `Int` |
+| text too long for a limit | a bounded string |
+
+Checks:
+
+| Problem | Example |
+|---|---|
+| a position outside the list | `$xs[pos: 0]`, `$xs[pos: 99]` |
+| dividing by zero | `$a / 0` |
+| a false contract | `requires $n at_least 1` |
+| a `step_by:` of 0 | a range that never ends |
+| a number too big for its type | an `Int` overflowing (D54) |
+| running out of memory | |
+
+A position that comes from outside, such as user input, can be asked for as a failure instead: a method like
+`$xs.get(pos: $p)` fails where `$xs[pos: $p]` is a check. Its exact name is not decided yet. Cyborg's design session
+advised writing this list first. Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D54. `Int` is `i64`.** Settles D25's open question: `Int` is a 64-bit signed integer. It never wraps: going past its
+range is a check (D53). The owner said: "(`Int` is `i64`)". (Owner, 2026-11-14)
