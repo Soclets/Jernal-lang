@@ -1467,3 +1467,24 @@ owner said: "That means Fuck it, motherfucker", taken as yes to all three. (Owne
 is withdrawn too: Jernal has no `/` operator. How dividing is written, and how a `Rational` like 7/2 is made, are not
 decided yet. D85's written-out `div.trunc`, `div.floor`, `div.exact`, `mod.trunc` and `mod.floor` are not affected. The
 owner said: "Let me be clear here: No `/`, and I didn't approve the last msg". (Owner, 2026-11-14)
+
+**D88. Dividing is `div`, and on integers it says which kind.** Settles how dividing is written after D87. Integer
+division has four kinds, and a bare `div` on integers is refused, listing them:
+
+```
+7 div.trunc 2        // 3: rounds toward zero
+-7 div.floor 2       // -4: rounds down
+6 div.exact 2        // 3; with a remainder, it fails
+7 div.rational 2     // 7/2, an exact Rational
+7 div 2              // refused: say which
+```
+
+On `Float`, `Decimal` and `Rational`, there's one sensible answer, so a bare `div` is used, and the result stays in the
+same type: a `Float` rounded to nearest as IEEE says, a `Decimal`, or an exact `Rational`.
+
+```
+7.0 div 2.0          // 3.5
+```
+
+`mod.trunc` and `mod.floor` stay as in D85. The owner said: "Say it, `div.` what"; Claude proposed this; the owner
+chose: "yes". (Owner, 2026-11-14)

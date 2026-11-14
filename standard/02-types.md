@@ -27,9 +27,18 @@ let $e: Decimal = 0.1        // exact in decimal
 let $f: Rational = 0.1       // exact as 1/10
 ```
 
-Integer division has no bare form: `div.trunc`, `div.floor`, or `div.exact`, which fails if there's a remainder, with
-`mod.trunc` and `mod.floor` for the matching remainder (D85). There is no `/` operator (D87); how other dividing is
-written, and how a `Rational` is made, aren't decided yet.
+Dividing is `div` (D88). On integers, it says which kind, and a bare `div` is refused:
+
+```
+7 div.trunc 2        // 3: rounds toward zero
+-7 div.floor 2       // -4: rounds down
+6 div.exact 2        // 3; with a remainder, it fails
+7 div.rational 2     // 7/2, an exact Rational
+7 div 2              // refused: say which
+```
+
+On `Float`, `Decimal` and `Rational`, a bare `div` keeps the same type: `7.0 div 2.0` is `3.5`. The remainder is
+`mod.trunc` or `mod.floor`, matching its division (D85). There is no `/` (D87).
 
 A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals never need it; one that doesn't fit is a
 `CompileTimeError`. A negative is written `~-0.1`.
