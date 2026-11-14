@@ -1,0 +1,22 @@
+fam.fn show:
+    fn show[$x: Int, $sign: String] -> String:
+        labels [$sign as sign]
+        defaults [$sign = ""]
+        return $sign $x as String
+    end fn show
+
+    preset signed [$sign = "+"]
+
+    fn twice[$x: Int] -> String:
+        let $text: String = $x as String
+        return $text $text
+    end fn twice
+end fam.fn show
+
+fn.main[]:
+    let $n: Int = 42
+    println($n.show())
+    println($n.show.signed())
+    println($n.show.twice())
+    println(show($n, sign: "~"))
+end fn.main

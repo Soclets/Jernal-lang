@@ -1865,11 +1865,51 @@ and check_method_call_checked fctx span (target : C.expression) (receiver : expr
           let self = List.hd f.declaration.parameters in
           if self.self_mutable then require_changeable fctx receiver ~method_text;
           check_user_call fctx span f [] (Some target) arguments
-      | _ ->
-          refuse context
-            ~what:(Printf.sprintf "%s has no method called %s" (type_text target.type_) (quote method_name.text))
-            method_name.span "a type's methods are the functions in its family with `$self` first (D43, standard 5.4)")
-  | t, _, _ -> not_built_method t
+      | _ -> (
+          match family_function_on fctx span target receiver words arguments with
+          | Some call -> call
+          | None ->
+              refuse context
+                ~what:(Printf.sprintf "%s has no method called %s" (type_text target.type_) (quote method_name.text))
+                method_name.span "a type's methods are the functions in its family with `$self` first (D43, standard 5.4)"))
+  | t, _, _ -> (
+      match family_function_on fctx span target receiver words arguments with
+      | Some call -> call
+      | None -> not_built_method t)
+
+(* `$x.show()`, `$x.show.stored()`, `$x.show.hex()`: a family's function, its preset or its narrowing,
+   called with a dot on a value that matches its first parameter (D40, D44, D45, standard 5.6). *)
+and family_function_on fctx span (target : C.expression) receiver (words : name list) arguments : C.expression option =
+  let context = fctx.context in
+  let all = List.map (fun (n : name) -> n.text) words in
+  let rec longest k =
+    if k = 0 then None
+    else
+      let name = String.concat "." (List.filteri (fun i _ -> i < k) all) in
+      match Hashtbl.find_all context.functions name with
+      | _ :: _ -> (
+          match find_function context ~from_file:fctx.info.file ~span name with
+          | Some f -> Some (f, List.filteri (fun i _ -> i >= k) words)
+          | None -> None)
+      | [] -> longest (k - 1)
+  in
+  match longest (List.length all) with
+  | Some (f, presets)
+    when (match f.parameter_types with first :: _ -> Types.same first target.type_ | [] -> false)
+         && f.declaration.type_parameters = [] ->
+      ignore receiver;
+      let settings =
+        List.concat_map
+          (fun (preset : name) ->
+            match Hashtbl.find_opt context.presets (f.full_name ^ "." ^ preset.text) with
+            | Some s -> s
+            | None ->
+                refuse context ~what:(Printf.sprintf "%s has no preset called %s" (quote f.full_name) (quote preset.text))
+                  preset.span "`preset name [...]` fills in some of the family function's labelled arguments (D45, standard 5.6)")
+          presets
+      in
+      Some (check_user_call fctx span f settings (Some target) arguments)
+  | _ -> None
 
 (* ---------- Statements ---------- *)
 
