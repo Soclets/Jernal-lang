@@ -1142,3 +1142,35 @@ my::and($x, $y)                 // never mistaken for the operator `and`
 This is Cyborg's `my::` (its D75, D214), as Cyborg's design session described on 2026-11-14. The owner asked "But is
 `my::` required? Personally, I don't think it should be", then "Why not just require only for clashing ones? Current
 clashing"; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D64. Collection literals, and map kinds.** Lists and maps are written with `[ ]`, and the declared type decides what
+a literal is:
+
+```
+let $xs: List<Int> = [1, 2, 3]
+let $ages: Map<String, Int> = ["Ann" => 30, "Bob" => 25]
+let $none: List<Int> = []
+let $nobody: Map<String, Int> = []
+let $big: List<String> = [
+    "first",
+    "second",
+]
+```
+
+- A map writes `key => value`. `->` already means "returns" (D24), and `=` builds structs (D56).
+- `[]` is empty for both, as the type says (D14).
+- A comma after the last item is allowed. Settles D19's open question.
+- There are no tuples, since a struct names its fields, and no set literal.
+- Maps come in kinds, as narrowings: `Map.hash` (no order), `Map.sorted` (by key) and `Map.insertion` (the order
+  added). A bare `Map` is `Map.insertion`.
+- Spelling out a default is allowed, never refused: `Map.insertion` like `Map`, `i64` like `Int`. Jernal is
+  progressive, so the plain name comes first and the precise one is always there. The same goes for `String.utf8`.
+- Narrowings are lowercase, even on a capitalized type: `String.utf8`, `Map.hash`.
+
+Cyborg has only list and array literals, no map literal, and refuses a bare `map`, as Cyborg's design session
+described on 2026-11-14; it suggested a separator other than `=` for maps. The owner said "Ask Cyborg"; Claude
+proposed `->`; the owner said "That's already used for returns, though. Maybe `=>` instead?", asked "Is there only one
+kind of `Map`? Isn't there more? Maybe with a dot?", chose "yea" to a bare `Map` meaning insertion order, and said:
+"Should we refuse the same option? Like `Map.insertion` is refused, write `Map`? I don't think so, since `i64` would also
+be refused. And we're not the same as Cyborg's pitch, we're progressive. So, `String.utf8` wouldn't be refused too. And
+does the `Utf8` need to be big first letter?" (Owner, 2026-11-14)
