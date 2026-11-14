@@ -1861,3 +1861,19 @@ ver 2026y-11m-20d breaks
 ```
 
 Claude proposed `breaks` / `adds` / `fixes`; the owner chose: "`breaks`, and `not_broken`". (Owner, 2026-11-14)
+
+**D111. The manifest scopes a line with a prefix.** A line that applies only in some situations starts with a scope,
+joined with `.`; the rest of the line is what it would be unscoped. There are no blocks or indentation, so every line
+stands on its own. Scopes stack, strongest first. The scopes are `target.` (operating system or CPU) and `mode.` (build
+mode, D70).
+
+```
+need std 2026y-11m-14d
+target.windows need win_console 2026y-11m-01d
+rule mut.never_changed refuse
+mode.Working rule unused.variable warn
+target.windows.mode.FinalPerf rule unused.variable refuse
+```
+
+Settles the manifest's nesting, following Cyborg's planned prefix, as its design session described on 2026-11-14.
+Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)

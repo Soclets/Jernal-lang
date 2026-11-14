@@ -22,6 +22,14 @@ rule mut.never_changed refuse
 - `need <package> <date>`: one per package, with the version always written.
 - `rule`: the compiler's and linter's rules, so configuration stays out of the code.
 
+A line that applies only in some situations starts with a scope, joined with `.`: `target.` (operating system or CPU)
+or `mode.` (build mode). Scopes stack, strongest first (D111).
+
+```
+target.windows need win_console 2026y-11m-01d
+mode.Working rule unused.variable warn
+```
+
 siml is one fact per line: what the line is, then its values separated by spaces. There are no sections, `=` or `;`.
 Blank lines group, quotes are used only when needed, comments are `//`, and a list is repeated lines (D76).
 
