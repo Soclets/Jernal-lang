@@ -1,4 +1,4 @@
-# Jernal (no implementation yet)
+# Jernal
 
 Straight to the fucking point.
 
