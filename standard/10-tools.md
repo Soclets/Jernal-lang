@@ -49,7 +49,7 @@ JernOrac uses OCaml's own garbage collector, not JernGC, and holds Jernal's inte
 
 | What goes wrong | `FinalSafe` | `FinalPerf` |
 |---|---|---|
-| overflow on `+`, `-` or `*` | crash | wraps |
+| overflow on `+`, `-` or `x` | crash | wraps |
 | a position out of bounds, dividing by zero, `step_by: 0` | crash | undefined behaviour |
 | a false contract | crash | undefined behaviour; the optimizer may treat it as true |
 | a failure nobody handled | crash | crash |

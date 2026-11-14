@@ -3,7 +3,7 @@
 ## 2.1 Integers
 
 `Int` is a 64-bit signed integer, `i64` (D54). It never wraps: going past its range is a check (chapter 7), except in
-`FinalPerf`, where `+`, `-` and `*` wrap (D71). Sized types such as `i32` (a 32-bit signed integer) are all available
+`FinalPerf`, where `+`, `-` and `x` wrap (D71). Sized types such as `i32` (a 32-bit signed integer) are all available
 for whoever needs them (D25). Spelling out a default is always allowed: `i64` works wherever `Int` does (D64).
 
 Integers come in any width from 1 to 8,388,607 bits, signed (`i…`) and unsigned (`u…`) (D93). A power-of-two width is
