@@ -1,0 +1,62 @@
+union.tagged Event:
+    deposit[amount: Int]
+    withdraw[amount: Int]
+    close
+end union.tagged Event
+
+struct Account:
+    owner: String
+    balance: Int = 0
+    open: Bool = true
+end struct Account
+
+fam.failure bank_failed:
+    failure overdrawn[short_by: Int]
+    failure closed
+end fam.failure bank_failed
+
+fam.fn Account:
+    fn apply[mut $self: Account, $event: Event] fails [bank_failed]:
+        if not $self.open:
+            fail bank_failed.closed
+        end if
+        match $event:
+            case deposit $d:
+                change $self.balance = $self.balance + $d.amount
+            case withdraw $w:
+                if $w.amount > $self.balance:
+                    fail bank_failed.overdrawn[short_by = $w.amount - $self.balance]
+                end if
+                change $self.balance = $self.balance - $w.amount
+            case close:
+                change $self.open = false
+        end match
+    end fn apply
+end fam.fn Account
+
+fn.main[]:
+    let mut $account: Account = Account[owner = "Ann"]
+    let $events: List<Event> = [
+        Event.deposit[amount = 100],
+        Event.withdraw[amount = 30],
+        Event.withdraw[amount = 500],
+        Event.close[],
+        Event.deposit[amount = 1],
+    ]
+    let mut $log: Map<key: String, val: Int> = []
+    for $event in $events at pos $p:
+        $account.apply($event) otherwise:
+            case bank_failed.overdrawn $o:
+                println("event " $p as String ": short by " $o.short_by as String)
+                let $before: Int = $log.get(key: "overdrawn") ?? 0
+                change $log[key: "overdrawn"] = $before + 1
+            case bank_failed.closed:
+                println("event " $p as String ": closed")
+                change $log[key: "closed"] = 1
+        end otherwise
+    end for
+    println($account.owner " has " $account.balance as String)
+    for $kind in $log.keys.sorted():
+        println($kind ": " $log[key: $kind] as String)
+    end for
+end fn.main

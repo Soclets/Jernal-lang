@@ -1,0 +1,29 @@
+fn factorial[$n: Int] -> Int:
+    requires $n at_least 0
+    if $n at_most 1:
+        return 1
+    end if
+    return $n x factorial($n - 1)
+end fn factorial
+
+fn fibonacci[$n: Int] -> Int:
+    if $n < 2:
+        return $n
+    end if
+    return fibonacci($n - 1) + fibonacci($n - 2)
+end fn fibonacci
+
+fn.main[]:
+    for $i in range[from: 0, to: 20, step_by: 5]:
+        let $value: Int = factorial($i)
+        println($i as String "! = " $value as String)
+    end for
+    let mut $fibs: List<Int> = []
+    for $i in range[from: 1, to: 10]:
+        $fibs.add(fibonacci($i))
+    end for
+    let $total: Int = $fibs.sum()
+    println("sum of the first ten: " $total as String)
+    let $too_big: Int = factorial(21)
+    println("never")
+end fn.main

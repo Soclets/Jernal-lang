@@ -83,6 +83,10 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - A literal `Status.ok[]` builds a case with no data; `Status.ok` alone isn't a value.
 - A value stored where it can change (`let mut`, `change`, `add`) is copied, so nothing frozen changes through it.
 
+## Next batch for Jernal Design Claude (send about hourly)
+
+- How tightly `??`, `?`, `otherwise` and `as` bind next to D90's operators: `$m.get(key: $k) ?? 0 + 1` [`??` loosest].
+
 ## Open questions (sent to Jernal Design Claude, waiting on Tankun)
 
 - Package tests: a subfolder of `tests/` with its own `Journey.siml` is one test, with `<folder>.out/.err/.exit`.
