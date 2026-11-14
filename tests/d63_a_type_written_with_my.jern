@@ -1,0 +1,9 @@
+struct my::String:
+    text: Int
+end struct my::String
+
+fn.main[]:
+    let $s: my::String = my::String[text = 5]
+    let $plain: String = "plain"
+    println($s.text as String " " $plain)
+end fn.main

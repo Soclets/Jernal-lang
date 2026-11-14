@@ -1,0 +1,7 @@
+struct String:
+    text: Int
+end struct String
+
+fn.main[]:
+    println("never")
+end fn.main

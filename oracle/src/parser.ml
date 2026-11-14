@@ -1467,15 +1467,29 @@ let unfinished_declaration state ~what ~why ~designed : declaration_kind =
   if line_opens_block state then skip_block state else skip_line state;
   Unfinished_declaration { what; why; designed }
 
+(* A type of the program's own named like a built-in type is written with `my::` (D63). *)
+let check_built_in_type_name state ~my (n : name) =
+  let built_in =
+    List.mem n.text [ "Int"; "Float"; "Decimal"; "Rational"; "Bool"; "String"; "List"; "Array"; "Map"; "Any" ]
+    || (match n.text.[0] with 'i' | 'u' | 'f' -> String.length n.text > 1 && String.for_all (fun c -> c >= '0' && c <= '9') (String.sub n.text 1 (String.length n.text - 1)) | _ -> false)
+  in
+  (* trace: D63 *)
+  if built_in && not my then
+    report state (error_diagnostic ~fix:(Printf.sprintf "`my::%s`" n.text) n.span
+                    "a name of the program's own that is also a built-in word is written with `my::` (D63, standard 9.4)")
+
 let parse_struct state : declaration_kind =
   let start = expect_word state "struct" in
   let struct_narrowings = dotted_words state in
+  let struct_my = if is_word state "my" && (peek_at state 1).kind = Double_colon then (ignore (advance state); ignore (advance state); true) else false in
   let struct_name = expect_name state "the struct's name" in
+  check_built_in_type_name state ~my:struct_my struct_name;
   let struct_type_parameters = parse_type_parameters state in
   ignore (expect state Colon "`:`");
   end_of_line state;
   let closer =
-    String.concat "." ("struct" :: List.map (fun n -> n.text) struct_narrowings) ^ " " ^ struct_name.text
+    String.concat "." ("struct" :: List.map (fun n -> n.text) struct_narrowings) ^ " " ^ (if struct_my then "my::" else "")
+    ^ struct_name.text
   in
   let fields =
     with_block state closer (fun () ->
@@ -1511,11 +1525,13 @@ let parse_union state : declaration_kind =
    | [ { text = "tagged"; _ } ] -> ()
    | [] -> report state (error_diagnostic ~fix:"`union.tagged`" start.span "a union is always written `union.tagged` (D97, standard 2.4a)")
    | _ -> unexpected state "`union.tagged`");
+  let union_my = if is_word state "my" && (peek_at state 1).kind = Double_colon then (ignore (advance state); ignore (advance state); true) else false in
   let union_name = expect_name state "the union's name" in
+  check_built_in_type_name state ~my:union_my union_name;
   ignore (expect state Colon "`:`");
   end_of_line state;
   (* the closer repeats what the opening line said (D24) *)
-  let closer = (if narrowings = [] then "union " else "union.tagged ") ^ union_name.text in
+  let closer = (if narrowings = [] then "union " else "union.tagged ") ^ (if union_my then "my::" else "") ^ union_name.text in
   let cases =
     with_block state closer (fun () ->
         let rec go acc =
