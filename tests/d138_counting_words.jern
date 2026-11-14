@@ -1,0 +1,29 @@
+interface Ordered<?Self>:
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+String satisfies Ordered
+
+fn smallest<?Item: Ordered>[$xs: List<?Item>] -> ?Item:
+    let mut $best: ?Item = $xs.first()
+    for $x in $xs:
+        if $x < $best:
+            change $best = $x
+        end if
+    end for
+    return $best
+end fn smallest
+
+fn.main[]:
+    let $words: List<String> = ["pear", "apple", "fig", "apple", "pear", "apple"]
+    let mut $counts: Map.sorted<key: String, val: Int> = []
+    for $word in $words:
+        let $before: Int = $counts.get(key: $word) ?? 0
+        change $counts[key: $word] = $before + 1
+    end for
+    for $word in $counts.keys.sorted():
+        println($word " " $counts[key: $word] as String)
+    end for
+    let $first: String = smallest($words)
+    println("first in order: " $first)
+end fn.main
