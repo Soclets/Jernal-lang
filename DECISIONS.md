@@ -1081,3 +1081,28 @@ This is Cyborg's `use` (its D93, D150, D151, D220), as Cyborg's design session d
 asked about `use time.seconds as seconds` and `as "secs"`, then pointed out: "`time.seconds` is a narrowing,
 `show.stored` is too." Claude narrowed the rule to narrowings of a function, with quoted names allowed; the owner
 chose: "yea". (Owner, 2026-11-14)
+
+**D61. `type.alias` and `type.new`.** A type can be given another name in two ways, and there's no bare `type`:
+
+- `type.alias` is the same type under another name, fully interchangeable.
+- `type.new` is a distinct type over the same data, which doesn't mix with others. Crossing in either direction uses
+  `as`, which can't fail. A literal takes the type of where it lands.
+
+```
+type.alias Numbers = List<Int>
+type.new UserId = Int
+type.new OrderId = Int
+
+let $u: UserId = 5
+let $o: OrderId = 7
+if $u == $o:                            // refused: UserId and OrderId don't mix
+let $n: Int = $u as Int
+
+fam.type.new Ids:
+    type User = Int
+    type Order = Int
+end fam.type.new Ids                    // Ids.User, Ids.Order
+```
+
+`type.new` is for things units (D58) don't fit, such as ids. This is Cyborg's (its D134, D141), as Cyborg's design
+session described on 2026-11-14. Claude proposed it in Jernal's style; the owner chose: "yea". (Owner, 2026-11-14)
