@@ -1225,3 +1225,21 @@ not decided yet. This follows Cyborg's oracle (its rule 3) and multifinity's not
 Not decided yet: exactly which checks `FinalPerf` drops. Claude proposed `Interp`, `Working` and `FinalSafe` for v1;
 the owner chose: "Accept all of those. `Interp`, `Working`, `FinalSafe`, and `FinalPerf` is in v1." (Owner,
 2026-11-14)
+
+**D71. What `FinalPerf` does.** Settles D70's open question. `FinalPerf` is fully optimized and keeps no runtime checks;
+it assumes the program has been tested. D9's "never a wrong answer" doesn't hold in it.
+
+| What goes wrong | `FinalSafe` | `FinalPerf` |
+|---|---|---|
+| overflow on `+`, `-` or `*` | crash | wraps |
+| a position out of bounds, dividing by zero, `step_by: 0` | crash | undefined behaviour |
+| a false contract | crash | undefined behaviour; the optimizer may treat it as true |
+| a failure nobody handled | crash | crash |
+| a compile-time rule broken | refused | refused |
+
+Overflow wraps rather than being undefined, since a plain `+` isn't a promise the writer made; `-` and `*` are decided
+together with it. This is Cyborg's `FinalPerf` (its D41, D42), as Cyborg's design session described on 2026-11-14,
+where the owner said "`FinalPerf` isn't comedic, it assumes you have tested it throughly already"; Cyborg had left `-`
+and `x` undecided. The owner said "Funny, bro. It says fucking performance", asked "Did Cyborg dclaude says how
+FinalPerf works?" and "ask"; Claude proposed Cyborg's, with all three operators wrapping; the owner chose: "yea".
+(Owner, 2026-11-14)
