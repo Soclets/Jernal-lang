@@ -383,6 +383,17 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
                 "indexing works on lists (D17, standard 4.4)"
         in
         { C.kind = C.Index { target; counting; position }; type_ = item_type; span }
+    | Syntax.Key_index { target; key } -> (
+        let target = check_expression fctx ~expected:None target in
+        match underlying target.type_ with
+        | Types.Map (_, key_type, value_type) ->
+            let key = check_expression fctx ~expected:(Some key_type) key in
+            expect_type context key_type key;
+            { C.kind = C.Key_index { target; key }; type_ = value_type; span }
+        | Types.Unknown -> raise Skip
+        | t ->
+            refuse context ~what:(Printf.sprintf "%s isn't a map, so it has no `key:`" (type_text t)) span
+              "a map is read by key, labelled like indexing (D138, standard 13.3)")
     | Syntax.Bare_index _ ->
         (* trace: D17 *)
         refuse context ~what:"an index says how it counts: `pos:` from 1, or `offset:` from 0" span
@@ -425,8 +436,7 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
 and require_can_fail context (value : C.expression) =
   let fails =
     match value.kind with
-    | C.Call_builtin { builtin; _ } -> (
-        match Std_library.find builtin.builtin_name with Some s -> s.fails <> [] | None -> false)
+    | C.Call_builtin { builtin; _ } -> builtin.fails <> []
     | C.Call_function _ -> true
     | _ -> false
   in
@@ -450,6 +460,8 @@ and check_join fctx (e : expression) items =
           match x.expression_kind with
           | Syntax.String_literal _ | Syntax.Variable _ -> true
           | Syntax.Member (inner, _) -> allowed inner
+          (* an item or entry is read like a field: D138's own example joins `$ages[key: $name] as String` *)
+          | Syntax.Index { target; _ } | Syntax.Key_index { target; _ } -> allowed target
           | Syntax.Convert { value; _ } -> allowed value
           | _ -> false
         in
@@ -543,7 +555,8 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
       let ordered = operator.word <> "==" && operator.word <> "!=" in
       (match underlying l.type_ with
        | Types.Integer _ | Types.Float _ | Types.Rational | Types.Unknown -> ()
-       | Types.String | Types.Bool when not ordered -> ()
+       | Types.String -> ()   (* trace: D138 — strings order by code point *)
+       | Types.Bool when not ordered -> ()
        | Types.Struct _ | Types.Union _ | Types.List _ | Types.Map _ when not ordered ->
            not_built context ~what:(Printf.sprintf "comparing %s values isn't built in the oracle yet" (type_text l.type_))
              operator.operator_span "a type defines `==` and `<` (D105, standard 5.8)"
@@ -769,7 +782,7 @@ and check_hand_off fctx (value : C.expression) (source : expression) =
     match x.expression_kind with
     | Syntax.Variable name -> Some name
     | Syntax.Member (inner, _) -> root inner
-    | Syntax.Index { target; _ } -> root target
+    | Syntax.Index { target; _ } | Syntax.Key_index { target; _ } -> root target
     | Syntax.Grouped inner -> root inner
     | _ -> None
   in
@@ -997,13 +1010,14 @@ and check_std_call fctx span (s : Std_library.signature) arguments =
            refuse context ~what:(Printf.sprintf "`exit` refuses %s: codes 118 to 122 belong to Jernal's own errors" (Z.to_string n))
              code_span "programs use 1 to 117 for their own reasons (D11, standard 7.6)"
      | _ -> ());
-  { C.kind = C.Call_builtin { builtin = { C.builtin_name = s.std_name; run = s.run }; arguments }; type_ = s.result; span }
+  { C.kind = C.Call_builtin { builtin = { C.builtin_name = s.std_name; fails = s.fails; run = s.run }; arguments }; type_ = s.result; span }
 
 (* The variable at the root of a value, such as `$r` in `$r.items`. *)
 and root_variable (x : expression) =
   match x.expression_kind with
   | Syntax.Variable name -> Some (name, x.expression_span)
-  | Syntax.Member (inner, _) | Syntax.Index { target = inner; _ } | Syntax.Grouped inner -> root_variable inner
+  | Syntax.Member (inner, _) | Syntax.Index { target = inner; _ } | Syntax.Key_index { target = inner; _ }
+  | Syntax.Grouped inner -> root_variable inner
   | _ -> None
 
 (* A method that changes its value needs the value to be able to change (D43). *)
@@ -1044,9 +1058,9 @@ and check_method_call fctx span (base : expression) (words : name list) argument
   let method_name = List.hd words in
   let narrowings = List.map (fun n -> n.text) (List.tl words) in
   let method_text = String.concat "." (List.map (fun n -> n.text) words) in
-  let builtin ?(changes = false) name run result extra =
+  let builtin ?(changes = false) ?(fails = []) name run result extra =
     if changes then require_changeable fctx receiver ~method_text;
-    { C.kind = C.Call_builtin { builtin = { C.builtin_name = name; run }; arguments = target :: extra }; type_ = result; span }
+    { C.kind = C.Call_builtin { builtin = { C.builtin_name = name; fails; run }; arguments = target :: extra }; type_ = result; span }
   in
   let positional count =
     if List.length arguments <> count || List.exists (fun (a : argument) -> a.label <> None) arguments then
@@ -1117,6 +1131,27 @@ and check_method_call fctx span (base : expression) (words : name list) argument
   | Types.List item, "first", [] -> ignore (positional 0); builtin "first" (Methods.first_or_last `First) item []
   | Types.List item, "last", [] -> ignore (positional 0); builtin "last" (Methods.first_or_last `Last) item []
   (* trace: D38 *)
+  (* trace: D138 *)
+  | Types.Map (_, key_type, value_type), ("get" | "contains" | "remove"), [] -> (
+      match arguments with
+      | [ { label = Some { text = "key"; _ }; value = key } ] -> (
+          let k = check_expression fctx ~expected:(Some key_type) key in
+          expect_type context key_type k;
+          match method_name.text with
+          | "get" -> builtin ~fails:[ "(not decided)" ] "get" Methods.map_get value_type [ k ]
+          | "contains" -> builtin "contains" Methods.map_contains Types.Bool [ k ]
+          | _ -> builtin ~changes:true "remove" Methods.map_remove value_type [ k ])
+      | _ ->
+          refuse context ~what:(Printf.sprintf "%s takes `key:`" (quote method_text)) span
+            "a map is read and changed by key (D138, standard 13.3)")
+  | Types.Map (_, key_type, _), "keys", [ "sorted" ] -> (
+      ignore (positional 0);
+      match underlying key_type with
+      | Types.Integer _ | Types.String | Types.Float Types.F64 | Types.Rational ->
+          builtin "keys.sorted" Methods.map_keys_sorted (Types.List key_type) []
+      | t ->
+          not_designed context ~what:(Printf.sprintf "how %s keys are ordered isn't decided yet" (type_text t))
+            method_name.span "not decided yet (D138, standard 12.1)")
   | Types.List item, "sum", [] -> (
       ignore (positional 0);
       match underlying item with
@@ -1317,7 +1352,7 @@ and check_change fctx span target value =
   let rec root (x : expression) =
     match x.expression_kind with
     | Syntax.Variable name -> Some (name, x.expression_span)
-    | Syntax.Member (inner, _) | Syntax.Index { target = inner; _ } -> root inner
+    | Syntax.Member (inner, _) | Syntax.Index { target = inner; _ } | Syntax.Key_index { target = inner; _ } -> root inner
     | _ -> None
   in
   match root target with
@@ -1356,6 +1391,20 @@ and check_change fctx span target value =
               let position = check_expression fctx ~expected:(Some Types.int) position in
               let v = check_value fctx t.type_ value in
               [ { C.statement_kind = C.Set_index { target = inner; counting; position; value = stored v }; statement_span = span } ]
+          | Syntax.Key_index { target = inner; key } ->
+              let t = check_expression fctx ~expected:None target in
+              let inner = check_expression fctx ~expected:None inner in
+              let key_checked =
+                match underlying inner.type_ with
+                | Types.Map (_, key_type, _) ->
+                    let k = check_expression fctx ~expected:(Some key_type) key in
+                    expect_type context key_type k;
+                    k
+                | _ -> raise Skip
+              in
+              let v = check_value fctx t.type_ value in
+              (* trace: D138 *)
+              [ { C.statement_kind = C.Set_key { target = inner; key = key_checked; value = stored v }; statement_span = span } ]
           | _ -> refuse context ~what:"`change` updates a variable, one of its fields or one of its items" target.expression_span why)
 
 and check_if fctx span branches else_body =
@@ -1534,6 +1583,16 @@ and check_for fctx span loop_name (variable : name) iterable at handling body =
     match Option.map (fun (c : C.expression) -> underlying c.type_) iterable_checked with
     | Some Types.Range -> Types.int
     | Some (Types.List item) -> item
+    | Some (Types.Map (Types.Map_hash, _, _)) ->
+        (* trace: D138 *)
+        error context ~what:"a `Map.hash` has no order to rely on, so it can't be looped over; `.keys.sorted()` gives an order"
+          iterable.expression_span "looping over a `Map.hash` is refused (D138, standard 13.3)";
+        Types.Unknown
+    | Some (Types.Map _) ->
+        report context
+          (Diagnostic.make ~span:iterable.expression_span ~what:"what a `for` over a map gives each time isn't decided yet"
+             Diagnostic.Not_designed_yet "not decided yet (D138, standard 12.1)");
+        Types.Unknown
     | Some Types.Lines -> Types.String
     | Some Types.Unknown | None -> Types.Unknown
     | Some t ->

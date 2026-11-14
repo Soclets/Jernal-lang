@@ -419,6 +419,12 @@ and parse_postfix_on state first value =
         ignore (expect state Right_bracket "`]`");
         parse_postfix_on state first (make (Build { built = value; fields }) first state)
       end
+      else if (match (peek_at state 1).kind, (peek_at state 2).kind with Word "key", Colon -> true | _ -> false) then begin
+        ignore (advance state); ignore (advance state); ignore (advance state);
+        let key = parse_expression state in
+        ignore (expect state Right_bracket "`]`");
+        parse_postfix_on state first (make (Key_index { target = value; key }) first state)
+      end
       else begin
         ignore (advance state);
         let counting =

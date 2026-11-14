@@ -37,9 +37,11 @@ and expression_kind =
   | Otherwise of { value : expression; arms : arm list }
   | Pass_up of expression
   | Is_case of { value : expression; case_name : string }   (* the case test (D97) *)
+  | Key_index of { target : expression; key : expression }   (* $m[key: ...] (D138) *)
 
 and builtin = {
   builtin_name : string;
+  fails : string list;
   run : Span.t -> Value.t list -> Value.t;
 }
 
@@ -52,6 +54,7 @@ and statement_kind =
   | Set of variable * expression
   | Set_field of { target : expression; field : string; value : expression }
   | Set_index of { target : expression; counting : Syntax.counting; position : expression; value : expression }
+  | Set_key of { target : expression; key : expression; value : expression }
   | Evaluate of expression
   | Return of expression option
   | If of (expression * statement list) list * statement list option

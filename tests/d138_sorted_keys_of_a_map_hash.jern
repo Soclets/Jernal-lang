@@ -1,0 +1,7 @@
+fn.main[]:
+    let mut $ages: Map.hash<key: String, val: Int> = ["Cy" => 1, "Ann" => 2, "Bob" => 3]
+    change $ages[key: "Abe"] = 4
+    for $name in $ages.keys.sorted():
+        println($name)
+    end for
+end fn.main

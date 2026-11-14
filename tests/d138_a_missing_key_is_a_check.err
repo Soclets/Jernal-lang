@@ -1,0 +1,5 @@
+RuntimeError: d138_a_missing_key_is_a_check.jern:3:13, line 3 column 13
+ 3 |     println($ages[key: "Zoe"] as String)
+   |             ^^^^^^^^^^^^^^^^^
+ what: the map has no such key
+ why:  a missing key is a check (D138, standard 13.3)

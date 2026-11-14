@@ -1,0 +1,7 @@
+fn.main[]:
+    println(("a" < "b") as String)
+    println(("Z" < "a") as String)
+    println(("é" > "z") as String)
+    println(("ab" at_least "a") as String)
+    println(("" < "a") as String)
+end fn.main

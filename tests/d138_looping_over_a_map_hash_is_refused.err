@@ -1,0 +1,5 @@
+CompileTimeError: d138_looping_over_a_map_hash_is_refused.jern:3:19, line 3 column 19
+ 3 |     for $entry in $ages:
+   |                   ^^^^^
+ what: a `Map.hash` has no order to rely on, so it can't be looped over; `.keys.sorted()` gives an order
+ why:  looping over a `Map.hash` is refused (D138, standard 13.3)

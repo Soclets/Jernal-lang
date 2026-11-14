@@ -207,7 +207,7 @@ and evaluate_plain context (e : C.expression) : Value.t =
   | C.List_literal items -> Value.List { items = Dynarray.of_list (List.map (evaluate context) items) }
   | C.Map_literal (map_kind, entries) ->
       let m = { Value.map_kind; entries = Dynarray.create () } in
-      List.iter (fun (k, v) -> map_set m (evaluate context k) (evaluate context v)) entries;
+      List.iter (fun (k, v) -> Methods.set_key m (evaluate context k) (evaluate context v)) entries;
       Value.Map m
   | C.Build_struct { struct_name; fields } ->
       let defaults = Option.value (Hashtbl.find_opt context.program.struct_defaults struct_name) ~default:[] in
@@ -252,6 +252,9 @@ and evaluate_plain context (e : C.expression) : Value.t =
       let reaches = if Z.gt step Z.zero then Z.leq from last else Z.geq from last in
       Value.Range { from; last = (if reaches then Some last else None); step }
   | C.Copy inner -> Value.deep_copy (evaluate context inner)
+  | C.Key_index { target; key } ->
+      let map = evaluate context target in
+      Methods.map_index e.span map (evaluate context key)
   | C.Is_case { value; case_name } -> (
       match evaluate context value with Value.Union u -> Value.Bool (u.case_name = case_name) | _ -> Value.Bool false)
   | C.Fallback { value; instead } -> (
@@ -293,6 +296,7 @@ and compare_values operator l r =
     | (Value.Int64_integer _ | Value.Wide_integer _), _ -> Some (Z.compare (Value.integer_to_z l) (Value.integer_to_z r))
     | Value.Float (a, _), Value.Float (b, _) -> if Float.is_nan a || Float.is_nan b then None else Some (Float.compare a b)
     | Value.Rational a, Value.Rational b -> Some (Q.compare a b)
+    | Value.String a, Value.String b -> Some (String.compare a b)   (* trace: D138 *)
     | _ -> None
   in
   match operator with
@@ -475,6 +479,11 @@ and execute context (s : C.statement) =
           Option.iter (fun v -> define context v value) binding;
           execute_block context body
       | None -> ())
+  | C.Set_key { target; key; value } ->
+      let map = evaluate context target in
+      let k = evaluate context key in
+      let x = evaluate context value in
+      Methods.set_key (Methods.entries map) k x
   | C.Case_test _ -> ()
 
 and call_function (program : C.program) span function_id (arguments : Value.t list) : Value.t =

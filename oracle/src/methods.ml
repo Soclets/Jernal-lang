@@ -93,3 +93,75 @@ let sum (item_type : Types.t) span = function
       | Types.Rational -> Value.Rational (List.fold_left (fun total v -> match v with Value.Rational q -> Q.add total q | _ -> total) Q.zero values)
       | _ -> Value.Nothing)
   | _ -> Value.Nothing
+
+(* ---------- Maps (D138) ---------- *)
+
+let entries = function Value.Map m -> m | _ -> invalid_arg "entries"
+
+let find_key (m : Value.map_value) key =
+  let rec go i = if i >= Dynarray.length m.entries then None else if Value.equal (fst (Dynarray.get m.entries i)) key then Some i else go (i + 1) in
+  go 0
+
+(* The order keys sort in: numbers by value, strings by code point (D138). *)
+let compare_keys (a : Value.t) (b : Value.t) : int =
+  match a, b with
+  | (Value.Int64_integer _ | Value.Wide_integer _), _ -> Z.compare (Value.integer_to_z a) (Value.integer_to_z b)
+  | Value.String x, Value.String y -> String.compare x y   (* UTF-8 bytes sort in code point order *)
+  | Value.Float (x, _), Value.Float (y, _) -> Float.compare x y
+  | Value.Rational x, Value.Rational y -> Q.compare x y
+  | _ -> 0
+
+let missing_key span =
+  runtime_error ~what:"the map has no such key" span "a missing key is a check (D138, standard 13.3)"
+
+(* Adds or replaces; a Map.sorted keeps its entries sorted by key. *)
+let set_key (m : Value.map_value) key value =
+  match find_key m key with
+  | Some i -> Dynarray.set m.entries i (key, value)
+  | None -> (
+      match m.map_kind with
+      | Types.Map_sorted ->
+          let before = Dynarray.to_list m.entries in
+          let smaller, larger = List.partition (fun (k, _) -> compare_keys k key < 0) before in
+          Dynarray.clear m.entries;
+          List.iter (Dynarray.add_last m.entries) (smaller @ [ (key, value) ] @ larger)
+      | _ -> Dynarray.add_last m.entries (key, value))
+
+let map_index span (map : Value.t) key =
+  let m = entries map in
+  match find_key m key with Some i -> snd (Dynarray.get m.entries i) | None -> missing_key span
+
+let map_get span = function
+  | map :: [ key ] -> (
+      let m = entries map in
+      match find_key m key with
+      | Some i -> snd (Dynarray.get m.entries i)
+      | None ->
+          raise
+            (C.Runtime_stop
+               (Diagnostic.make ~span ~what:"the name of the failure `get` raises isn't decided yet"
+                  Diagnostic.Not_designed_yet "not decided yet (D138, standard 12.1)")))
+  | _ -> Value.Nothing
+
+let map_contains _span = function
+  | map :: [ key ] -> Value.Bool (find_key (entries map) key <> None)
+  | _ -> Value.Nothing
+
+let map_remove span = function
+  | map :: [ key ] -> (
+      let m = entries map in
+      match find_key m key with
+      | Some i ->
+          let removed = snd (Dynarray.get m.entries i) in
+          let before = Dynarray.to_list m.entries in
+          Dynarray.clear m.entries;
+          List.iteri (fun j e -> if j <> i then Dynarray.add_last m.entries e) before;
+          removed
+      | None -> missing_key span)
+  | _ -> Value.Nothing
+
+let map_keys_sorted _span = function
+  | map :: _ ->
+      let keys = List.map fst (Dynarray.to_list (entries map).entries) in
+      Value.List { items = Dynarray.of_list (List.stable_sort compare_keys keys) }
+  | _ -> Value.Nothing

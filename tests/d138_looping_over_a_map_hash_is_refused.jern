@@ -1,0 +1,6 @@
+fn.main[]:
+    let $ages: Map.hash<key: String, val: Int> = ["Ann" => 30]
+    for $entry in $ages:
+        println("never")
+    end for
+end fn.main

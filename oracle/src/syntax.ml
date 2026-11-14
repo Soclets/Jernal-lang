@@ -33,6 +33,7 @@ and expression_kind =
   | Call of { callee : expression; arguments : argument list }
   | Index of { target : expression; counting : counting; position : expression }
   | Bare_index of { target : expression; position : expression }
+  | Key_index of { target : expression; key : expression }      (* $m[key: ...] (D138) *)
   | Build of { built : expression; fields : field_value list }  (* Reading[celsius = 22] *)
   | List_literal of expression list
   | Map_literal of (expression * expression) list

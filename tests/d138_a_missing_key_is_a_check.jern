@@ -1,0 +1,4 @@
+fn.main[]:
+    let $ages: Map<key: String, val: Int> = ["Ann" => 30]
+    println($ages[key: "Zoe"] as String)
+end fn.main

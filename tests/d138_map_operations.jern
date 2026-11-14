@@ -1,0 +1,16 @@
+fn.main[]:
+    let mut $ages: Map<key: String, val: Int> = ["Ann" => 30, "Bob" => 25]
+    println($ages[key: "Ann"] as String)
+    let $zoe: Int = $ages.get(key: "Zoe") ?? 0
+    println($zoe as String)
+    println($ages.contains(key: "Bob") as String)
+    println($ages.contains(key: "Zoe") as String)
+    change $ages[key: "Cat"] = 41
+    change $ages[key: "Ann"] = 31
+    println($ages.len() as String)
+    let $bob: Int = $ages.remove(key: "Bob")
+    println($bob as String)
+    for $name in $ages.keys.sorted():
+        println($name " is " $ages[key: $name] as String)
+    end for
+end fn.main
