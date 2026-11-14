@@ -1040,3 +1040,21 @@ Differences from Cyborg: there's no built-in `items` unit, since D17 indexes wit
 lengths stay plain `Int`. Cyborg's placeholder words (`offset`, `with`, `fam.prefix`, `decibels of`) are placeholders
 here too. The owner said: "Cyborg's unit system could very much be copied here, instead of redesigning"; Claude adapted
 it; the owner chose: "yea, post-v1". (Owner, 2026-11-14)
+
+**D59. Imports come from the manifest, and every clash is an error.** A file has no import lines. Every package the
+manifest lists is visible by short names, with no path, and a full path (`http::get`, `pkg::get`) is needed only when a
+short name clashes. A clash is always a `CompileTimeError`, never a quiet pick, even when one side is the program's own
+code; the error lists the full paths. So a library that later adds a name already in use causes an error, not a silent
+change of meaning. `use` stays optional, for giving something a short name of the writer's choosing.
+
+```
+// the manifest lists std and http
+fn main[]:
+    println("hi")                       // from std
+    let $page: String = get($url)?      // from http: nothing else is called `get`
+end fn main
+```
+
+The owner's sketch said "use full path syntax only on clash" and "config, imports, and stuff are handled by manifest".
+Cyborg has `import` lines instead, and its design session advised keeping clashes an error, as it described on
+2026-11-14. Claude proposed this; the owner chose: "yea". (Owner, 2026-11-14)
