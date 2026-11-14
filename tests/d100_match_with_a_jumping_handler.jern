@@ -1,0 +1,24 @@
+union.tagged Key:
+    enter
+    escape
+end union.tagged Key
+
+fam.handler key_actions:
+    handler bail:
+        case enter:
+            println("enter: carry on")
+        case escape:
+            println("escape: leave")
+            return early
+    end handler bail
+end fam.handler key_actions
+
+fn press[$key: Key]:
+    match $key with key_actions.*bail
+    println("after the match")
+end fn press
+
+fn.main[]:
+    press(Key.enter[])
+    press(Key.escape[])
+end fn.main

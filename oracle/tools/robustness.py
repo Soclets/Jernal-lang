@@ -1,7 +1,7 @@
 """Rule 13: a bad program never crashes the oracle.
 
 Runs JernOrac on every test program changed in small ways (cut short after each line, each line
-removed, each word removed or shortened) and reports any CompilerBug (exit 118). Runs 3 at a time
+removed, repeated or swapped with the next, each word removed or shortened) and reports any CompilerBug (exit 118). Runs 3 at a time
 (rule 11). Usage, from the repository root:
 
     python3 -I oracle/tools/robustness.py <scratch folder>
@@ -23,6 +23,9 @@ for path in sorted(glob.glob(tests + "/*.jern")):
         variants.append((path, "\n".join(lines[:n])))
     for n in range(len(lines)):
         variants.append((path, "\n".join(lines[:n] + lines[n + 1:])))
+        variants.append((path, "\n".join(lines[:n + 1] + lines[n:])))           # a line repeated
+        if n + 1 < len(lines):
+            variants.append((path, "\n".join(lines[:n] + [lines[n + 1], lines[n]] + lines[n + 2:])))  # two swapped
     for i, line in enumerate(lines):
         words = line.split(" ")
         for j, w in enumerate(words):
