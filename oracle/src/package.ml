@@ -60,7 +60,7 @@ let check_texts ~(manifest_text : string) (texts : (string * string) list) =
         end)
       ([], []) texts
   in
-  let program, check_diagnostics = Checker.check_package ~std_visible:manifest.needs_std parsed in
+  let program, check_diagnostics = Checker.check_package ~uses:manifest.uses ~std_visible:manifest.needs_std parsed in
   (program, manifest_diagnostics @ file_diagnostics @ check_diagnostics)
 
 let apply_edit (texts : (string * string) list) ~(manifest_text : string) ((span : Span.t), replacement) =

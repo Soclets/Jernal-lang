@@ -4,3 +4,8 @@ ver 2026y-11m-14d not_broken
 kind tests
 
 need std 2026y-11m-14d
+
+d60_use_gives_a_short_name.jern:
+use geometry.area as area
+use greet.loud as "shout"
+end d60_use_gives_a_short_name.jern

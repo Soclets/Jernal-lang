@@ -1,0 +1,21 @@
+fam.fn.pure geometry:
+    fn area[$w: Int, $h: Int] -> Int:
+        return $w x $h
+    end fn area
+end fam.fn.pure geometry
+
+fam.fn greet:
+    fn greet[$name: String, $mark: String] -> String:
+        labels [$mark as mark]
+        defaults [$mark = "."]
+        return "Hello, " $name $mark
+    end fn greet
+
+    preset loud [$mark = "!"]
+end fam.fn greet
+
+fn.main[]:
+    println(area(3, 4) as String)
+    println(shout("Ann"))
+    println(greet("Bob"))
+end fn.main

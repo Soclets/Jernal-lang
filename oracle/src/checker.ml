@@ -70,6 +70,7 @@ type context = {
   type_sets : (string, type_expression list) Hashtbl.t;
   mutable satisfied : (string * string) list;                    (* (type, interface) from `satisfies` lines *)
   mutable type_parameters : (string * name list) list;           (* the generic function being checked (D103) *)
+  short_names : Manifest.short_name list;                        (* `use` lines from the manifest (D60, D114) *)
   mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
 }
 
@@ -1282,6 +1283,22 @@ and check_call fctx ~expected (e : expression) callee arguments =
     | _ -> (x, words)
   in
   match callee.expression_kind with
+  | Syntax.Name { path = []; my = false; word }
+    when List.exists (fun (u : Manifest.short_name) -> u.short = word && (u.block = "all" || u.block = fctx.info.file))
+           context.short_names ->
+      (* trace: D60, D114 — a short name from the manifest stands for its path *)
+      let u =
+        List.find (fun (u : Manifest.short_name) -> u.short = word && (u.block = "all" || u.block = fctx.info.file))
+          context.short_names
+      in
+      let at = callee.expression_span in
+      let head = { expression_kind = Syntax.Name { my = false; path = []; word = List.hd u.path }; expression_span = at } in
+      let full =
+        List.fold_left
+          (fun inner w -> { expression_kind = Syntax.Member (inner, { text = w; span = at }); expression_span = at })
+          head (List.tl u.path)
+      in
+      check_call fctx ~expected e full arguments
   | Syntax.Name { path = []; my = false; word } when Hashtbl.mem context.versions word ->
       check_versions_call fctx span word (Hashtbl.find context.versions word) arguments
   | Syntax.Name { my; path; word } -> (
@@ -2485,12 +2502,13 @@ let check_function context (info : function_info) =
     { C.function_id = info.function_id; function_name = info.full_name; parameters; requires; body;
       returns_value = info.result_type <> Types.Nothing }
 
-let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program option * Diagnostic.t list) =
+let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) : (C.program option * Diagnostic.t list) =
   let context =
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
       presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = []; versions = Hashtbl.create 8; overlapping_versions = Hashtbl.create 4;
       interfaces = Hashtbl.create 4; type_sets = Hashtbl.create 4; satisfied = []; type_parameters = [];
+      short_names = uses;
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
@@ -2663,6 +2681,20 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
           | _ -> ())
         file.declarations)
     files;
+  (* A `use` can't make a function's narrowing look like its own action (D60), nor clash with a name (D59). *)
+  List.iter
+    (fun (u : Manifest.short_name) ->
+      let before = List.filteri (fun i _ -> i < List.length u.path - 1) u.path in
+      if (not u.quoted) && before <> [] && Hashtbl.mem context.functions (String.concat "." before) then
+        error context
+          ~what:(Printf.sprintf "%s is a function, so `%s` alone would read like a different action; a quoted name is allowed"
+                   (quote (String.concat "." before)) u.short)
+          u.use_span "if the part before the last dot is a function, the unquoted short name can't be the narrowing alone (D60, standard 9.3)";
+      if Hashtbl.mem context.functions u.short then
+        error context
+          ~what:(Printf.sprintf "%s is both this short name and the program's own function" (quote u.short))
+          u.use_span "a short name that clashes is always refused (D59, standard 9.2)")
+    context.short_names;
   Hashtbl.iter (fun _ info -> resolve_signature info) context.functions;
   Hashtbl.iter (fun _ infos -> List.iter resolve_signature infos) context.versions;
   (* Two versions that could take the same call are refused where they're written (D46). *)

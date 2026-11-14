@@ -1,6 +1,16 @@
 (* Reads and checks Journey.siml (standard 9.1, D76, D113, D117), the oracle's own reader. *)
 
+(* `use <path> as <name>` in a block for one file, or for `all` (D60, D114, D115). *)
+type short_name = {
+  block : string;                (* a file name, or "all" *)
+  path : string list;            (* time.seconds is ["time"; "seconds"] *)
+  short : string;
+  quoted : bool;
+  use_span : Span.t;
+}
+
 type t = {
+  uses : short_name list;
   package_name : string option;
   kind : string option;          (* "tests" for a tests folder (D122) *)
   needs_std : bool;
@@ -34,6 +44,7 @@ let read ~(text : string) : t * Diagnostic.t list =
   let package_name = ref None and kind = ref None and needs_std = ref false in
   let needed = Hashtbl.create 8 in
   let in_block = ref None in
+  let uses = ref [] in
   Array.iteri
     (fun index raw ->
       let line_number = index + 1 in
@@ -74,12 +85,33 @@ let read ~(text : string) : t * Diagnostic.t list =
             error ~fix:(Printf.sprintf "`end %s`" block) (line_span ())
               "a block closes with `end` and its name (D114, standard 9.3)";
           in_block := None
-      | Some _, _ -> ()  (* `use` lines: reported once at the block's opening *)
-      | None, [ (word, start) ] when String.length word > 1 && word.[String.length word - 1] = ':' ->
+      | Some block, [ ("use", _); (path, path_start); ("as", _); (name, name_start) ] ->
+          (* trace: D60, D114, D115 *)
+          let why = "`use path as name` gives something a short name (D60, standard 9.3)" in
+          let quoted = String.length name >= 2 && name.[0] = '"' && name.[String.length name - 1] = '"' in
+          let short = if quoted then String.sub name 1 (String.length name - 2) else name in
+          let words = String.split_on_char '.' path in
+          let last = List.nth words (List.length words - 1) in
+          let name_span = span_of (name, name_start) in
+          if String.contains path '*' then
+            error ~what:"`use` gives one name; there are no wildcards" (span_of (path, path_start)) why
+          else if quoted && (short = "" || List.mem short Parser.keywords
+                             || not (String.for_all (fun c -> Lexer.is_word_char c) short)
+                             || not (Lexer.is_word_start short.[0])) then
+            error ~what:(Printf.sprintf "nothing could call `%s`" name) name_span "a quoted name is one a call could use (D60, standard 9.3)"
+          else if (not quoted) && short <> last then
+            error ~fix:(Printf.sprintf "`%s`" last) name_span
+              "an unquoted name matches the last word of its path, so it can't lie about what it is (D60, standard 9.3)"
+          else if List.exists (fun u -> u.short = short && (u.block = block || u.block = "all" || block = "all")) !uses then
+            error ~what:(Printf.sprintf "`%s` is given twice, in `all` and a file's block, or in one block" short) name_span
+              "the same short name in `all` and a file's block is a clash (D115, standard 9.3)"
+          else uses := !uses @ [ { block; path = words; short; quoted; use_span = line_span () } ]
+      | Some _, _ ->
+          error ~what:"a block in the manifest holds `use <path> as <name>` lines" (line_span ())
+            "`use` lives in the manifest, in a block per file (D114, standard 9.3)"
+      | None, [ (word, _) ] when String.length word > 1 && word.[String.length word - 1] = ':' ->
           let block = String.sub word 0 (String.length word - 1) in
-          in_block := Some block;
-          not_built "`use` blocks aren't built in the oracle yet" (span_of (word, start))
-            "`use` lives in the manifest, in a block per file (D114, D115, standard 9.3)"
+          in_block := Some block
       | None, (first, first_start) :: rest -> (
           let scoped = String.contains first '.' in
           if scoped then
@@ -128,4 +160,4 @@ let read ~(text : string) : t * Diagnostic.t list =
                 error ~what:(Printf.sprintf "`%s` isn't a fact the manifest knows" first)
                   (span_of (first, first_start)) "siml is one fact per line: what the line is, then its values (D76, standard 9.1)"))
     lines;
-  ({ package_name = !package_name; kind = !kind; needs_std = !needs_std }, List.rev !diagnostics)
+  ({ uses = !uses; package_name = !package_name; kind = !kind; needs_std = !needs_std }, List.rev !diagnostics)
