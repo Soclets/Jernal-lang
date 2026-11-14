@@ -1488,3 +1488,12 @@ same type: a `Float` rounded to nearest as IEEE says, a `Decimal`, or an exact `
 
 `mod.trunc` and `mod.floor` stay as in D85. The owner said: "Say it, `div.` what"; Claude proposed this; the owner
 chose: "yes". (Owner, 2026-11-14)
+
+**D89. `x` multiplies, and its narrowed forms are `times.`** Multiplying is `x`: `$w x $h`. When multiplying needs a
+narrowing, such as for overflow on purpose, it's written as `times.` followed by the kind, as in `times.wrap`. `*` isn't
+used for multiplying, since it already marks a handler that can jump (D48). As a built-in word, `x` follows D63: a
+function named `x` is `my::x`. A field named `x` is exempt, since it only appears after a `.` or in a struct's
+declaration, where it can't be read as multiplying: `$point.x` needs no `my::`. Which `times.` kinds exist is not
+decided yet. Cyborg also multiplies with `x`, as its design session described on 2026-11-14. The owner asked "How in
+the tarnational fuck would $point.x not be possible?" and "Isn't `*` for handlers breaking control flow?", and chose:
+"`x`, and then when it needs narrowing, you could do `times.`". (Owner, 2026-11-14)

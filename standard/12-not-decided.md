@@ -4,7 +4,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.1 Language core
 
-- **Numbers and maths:** how multiplying is written, grouping in maths, precedence, the full list of `as` rounding words, what `div.exact` does per build mode (D85),
+- **Numbers and maths:** which `times.` kinds exist (D89), grouping in maths, precedence, the full list of `as` rounding words, what `div.exact` does per build mode (D85),
   which sized types exist, and how numbers convert between types.
 - **`Bool`:** its name and its values (`true`, `false`).
 - **Comments:** `//` is used in every example, but isn't decided.

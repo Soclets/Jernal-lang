@@ -59,7 +59,8 @@ use show.stored as "show_stored"     // quoted: allowed
 
 A name of the program's own that is also a built-in word (a keyword, a word operator such as `and` or `at_least`, a
 built-in type such as `Int`, or `main`) is written with `my::` wherever it appears: its declaration, its closer and every
-use (D63). Every other name stays bare. If Jernal later adds a built-in word that old code used as a bare name, that code
+use (D63). Every other name stays bare. A field is exempt, since it only appears after a `.` or in its struct's
+declaration: `$point.x` needs no `my::`, though `x` multiplies (D89). If Jernal later adds a built-in word that old code used as a bare name, that code
 gets a `CompileTimeError` saying to add `my::`, never a silent change of meaning.
 
 ```

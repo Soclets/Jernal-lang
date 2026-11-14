@@ -27,7 +27,7 @@ let $e: Decimal = 0.1        // exact in decimal
 let $f: Rational = 0.1       // exact as 1/10
 ```
 
-Dividing is `div` (D88). On integers, it says which kind, and a bare `div` is refused:
+Multiplying is `x`, and its narrowed forms are written `times.`, such as `times.wrap` (D89). Dividing is `div` (D88). On integers, it says which kind, and a bare `div` is refused:
 
 ```
 7 div.trunc 2        // 3: rounds toward zero
