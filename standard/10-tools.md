@@ -26,6 +26,13 @@ program's `args()`. `jern comp --Interp` is refused, with `fix: jern run --Inter
 jern run --Working -- Tankun
 ```
 
+## 10.1a Tests
+
+A folder whose `Journey.siml` says `kind tests` treats each `.jern` file as its own program (D122). Next to each test,
+`.out` holds the expected standard output, `.err` the expected error output, and `.exit` the expected exit code when it
+isn't 0; a missing file means nothing is expected, and results are compared byte for byte. Tests are named after their
+decision. `jern test --Interp` and `jern test --Working` run them all and compare.
+
 ## 10.2 The oracle
 
 JernOrac is a plain interpreter written straight from this standard (D69). It never optimizes and never drops a check,

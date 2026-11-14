@@ -1985,3 +1985,26 @@ jern comp --FinalSafe
 ```
 
 Settles D74's open question. Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D122. Tests: one program per file, with expected results beside it.** A folder whose `Journey.siml` says `kind tests`
+treats each `.jern` file as its own program, all sharing that manifest. Next to each test, `.out` holds the expected
+standard output, `.err` the expected error output, and `.exit` the expected exit code when it isn't 0; a missing file
+means nothing is expected. Results are compared byte for byte. Tests are named after their decision. `jern test`, with
+a build mode, runs every test and compares.
+
+```
+tests/
+    Journey.siml                          // kind tests
+    d17_pos_counts_from_one.jern
+    d17_pos_counts_from_one.out
+    d53_bad_position_is_a_check.jern
+    d53_bad_position_is_a_check.err
+    d53_bad_position_is_a_check.exit      // 122
+```
+
+```
+jern test --Interp
+jern test --Working
+```
+
+Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
