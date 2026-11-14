@@ -8,8 +8,9 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 - **Generics:** value parameters, and naming a type at a call (D103).
 - **A raw pointer type**, such as the `Ptr<u8>` in 11.2's example.
 
-- **Most of std (chapter 13):** functions used in examples but never specified, such as `length`, `open`, `close`,
-  `read_line`, `now`, `trim`, `upper`, and files and the network in general.
+- **Most of std (chapter 13):** functions used in examples but never specified, such as `open`, `close`,
+  `read_line`, `now`, `trim`, `upper`, and files and the network in general, and which Unicode version each std date
+  follows (D130).
 
 ## 12.2 Functions and failures
 

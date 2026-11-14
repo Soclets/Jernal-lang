@@ -6,7 +6,7 @@ A check happens when compiling whenever the compiler can know the answer then, a
 start, the compiler checks these when compiling:
 
 - what an `if` just checked: inside `if $d != 0:`, dividing by `$d` needs no runtime check;
-- loop ranges: in `for $p in range[from: 1, to: $xs.length]:`, `$xs[pos: $p]` is known to be in bounds.
+- loop ranges: in `for $p in range[from: 1, to: $xs.length()]:`, `$xs[pos: $p]` is known to be in bounds.
 
 Contracts (`requires`, `ensures`) are checked at runtime.
 

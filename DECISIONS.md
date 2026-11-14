@@ -2077,3 +2077,23 @@ type (D56), so `List<Int>` is code and `List<<item type>>` is a description. `..
 code. The owner said "Let's define how we say placeholders first", explained "like `jern <run or compile> <mode>`
 stuff", and, when Claude proposed `{ }` to avoid clashing with type brackets, chose: "Just fucking define `<>` and nest
 it". (Owner, 2026-11-14)
+
+**D130. `length()`, and strings say which length.** Lists and maps have `length()`, the number of items or entries, as
+an `Int`. A string's length must say what it counts, and a bare `length()` on a string is refused, listing the three:
+`length.bytes()` (UTF-8 bytes), `length.code_points()` (Unicode code points) and `length.graphemes()` (grapheme
+clusters, what a person sees as one character). There is no "char", since it means a byte, a code point or a grapheme
+depending on the language. Which code points form one grapheme is defined by Unicode and changes between its versions,
+so each `need std <date>` (D128) fixes the Unicode version std follows. Methods always take `( )` (D15, D40), so
+`$xs.length` without them is a mistake in earlier examples.
+
+```
+$xs.length()                     // 3
+$s.length.bytes()                // "héllo👋🏽": 12
+$s.length.code_points()          // 7
+$s.length.graphemes()            // 6
+$s.length()                      // refused: say which
+```
+
+The owner said "What the fuck is `char`, `char` itself then fucking needs saying more. And where the fuck is
+grapheme"; Claude proposed `code_points` and tying the Unicode version to the std date; the owner chose: "yes".
+(Owner, 2026-11-14)

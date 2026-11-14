@@ -62,6 +62,22 @@ own errors (7.6), and `exit` refuses them.
 
 ## 13.3 Methods on built-in types
 
+Methods always take `( )` (D15, D40).
+
+### `length`
+
+```
+$xs.length() -> Int                  // a List: the number of items
+$m.length() -> Int                   // a Map: the number of entries
+$s.length.bytes() -> Int             // a String: its UTF-8 bytes
+$s.length.code_points() -> Int       // a String: its Unicode code points
+$s.length.graphemes() -> Int         // a String: its grapheme clusters
+```
+
+A bare `length()` on a string is refused, listing the three (D130). For `"héllo👋🏽"`, they are 12, 7 and 6. Which code
+points form one grapheme follows the Unicode version that the `need std <date>` fixes; which version each date means
+isn't decided yet.
+
 ### `List.sum`
 
 ```

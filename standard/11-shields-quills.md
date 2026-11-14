@@ -27,7 +27,7 @@ shield read_header:
     reason "libpng's C API takes a raw buffer"
     pin $buffer
     let $ptr: Ptr<u8> = $buffer.raw_address()
-    let $status: i32 = png_read($ptr, $buffer.length)
+    let $status: i32 = png_read($ptr, $buffer.length())
 end shield read_header
 ```
 
