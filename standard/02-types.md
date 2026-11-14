@@ -66,6 +66,10 @@ let $exact: Int = $r as.exact Int ?? 0
 A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals never need it; one that doesn't fit is a
 `CompileTimeError`. A negative is written `~-0.1`.
 
+## 2.1b Booleans
+
+`Bool` is the type of `true` and `false` (D96).
+
 ## 2.2 Strings
 
 A string is written in double quotes. Inside a string, `$` is just a character, so `"Price: $5"` needs no escape (D20).

@@ -8,8 +8,6 @@ Only Jernal Design Claude edits the standard (rule 12). Every new decision updat
 the same commit (D81). JernComp and JernOrac are built from this standard, and anything listed in
 [chapter 12](12-not-decided.md) gives a `NotDesignedYet` error (rule 10).
 
-Examples use `//` comments, though comments themselves aren't decided yet (chapter 12).
-
 | Chapter | |
 |---|---|
 | [1. Syntax](01-syntax.md) | lines, blocks, names, brackets, spacing |

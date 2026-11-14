@@ -69,3 +69,20 @@ List <Int>             // refused, fix: `List<Int>`
 
 No parameters, no arguments and empty values are written with nothing inside: `fn.main[]:`, `now()`, `""`, `[]`
 (D14, D64). There's no `[none]` and no `empty`. A comment such as `// none` may be added for readers.
+
+## 1.7 Comments
+
+A `//` comment runs to the end of the line. A `///` comment is documentation for the declaration below it. A longer
+comment is a named block, `comment name:` ... `end comment name`, whose inside is text, not code, until its own `end`
+line (D96).
+
+```
+/// Adds two numbers.
+fn add[$a: Int, $b: Int] -> Int:
+    return $a + $b             // a line comment
+end fn add
+
+comment old_version:
+    ...
+end comment old_version
+```

@@ -4,8 +4,6 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.1 Language core
 
-- **`Bool`:** its name and its values (`true`, `false`).
-- **Comments:** `//` is used in every example, but isn't decided.
 - **Text:** what a `Bool`, a `Float` or a struct looks like as text, and the formatting tool for things like decimal
   places, newlines and tabs (D21, D95).
 - **Tagged unions, enums and `match`.**

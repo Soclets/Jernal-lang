@@ -1588,3 +1588,25 @@ println("a\nb")                       // refused: layout comes with the formatti
 The owner said "So, `\"` escapes a char, while `\n` adds format? Diabolical" and "We don't have a fucking format print
 yet, why are you putting format into a non format print, my ass", asked "What is `\\` for?", turned down a backslash
 that's only special before `"` ("Fuck no"), and chose: "A". (Owner, 2026-11-14)
+
+**D96. `Bool`, and comments: `//`, `///` and `comment name:`.** `Bool` is the type of `true` and `false`. A `//` comment
+runs to the end of the line. A `///` comment is documentation for the declaration below it. A longer comment is a named
+block, `comment name:` ... `end comment name`, whose inside is text, not code, until its own `end` line.
+
+```
+let $done: Bool = true
+
+/// Adds two numbers.
+fn add[$a: Int, $b: Int] -> Int:
+    return $a + $b             // a line comment
+end fn add
+
+comment old_version:
+    fn add[$a: Int, $b: Int] -> Int:
+        return $b + $a
+    end fn add
+end comment old_version
+```
+
+Claude proposed `Bool` and `//`; the owner chose: "Yes, and `///` doc comments, and `comment name:`, `end comment
+name`". (Owner, 2026-11-14)
