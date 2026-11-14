@@ -1,0 +1,23 @@
+union.tagged Maybe<?Item: Any>:
+    nothing
+    some[value: ?Item]
+end union.tagged Maybe
+
+fam.fn Maybe:
+    fn get_or<?Item: Any>[$self: Maybe<?Item>, $fallback: ?Item] -> ?Item:
+        match $self:
+            case some $s:
+                return $s.value
+            case nothing:
+                return $fallback
+        end match
+    end fn get_or
+end fam.fn Maybe
+
+fn.main[]:
+    let $a: Maybe<Int> = Maybe.some[value = 7]
+    let $b: Maybe<Int> = Maybe.nothing[]
+    let $x: Int = $a.get_or(0)
+    let $y: Int = $b.get_or(0)
+    println($x as String " " $y as String)
+end fn.main
