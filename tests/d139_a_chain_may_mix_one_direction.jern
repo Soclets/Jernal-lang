@@ -1,0 +1,6 @@
+fn.main[]:
+    let $x: Int = 5
+    println((1 < $x at_most 5) as String)
+    println((10 at_least $x > 5) as String)
+    println((0 at_most $x < 6 at_most 9) as String)
+end fn.main
