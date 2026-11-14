@@ -1448,3 +1448,16 @@ let $r: Int = -7 mod.floor 2                 // 1
 The integer division and remainder words are Cyborg's (its D48, D97), as Cyborg's design session described on
 2026-11-14. The full list of `as` rounding words, and what `div.exact` does per build mode, are not decided yet. Claude
 proposed `7 / 2` as a `Rational`; the owner chose: "Oh I love 7 or 2", taken as the exact `7/2`. (Owner, 2026-11-14)
+
+**D86. `*` multiplies, `( )` groups in maths, and precedence follows school maths.** The arithmetic operators are `+`,
+`-`, `*` and `/` (D85), with the written-out `div.…` and `mod.…`. `x` stays an ordinary name, so `$point.x` needs no
+`my::`. `( )` groups in maths, the one exception to "`( )` runs" (D15). Precedence, tightest first: calls and `.`, then
+unary `-`, then `*`, `/`, `div.…` and `mod.…`, then `+` and `-`, then comparisons, then `not`, `and`, `or`.
+
+```
+let $area: Int = ($w + 2) * $h
+```
+
+Cyborg writes `x` for multiply, and has the same grouping exception and precedence (its D116), as Cyborg's design
+session described on 2026-11-14. Claude proposed `*`, grouping as the one exception, and school maths precedence; the
+owner said: "That means Fuck it, motherfucker", taken as yes to all three. (Owner, 2026-11-14)

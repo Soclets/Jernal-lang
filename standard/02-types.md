@@ -27,6 +27,10 @@ let $e: Decimal = 0.1        // exact in decimal
 let $f: Rational = 0.1       // exact as 1/10
 ```
 
+The arithmetic operators are `+`, `-`, `*` and `/`, with `div.…` and `mod.…` written out (D85, D86). `( )` groups in
+maths, the one exception to "`( )` runs". Precedence, tightest first: calls and `.`, then unary `-`, then `*`, `/`,
+`div.…` and `mod.…`, then `+` and `-`, then comparisons, then `not`, `and`, `or` (D86).
+
 Dividing two integers with `/` gives the exact `Rational`, never a truncated integer: `7 / 2` is `7/2` (D85). Getting
 back to an `Int` says how to round, such as `(7 / 2) as.trunc Int`. Integer division has no bare form: `div.trunc`,
 `div.floor`, or `div.exact`, which fails if there's a remainder, with `mod.trunc` and `mod.floor` for the matching
