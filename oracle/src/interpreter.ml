@@ -66,13 +66,10 @@ let plain_of_scientific (text : string) : string =
 
 (* The shortest digits that read back as exactly the same float, with `~` when the float isn't
    exactly that decimal (D119, D120). *)
-let float_text span (f : float) : string =
-  if Float.is_nan f || Float.is_integer f = false && not (Float.is_finite f) then
-    runtime_not_designed ~what:"what NaN and infinity look like as text isn't decided yet" span
-      "not decided yet (D119, standard 12.1)"
-  else if not (Float.is_finite f) then
-    runtime_not_designed ~what:"what NaN and infinity look like as text isn't decided yet" span
-      "not decided yet (D119, standard 12.1)"
+let float_text _span (f : float) : string =
+  (* trace: D139 *)
+  if Float.is_nan f then "NaN"
+  else if not (Float.is_finite f) then (if f > 0.0 then "inf" else "-inf")
   else begin
     let rec shortest precision =
       let text = Printf.sprintf "%.*e" (precision - 1) f in
@@ -103,6 +100,9 @@ let rec to_text span (narrowings : string list) (value : Value.t) : string =
   | Value.Float (f, _), [ "stored" ] ->
       if not (Float.is_finite f) then to_text span [] value else exact_decimal_of_q (Q.of_float f)
   | Value.Float (f, _), _ -> float_text span f
+  | Value.Rational q, _ ->
+      (* trace: D139 — always reduced: 7/2, -7/2, 4 *)
+      if Z.equal (Q.den q) Z.one then Z.to_string (Q.num q) else Z.to_string (Q.num q) ^ "/" ^ Z.to_string (Q.den q)
   | _ ->
       runtime_not_designed ~what:"what this value looks like as text isn't decided yet" span
         "not decided yet (D120, standard 12.1)"
@@ -127,13 +127,19 @@ let saturate (t : Types.integer_type) (n : Z.t) : Z.t =
 
 type context = { program : C.program; frame : frame }
 
-let read context (v : C.variable) = !(Hashtbl.find context.frame v.variable_id)
+(* Top-level `let`s live here, seen from every function's frame (D139). *)
+let globals : frame = Hashtbl.create 16
+
+let read context (v : C.variable) =
+  match Hashtbl.find_opt context.frame v.variable_id with
+  | Some cell -> !cell
+  | None -> !(Hashtbl.find globals v.variable_id)
 
 let define context (v : C.variable) value = Hashtbl.replace context.frame v.variable_id (ref value)
 
 let rec evaluate context (e : C.expression) : Value.t =
   match e.kind with
-  | C.Call_function _ | C.Call_builtin _ -> (
+  | C.Call_function _ | C.Call_builtin _ | C.Arithmetic { operator = "div"; narrowings = [ "exact" ]; _ } -> (
       try evaluate_call context e
       with C.Failure_raised (failure, _) ->
         (* trace: D48, D137 *)
@@ -141,7 +147,7 @@ let rec evaluate context (e : C.expression) : Value.t =
           match e.kind with
           | C.Call_builtin { builtin; _ } -> builtin.builtin_name
           | C.Call_function { function_id; _ } -> (Hashtbl.find context.program.functions function_id).function_name
-          | _ -> ""
+          | _ -> source_text e.span
         in
         flush stdout;
         if failure.failure_name = "" then
@@ -161,6 +167,10 @@ and evaluate_call context (e : C.expression) : Value.t =
   | C.Call_function { function_id; arguments } ->
       let values = List.map (evaluate context) arguments in
       call_function context.program e.span function_id values
+  | C.Arithmetic { operator; narrowings; left; right } ->
+      let l = evaluate context left in
+      let r = evaluate context right in
+      arithmetic e operator narrowings l r
   | _ -> evaluate context e
 
 and evaluate_plain context (e : C.expression) : Value.t =
@@ -194,6 +204,16 @@ and evaluate_plain context (e : C.expression) : Value.t =
   | C.Compare { operator; left; right } ->
       let l = evaluate context left and r = evaluate context right in
       Value.Bool (compare_values operator l r)
+  | C.Chain { operands; operators } ->
+      (* trace: D139 — each operand runs once, left to right, stopping at the first false *)
+      let rec go previous operands operators =
+        match operands, operators with
+        | next :: rest, o :: os ->
+            let value = evaluate context next in
+            if compare_values o previous value then go value rest os else Value.Bool false
+        | _ -> Value.Bool true
+      in
+      (match operands with first :: rest -> go (evaluate context first) rest operators | [] -> Value.Bool true)
   | C.Logic { operator; both; left; right } -> (
       let l = evaluate context left in
       (* trace: D28 *)
@@ -353,9 +373,9 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
       | "div", [ "rational" ] -> check_zero (); Value.Rational (Q.make a b)
       | "div", [ "exact" ] ->
           check_zero ();
+          (* trace: D139 *)
           if not (Z.equal (Z.rem a b) Z.zero) then
-            runtime_not_designed ~what:"which failure `div.exact` raises isn't decided yet" span
-              "not decided yet (D94, standard 12.1)";
+            raise (C.Failure_raised ({ C.failure_name = "not_exact"; failure_fields = [] }, span));
           fits (Z.div a b)
       (* trace: D85 *)
       | "mod", [ "trunc" ] -> check_zero (); fits (Z.rem a b)
@@ -509,4 +529,6 @@ and call_function (program : C.program) span function_id (arguments : Value.t li
     Value.Nothing
   with Return_signal v -> v
 
-let run (program : C.program) : unit = ignore (call_function program Span.none program.main [])
+let run (program : C.program) : unit =
+  execute_block { program; frame = globals } program.globals;
+  ignore (call_function program Span.none program.main [])

@@ -1,0 +1,4 @@
+fn.main[]:
+    let $x: Int = 3
+    println((1 < $x > 0) as String)
+end fn.main

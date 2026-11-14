@@ -167,14 +167,20 @@ let lex_line state (line : string) (line_number : int) =
                     (span_of j escape_end) "`\\` is always special in a string (D95, standard 2.2)";
                   read escape_end false
                 end
-            | '\t' ->
-                (* trace: D95 *)
-                error state ~what:"a string can't hold a tab" (span_of j (j + 1))
-                  "plain strings hold no layout characters (D95, standard 2.2)";
-                read (j + 1) false
-            | ch ->
-                Buffer.add_char buffer ch;
-                read (j + 1) ok
+            | _ ->
+                let decoded = String.get_utf_8_uchar line j in
+                let width = Uchar.utf_decode_length decoded in
+                let code = Uchar.to_int (Uchar.utf_decode_uchar decoded) in
+                (* trace: D95, D139 — every control character, and U+2028 and U+2029 *)
+                if code < 0x20 || (code >= 0x7F && code <= 0x9F) || code = 0x2028 || code = 0x2029 then begin
+                  error state ~what:(Printf.sprintf "a string can't hold U+%04X" code) (span_of j (j + width))
+                    "plain strings hold no control characters, and no U+2028 or U+2029 (D95, D139, standard 2.2)";
+                  read (j + width) false
+                end
+                else begin
+                  Buffer.add_string buffer (String.sub line j width);
+                  read (j + width) ok
+                end
         in
         let finish, closed, ok = read (i + 1) true in
         if not closed then begin

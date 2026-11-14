@@ -1,0 +1,5 @@
+CompileTimeError: d139_a_chain_both_ways_is_refused.jern:3:21, line 3 column 21
+ 3 |     println((1 < $x > 0) as String)
+   |                     ^
+ what: this chain of comparisons points both ways; group with `( )`
+ why:  comparisons chain only when they all point the same way, and `==` and `!=` never chain (D139, standard 4.1)

@@ -1,0 +1,5 @@
+CompileTimeError: d139_bool_has_no_order.jern:2:20, line 2 column 20
+ 2 |     println((false < true) as String)
+   |                    ^
+ what: `Bool` has no order, so it can't be compared with `<`, `>`, `at_least` or `at_most`
+ why:  `Bool` has no order (D139, standard 4.1)

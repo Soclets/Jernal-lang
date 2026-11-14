@@ -22,6 +22,7 @@ and expression_kind =
   | Arithmetic of { operator : string; narrowings : string list; left : expression; right : expression }
   | Negate of expression
   | Compare of { operator : string; left : expression; right : expression }
+  | Chain of { operands : expression list; operators : string list }   (* 1 < $x < 5 (D139) *)
   | Logic of { operator : string; both : bool; left : expression; right : expression }
   | Not of expression
   | List_literal of expression list
@@ -91,4 +92,5 @@ type program = {
   functions : (int, function_) Hashtbl.t;
   main : int;
   struct_defaults : (string, (string * expression option) list) Hashtbl.t;
+  globals : statement list;          (* top-level `let`s, run before `fn.main` (D139) *)
 }

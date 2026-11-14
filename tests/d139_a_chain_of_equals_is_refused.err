@@ -1,0 +1,5 @@
+CompileTimeError: d139_a_chain_of_equals_is_refused.jern:3:17, line 3 column 17
+ 3 |     println(($a == true == true) as String)
+   |                 ^^
+ what: `==` can't be part of a chain of comparisons; group with `( )`
+ why:  comparisons chain only when they all point the same way, and `==` and `!=` never chain (D139, standard 4.1)

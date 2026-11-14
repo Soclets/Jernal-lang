@@ -19,7 +19,14 @@ let jern_files folder =
   |> List.sort compare
 
 let print_diagnostics diagnostics =
-  let sorted = Diagnostic.sort diagnostics in
+  (* the same error found twice, such as in a chain's middle operand, is printed once *)
+  let rec unique seen = function
+    | [] -> []
+    | (d : Diagnostic.t) :: rest ->
+        let key = (d.kind, d.span, d.what, d.fix, d.why) in
+        if List.mem key seen then unique seen rest else d :: unique (key :: seen) rest
+  in
+  let sorted = Diagnostic.sort (unique [] diagnostics) in
   List.iteri
     (fun i d ->
       if i > 0 then prerr_string "\n";
@@ -119,6 +126,7 @@ let add_knock_ons ~(manifest_text : string) (texts : (string * string) list) (di
 
 (* Checks and runs the program made of [files] in [folder]; gives the exit code. *)
 let run ~(folder : string) ~(files : string list) : int =
+  Std_library.program_path_text := folder;
   try
     let manifest_text = read_file (Filename.concat folder Manifest.file_name) in
     let texts = List.map (fun file -> (file, read_file (Filename.concat folder file))) files in

@@ -83,15 +83,20 @@ let functions : signature list =
             Value.List { items = Dynarray.of_list (List.map (fun a -> Value.String a) !program_arguments) }
           else raise_failure span "not_text") };
     { std_name = "program_path"; path = "std::env"; parameter_types = []; result = Types.String; fails = [];
-      run = (fun span _ ->
-          raise (Interpreter_stop (Diagnostic.make ~span
-                   ~what:"what `program_path()` gives when the oracle runs a package isn't decided yet"
-                   Diagnostic.Not_designed_yet "not decided yet (D108, standard 13.2)"))) };
+      (* trace: D139 — under --Interp, the package folder's path *)
+      run = (fun _ _ -> Value.String !program_path_text) };
     (* trace: D11 *)
     { std_name = "exit"; path = "std::env"; parameter_types = [ Types.int ]; result = Types.Nothing; fails = [];
-      run = (fun _ arguments ->
+      run = (fun span arguments ->
           match arguments with
-          | [ code ] -> raise (Exit_program (Z.to_int (Value.integer_to_z code)))
+          | [ code ] ->
+              let n = Value.integer_to_z code in
+              (* trace: D139 *)
+              if Z.lt n Z.zero || Z.gt n (Z.of_int 117) then
+                raise (Runtime_stop (Diagnostic.make ~span
+                         ~what:(Printf.sprintf "`exit` takes a code from 0 to 117, and this is %s" (Z.to_string n))
+                         Diagnostic.Runtime_error "programs use 0 to 117 for their own reasons (D11, D139, standard 13.2)"));
+              raise (Exit_program (Z.to_int n))
           | _ -> Value.Nothing) } ]
 
 let find name = List.find_opt (fun s -> s.std_name = name) functions

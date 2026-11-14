@@ -36,27 +36,39 @@ for columns and `len()`).
 
 - Manifest: `name`, `ver`, `need std 2026y-11m-14d`, `kind tests`; other packages, dates, `rule`, scopes and
   `use` blocks give NotBuiltYet.
-- Lexer: everything in chapter 1, including comment blocks and the `<`/`>` spacing rule with its fix.
-- Hello World (d62).
+- Chapter 1: lines, brackets across lines, comments and comment blocks, `<`/`>` spacing, refused spellings with fixes,
+  named closers, strings and escapes, control characters refused.
+- Chapter 2: `Int` and every integer width (Int64 or Z), overflow checks, `.wrap`/`.saturate`, `div.*`, `mod.*`,
+  `f64` maths and its text (shortest, `~`, `as.stored`, NaN/inf), `Rational`, `Bool`, `String`, lists, maps (D138),
+  structs with defaults, tagged unions, `type.alias`, `type.new`.
+- Chapter 3: `let`, `mut`, `decl`/`assign` on every path, `shadow`, `change`, `give`, `copy`, top-level `let`.
+- Chapter 4: comparisons and chains (D139), logic, joins, indexing, `if`, `match`, the case test, `while`, `for`, named
+  `break`, `at pos`/`at offset`, ranges, `sum`.
+- Chapter 5: functions, `return early`, labels, defaults, `requires`, `fn.pure`, `fam.fn`, presets, methods with
+  `$self`/`mut $self`, `fn.main`, `my::`.
+- Chapter 7: the message format, knock-on errors with `because:` (each fix is an in-memory edit, D13), recovery of
+  refused lines, exit codes.
+- Chapter 13: `println`, `read_line`, `read_all`, `lines`, `args`, `program_path`, `exit`, list, string and map methods.
 
 ## Next
 
-Chapter by chapter, tests first: integers and arithmetic (2.1), floats as text (2.1a), Bool, strings and joins,
-lists and maps, structs, unions, variables (3), control flow (4), functions (5), failures (6), every error of 7.
+- Chapter 6: `fails`, `fail`, `?`, `otherwise`, handler families, `match ... with`, failures from `for` lines.
+- Conversions with `as` between number types (D91), `f32`/`f16`/`bf16`, `Decimal` (decimal128).
+- Bounds (D135), `Array`, generics, interfaces, `versions`, `let baked`, `fn.pure.baked`, `pub` across files.
 
 ## Error wording proposed by the oracle (D137)
 
-Every `what:`/`why:` text is the oracle's proposal until Jernal Design Claude reviews it. Tests that record them:
-none reviewed yet.
+Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal Design Claude reviews it.
 
 ## Choices made without a decision (to confirm)
 
-- Between two messages on stderr, one blank line.
-- When several errors stop a program, the exit code is the first one's, in the order printed (by file, line, column;
-  errors with no place last).
 - A package's `.jern` files are the ones directly in its folder, not in subfolders.
 - Tests run with empty standard input and no arguments.
+- `$m.remove(key:)` with a missing key is a check, like `$m[key:]`.
+- An item or entry (`$xs[pos: 1]`, `$m[key: $k]`) may stand in a join like a field, as D138's example does.
+- A literal `Status.ok[]` builds a case with no data; `Status.ok` alone isn't a value.
+- A value stored where it can change (`let mut`, `change`, `add`) is copied, so nothing frozen changes through it.
 
 ## Open questions (sent to Jernal Design Claude)
 
-(none open)
+- The name of `get`'s failure on a missing key (D138): NotDesignedYet when it crashes.

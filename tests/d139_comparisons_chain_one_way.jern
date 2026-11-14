@@ -1,0 +1,11 @@
+fn between[$x: Int] -> Bool:
+    return 1 < $x < 5
+end fn between
+
+fn.main[]:
+    println(between(3) as String)
+    println(between(5) as String)
+    println(between(0) as String)
+    let $y: Int = 4
+    println((9 > $y at_least 4) as String)
+end fn.main

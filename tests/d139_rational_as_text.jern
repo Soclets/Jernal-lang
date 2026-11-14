@@ -1,0 +1,10 @@
+fn.main[]:
+    let $a: Rational = 7 div.rational 2
+    let $b: Rational = -7 div.rational 2
+    let $c: Rational = 8 div.rational 2
+    let $d: Rational = 0.25
+    println($a as String)
+    println($b as String)
+    println($c as String)
+    println($d as String)
+end fn.main

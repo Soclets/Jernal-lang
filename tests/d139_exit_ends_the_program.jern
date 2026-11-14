@@ -1,0 +1,5 @@
+fn.main[]:
+    println("before")
+    exit(3)
+    println("never")
+end fn.main

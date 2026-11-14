@@ -1,0 +1,4 @@
+fn.main[]:
+    let $a: Bool = true
+    println(($a == true == true) as String)
+end fn.main

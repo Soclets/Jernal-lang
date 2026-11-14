@@ -1,0 +1,5 @@
+CompileTimeError: d139_a_top_level_let_mut_is_refused.jern:1:1, line 1 column 1
+ 1 | let mut $count: Int = 0
+   | ^^^^^^^
+ fix:  `let`
+ why:  a `let` at the top of a file can't be `mut` (D139, standard 3.1)

@@ -1,0 +1,11 @@
+struct Box:
+    items: List<Int>
+end struct Box
+
+fn wrap[$xs: List<Int>] -> Box:
+    return Box[items = $xs]
+end fn wrap
+
+fn.main[]:
+    let $b: Box = wrap([1, 2])
+end fn.main

@@ -1,0 +1,7 @@
+fn finish[$code: Int]:
+    exit($code)
+end fn finish
+
+fn.main[]:
+    finish(200)
+end fn.main

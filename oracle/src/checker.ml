@@ -17,6 +17,7 @@ type variable_info = {
   is_mutable : bool;
   mutable assigned : bool;          (* a `decl` gets its value later (D34) *)
   mutable given : bool;             (* retired by `give` (D7) *)
+  mutable is_parameter : bool;      (* a parameter, or a frozen name for one: keeping it needs `copy` (D139) *)
   is_loop_variable : bool;
   declared_at : Span.t;
 }
@@ -55,6 +56,8 @@ type context = {
   checked : (int, C.function_) Hashtbl.t;
   presets : (string, (name * expression) list) Hashtbl.t;   (* greet.loud -> its settings (D45) *)
   families : (string, Span.t) Hashtbl.t;
+  file_scopes : (string, (string, variable_info) Hashtbl.t) Hashtbl.t;   (* each file's top-level `let`s (D139) *)
+  mutable globals : C.statement list;
 }
 
 type function_context = {
@@ -225,7 +228,7 @@ let in_scope fctx f =
 let add_variable fctx ?(is_loop_variable = false) ~(name : name) ~variable_type ~is_mutable ~assigned () =
   let variable = { C.variable_id = fresh_id fctx.context; variable_name = name.text } in
   let info =
-    { variable; variable_type; case_known_until = None; is_mutable; assigned; given = false; is_loop_variable;
+    { variable; variable_type; case_known_until = None; is_mutable; assigned; given = false; is_parameter = false; is_loop_variable;
       declared_at = name.span }
   in
   Hashtbl.replace (List.hd fctx.scopes) name.text info;
@@ -348,6 +351,23 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
     | Syntax.Join items -> check_join fctx e items
     | Syntax.Convert { value; narrowings; target } -> check_convert fctx e value narrowings target
     | Syntax.Binary { operator; left; right } -> check_binary fctx ~expected e operator left right
+    | Syntax.Comparison_chain { operands; operators } ->
+        (* each neighbouring pair is checked as its own comparison; a middle operand is checked twice,
+           and the same error twice is printed once *)
+        let rec pairs = function
+          | a :: (b :: _ as rest), o :: os ->
+              let c = check_binary fctx ~expected:None { e with expression_kind = Syntax.Binary { operator = o; left = a; right = b } } o a b in
+              c :: pairs (rest, os)
+          | _ -> []
+        in
+        let compared = pairs (operands, operators) in
+        let checked =
+          match compared with
+          | { C.kind = C.Compare { left; _ }; _ } :: _ ->
+              left :: List.map (function { C.kind = C.Compare { right; _ }; _ } -> right | c -> c) compared
+          | _ -> raise Skip
+        in
+        { C.kind = C.Chain { operands = checked; operators = List.map (fun (o : operator) -> o.word) operators }; type_ = Types.Bool; span }
     | Syntax.Not inner ->
         let inner = check_expression fctx ~expected:(Some Types.Bool) inner in
         expect_type context Types.Bool inner;
@@ -438,6 +458,7 @@ and require_can_fail context (value : C.expression) =
     match value.kind with
     | C.Call_builtin { builtin; _ } -> builtin.fails <> []
     | C.Call_function _ -> true
+    | C.Arithmetic { operator = "div"; narrowings = [ "exact" ]; _ } -> true   (* fails with `not_exact` (D139) *)
     | _ -> false
   in
   if not fails && value.type_ <> Types.Unknown then
@@ -500,10 +521,11 @@ and check_convert fctx (e : expression) value narrowings target =
                     | _ -> false) -> ()
    | Types.String, (Types.Integer _ | Types.Bool | Types.String), [] -> ()
    | Types.String, Types.Float Types.F64, ([] | [ "stored" ]) -> ()
+   | Types.String, Types.Rational, [] -> ()   (* trace: D139 *)
    | Types.String, (Types.Struct _ | Types.Union _), _ ->
        not_designed context ~what:"what a struct looks like as text isn't decided yet" span
          "not decided yet (D120, standard 12.1)"
-   | Types.String, (Types.Rational | Types.Decimal | Types.List _ | Types.Map _), _ ->
+   | Types.String, (Types.List _ | Types.Map _), _ ->
        not_designed context ~what:(Printf.sprintf "what %s looks like as text isn't decided yet" (type_text from)) span
          "not decided yet (D120, standard 12.1)"
    | _ ->
@@ -557,6 +579,10 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
        | Types.Integer _ | Types.Float _ | Types.Rational | Types.Unknown -> ()
        | Types.String -> ()   (* trace: D138 — strings order by code point *)
        | Types.Bool when not ordered -> ()
+       | Types.Bool ->
+           (* trace: D139 *)
+           refuse context ~what:"`Bool` has no order, so it can't be compared with `<`, `>`, `at_least` or `at_most`"
+             operator.operator_span "`Bool` has no order (D139, standard 4.1)"
        | Types.Struct _ | Types.Union _ | Types.List _ | Types.Map _ when not ordered ->
            not_built context ~what:(Printf.sprintf "comparing %s values isn't built in the oracle yet" (type_text l.type_))
              operator.operator_span "a type defines `==` and `<` (D105, standard 5.8)"
@@ -731,7 +757,7 @@ and check_build fctx (e : expression) built fields =
                 Hashtbl.add seen field.text ();
                 let v = check_expression fctx ~expected:(Some t) field_value in
                 expect_type context t v;
-                check_hand_off fctx v field_value;
+                check_hand_off ~escapes:true fctx v field_value;
                 (field.text, v))
           fields
       in
@@ -776,7 +802,7 @@ and check_build fctx (e : expression) built fields =
         "a struct is built with `[ ]` and `=` (D56, standard 2.4)"
 
 (* Handing off something whose inside can change says `give` or `copy` (D7). *)
-and check_hand_off fctx (value : C.expression) (source : expression) =
+and check_hand_off ?(escapes = false) fctx (value : C.expression) (source : expression) =
   let context = fctx.context in
   let rec root (x : expression) =
     match x.expression_kind with
@@ -794,6 +820,11 @@ and check_hand_off fctx (value : C.expression) (source : expression) =
           refuse context
             ~what:(Printf.sprintf "%s can change inside, so handing it off needs `give` or `copy`" (quote ("$" ^ name)))
             source.expression_span "a hand-off says what it does (D7, standard 3.6)"
+      | Some info when info.is_parameter && escapes ->
+          (* trace: D139 *)
+          let text = Source.text_of source.expression_span in
+          refuse context ~fix:(quote ("copy " ^ text)) source.expression_span
+            "a function sees a parameter frozen for the call, and keeping it after returning needs `copy` (D139, standard 3.6)"
       | _ -> ())
   | _ -> ()
 
@@ -1006,9 +1037,11 @@ and check_std_call fctx span (s : Std_library.signature) arguments =
      match arguments with
      | [ { C.kind = C.Constant code; span = code_span; _ } ] ->
          let n = Value.integer_to_z code in
-         if Z.geq n (Z.of_int 118) && Z.leq n (Z.of_int 122) then
-           refuse context ~what:(Printf.sprintf "`exit` refuses %s: codes 118 to 122 belong to Jernal's own errors" (Z.to_string n))
-             code_span "programs use 1 to 117 for their own reasons (D11, standard 7.6)"
+         (* trace: D11, D139 — exit takes Int[min: 0, max: 117] *)
+         if Z.lt n Z.zero || Z.gt n (Z.of_int 117) then
+           refuse context ~what:(Printf.sprintf "`exit` takes a code from 0 to 117, and this is %s" (Z.to_string n))
+ code_span
+             "programs use 0 to 117 for their own reasons (D11, D139, standard 13.2)"
      | _ -> ());
   { C.kind = C.Call_builtin { builtin = { C.builtin_name = s.std_name; fails = s.fails; run = s.run }; arguments }; type_ = s.result; span }
 
@@ -1207,6 +1240,7 @@ and check_statement fctx (s : statement) : C.statement list =
                "declaring an existing name is refused; `shadow` gives it a new value (D36, standard 3.4)"
          | None -> ());
         let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
+        if not is_mutable then info.is_parameter <- names_a_parameter fctx value declared;
         match checked_value with
         | Some v -> make (C.Define (info.variable, if is_mutable then stored v else v))
         | None -> [])
@@ -1279,7 +1313,7 @@ and check_statement fctx (s : statement) : C.statement list =
           []
       | t -> (
           try
-            let v = check_value fctx t value in
+            let v = check_value ~escapes:true fctx t value in
             make (C.Return (Some v))
           with Skip -> []))
   | If { branches; else_body } -> check_if fctx span branches else_body
@@ -1340,11 +1374,18 @@ and declare_recovered fctx (declares : recovered list) =
     declares
 
 (* A value landing in a place of a known type. *)
-and check_value fctx (declared : Types.t) (value : expression) : C.expression =
+and check_value ?(escapes = false) fctx (declared : Types.t) (value : expression) : C.expression =
   let v = check_expression fctx ~expected:(Some declared) value in
   expect_type fctx.context declared v;
-  check_hand_off fctx v value;
+  check_hand_off ~escapes fctx v value;
   v
+
+(* A frozen name for a parameter's inside is still the parameter's (D139). *)
+and names_a_parameter fctx (value : expression) (t : Types.t) =
+  Types.has_inside_that_changes t
+  && (match root_variable value with
+      | Some (name, _) -> (match find_variable fctx name with Some info -> info.is_parameter | None -> false)
+      | None -> false)
 
 and check_change fctx span target value =
   let context = fctx.context in
@@ -1652,12 +1693,20 @@ let dummy_declaration =
     parameters = []; result = None; fails = []; labels = []; defaults = []; requires = []; ensures = []; body = [];
     function_span = Span.none }
 
+let file_scope context file =
+  match Hashtbl.find_opt context.file_scopes file with
+  | Some scope -> scope
+  | None -> let scope = Hashtbl.create 8 in Hashtbl.replace context.file_scopes file scope; scope
+
 let check_function context (info : function_info) =
   let declaration = info.declaration in
-  let fctx = { context; info; scopes = [ Hashtbl.create 8 ]; loops = [] } in
+  let fctx = { context; info; scopes = [ Hashtbl.create 8; file_scope context info.file ]; loops = [] } in
   let parameters =
     List.map2
-      (fun p t -> (add_variable fctx ~name:p.parameter ~variable_type:t ~is_mutable:p.self_mutable ~assigned:true ()).variable)
+      (fun p t ->
+        let info = add_variable fctx ~name:p.parameter ~variable_type:t ~is_mutable:p.self_mutable ~assigned:true () in
+        info.is_parameter <- not p.self_mutable;
+        info.variable)
       declaration.parameters info.parameter_types
   in
   let requires =
@@ -1704,9 +1753,10 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   let context =
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
-      presets = Hashtbl.create 8; families = Hashtbl.create 8 }
+      presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = [] }
   in
   let mains = ref [] in
+  let globals = ref [] in
   let declare_function ?(family_pure = false) file (declaration : function_declaration) full_name =
     let is_main = List.map (fun n -> n.text) declaration.narrowings = [ "main" ] in
     if is_main then mains := (declaration, file) :: !mains
@@ -1773,6 +1823,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
                     | Family_function _ -> "a `fam.fn` block holds things that belong under one name (D45, standard 5.5)"
                     | Family_failure _ -> "a named set of failures is a family (D49, standard 6.2)"
                     | _ -> "a `fam.handler` holds named, reusable sets of arms (D48, standard 6.4)"))
+          | Global statement -> globals := (file.file_name, statement) :: !globals
           | Unfinished_declaration { what; why; designed } ->
               report context
                 (Diagnostic.make ~span:d.declaration_span ~what
@@ -1809,6 +1860,14 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
     info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown)
   in
   Hashtbl.iter (fun _ info -> resolve_signature info) context.functions;
+  (* Top-level `let`s, in the order they're written, each seen in its own file (D139, D106). *)
+  List.iter
+    (fun (file, statement) ->
+      let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file; parameter_types = [];
+                   result_type = Types.Nothing; pure = false } in
+      let fctx = { context; info = fake; scopes = [ file_scope context file ]; loops = [] } in
+      context.globals <- context.globals @ check_statement fctx statement)
+    (List.rev !globals);
   (* trace: D62 *)
   let main_id = fresh_id context in
   (match List.rev !mains with
@@ -1833,7 +1892,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   Hashtbl.iter (fun _ info -> check_function context info) context.functions;
   let diagnostics = List.rev context.diagnostics in
   let program =
-    { C.functions = context.checked; main = main_id; struct_defaults = Hashtbl.create 1 }
+    { C.functions = context.checked; main = main_id; struct_defaults = Hashtbl.create 1; globals = context.globals }
   in
   (* Struct defaults, checked once, with no variables. *)
   Hashtbl.iter

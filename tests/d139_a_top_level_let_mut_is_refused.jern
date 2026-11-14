@@ -1,0 +1,5 @@
+let mut $count: Int = 0
+
+fn.main[]:
+    println("never")
+end fn.main

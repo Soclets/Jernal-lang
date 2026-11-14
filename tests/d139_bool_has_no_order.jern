@@ -1,0 +1,3 @@
+fn.main[]:
+    println((false < true) as String)
+end fn.main

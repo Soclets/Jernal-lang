@@ -1,0 +1,5 @@
+CompileTimeError: d139_line_separator_is_refused_in_strings.jern:2:15, line 2 column 15
+ 2 |     println("a b")
+   |               ^
+ what: a string can't hold U+2028
+ why:  plain strings hold no control characters, and no U+2028 or U+2029 (D95, D139, standard 2.2)

@@ -1,0 +1,15 @@
+struct Box:
+    items: List<Int>
+end struct Box
+
+fn wrap[$xs: List<Int>] -> Box:
+    return Box[items = copy $xs]
+end fn wrap
+
+fn.main[]:
+    let mut $xs: List<Int> = [1, 2]
+    let $b: Box = wrap($xs)
+    $xs.add(3)
+    println($b.items.len() as String)
+    println($xs.len() as String)
+end fn.main

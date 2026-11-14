@@ -1,0 +1,5 @@
+RuntimeError: d139_div_exact_fails_with_not_exact.jern:4:19, line 4 column 19
+ 4 |     let $b: Int = 7 div.exact 2
+   |                   ^^^^^^^^^^^^^
+ what: `7 div.exact 2` failed with `not_exact`, and nothing handled it
+ why:  a failure nobody handles crashes (D48, standard 6.3)

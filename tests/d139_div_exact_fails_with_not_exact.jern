@@ -1,0 +1,6 @@
+fn.main[]:
+    let $a: Int = 7 div.exact 2 ?? -1
+    println($a as String)
+    let $b: Int = 7 div.exact 2
+    println("never")
+end fn.main

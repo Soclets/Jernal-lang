@@ -1,0 +1,6 @@
+let $greeting: String = "Hello"
+let $answer: Int = 6 x 7
+
+fn.main[]:
+    println($greeting ", " $answer as String)
+end fn.main

@@ -1,0 +1,5 @@
+CompileTimeError: d139_exit_refuses_a_code_of_jernals.jern:2:10, line 2 column 10
+ 2 |     exit(120)
+   |          ^^^
+ what: `exit` takes a code from 0 to 117, and this is 120
+ why:  programs use 0 to 117 for their own reasons (D11, D139, standard 13.2)

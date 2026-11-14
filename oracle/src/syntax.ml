@@ -39,6 +39,7 @@ and expression_kind =
   | Map_literal of (expression * expression) list
   | Range of range
   | Binary of { operator : operator; left : expression; right : expression }
+  | Comparison_chain of { operands : expression list; operators : operator list }   (* 1 < $x < 5 (D139) *)
   | Negate of expression
   | Not of expression
   | Join of expression list
@@ -180,6 +181,7 @@ type declaration_kind =
   | Family_function of { family_narrowings : name list; family_name : name; members : family_member list }
   | Family_failure of { failure_family : name; failures : failure_shape list }
   | Family_handler of { handler_family : name; handlers : handler_set list }
+  | Global of statement     (* a `let` at the top of a file (D139) *)
   | Unfinished_declaration of { what : string; why : string; designed : bool }
 
 type declaration = { declaration_kind : declaration_kind; visibility : visibility; declaration_span : Span.t }

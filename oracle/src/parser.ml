@@ -50,6 +50,8 @@ let keywords =
 
 let is_keyword word = List.mem word keywords
 
+let quote_word w = "`" ^ w ^ "`"
+
 (* The text of a token as written, for messages. *)
 let token_text (t : Token.t) =
   match t.kind with
@@ -305,14 +307,33 @@ and parse_comparison state =
   | None -> left
   | Some operator ->
       let right = parse_additive state in
-      let result = make (Binary { operator; left; right }) first state in
-      (match comparison_operator state with
-       | Some second ->
-           raise (Line_error (Diagnostic.make ~span:second.operator_span
-                                ~what:"a chain of comparisons, such as `$a < $b < $c`, isn't decided yet"
-                                Diagnostic.Not_designed_yet "not decided yet (D90, standard 2.1a)"))
-       | None -> ());
-      result
+      (* trace: D139 — a chain reads as maths when every comparison points the same way *)
+      let rec more operands operators =
+        match comparison_operator state with
+        | Some next -> more (parse_additive state :: operands) (next :: operators)
+        | None -> (List.rev operands, List.rev operators)
+      in
+      let operands, operators = more [ right; left ] [ operator ] in
+      if List.length operators = 1 then make (Binary { operator; left; right }) first state
+      else begin
+        let direction (o : operator) =
+          match o.word with "<" | "at_most" -> `Up | ">" | "at_least" -> `Down | _ -> `Equal
+        in
+        let why = "comparisons chain only when they all point the same way, and `==` and `!=` never chain (D139, standard 4.1)" in
+        List.iter
+          (fun (o : operator) ->
+            if direction o = `Equal then
+              fail_line ~what:(Printf.sprintf "%s can't be part of a chain of comparisons; group with `( )`" (quote_word o.word))
+                o.operator_span why)
+          operators;
+        let first_direction = direction (List.hd operators) in
+        List.iter
+          (fun (o : operator) ->
+            if direction o <> first_direction then
+              fail_line ~what:"this chain of comparisons points both ways; group with `( )`" o.operator_span why)
+          operators;
+        make (Comparison_chain { operands; operators }) first state
+      end
 
 and parse_additive state =
   let first = (peek state).span in
@@ -1537,9 +1558,21 @@ let parse_declaration state : declaration option =
         | _ when (match (peek_at state 1).kind with Word "satisfies" -> true | _ -> false) ->
             unfinished_declaration state ~what:"`satisfies` isn't built in the oracle yet"
               ~why:"a type fits an interface only through a written `satisfies` line (D105, standard 5.8)" ~designed:true
-        | Word ("let" | "decl" | "shadow") ->
-            unfinished_declaration state ~what:"a variable outside a function isn't decided yet"
-              ~why:"not decided yet (D5, standard 3.1)" ~designed:false
+        | Word "let" when is_word_at state 1 "baked" ->
+            unfinished_declaration state ~what:"`let baked` isn't built in the oracle yet"
+              ~why:"`let baked` declares a value known when compiling (D5, standard 3.1)" ~designed:true
+        | Word "let" ->
+            (* trace: D139 *)
+            if is_word_at state 1 "mut" then begin
+              let let_token = peek state and mut_token = peek_at state 1 in
+              report state
+                (Diagnostic.make ~span:(Span.join let_token.span mut_token.span) ~fix:"`let`"
+                   Diagnostic.Compile_time_error "a `let` at the top of a file can't be `mut` (D139, standard 3.1)")
+            end;
+            Global (parse_statement_line state)
+        | Word ("decl" | "shadow") ->
+            unfinished_declaration state ~what:"a `decl` or `shadow` outside a function isn't decided yet"
+              ~why:"not decided yet (D139, standard 3.1)" ~designed:false
         | _ ->
             fail_line ~what:(Printf.sprintf "`%s` can't start a declaration" (token_text (peek state)))
               (peek state).span "a file holds declarations: functions, types and families (D45, standard 5.5)"
