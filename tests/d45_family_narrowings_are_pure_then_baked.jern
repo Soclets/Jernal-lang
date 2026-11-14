@@ -1,0 +1,12 @@
+fam.fn.fast tools:
+    fn one[] -> Int:
+        return 1
+    end fn one
+end fam.fn.fast tools
+
+fam.thing others:
+end fam.thing others
+
+fn.main[]:
+    println(tools.one() as String)
+end fn.main

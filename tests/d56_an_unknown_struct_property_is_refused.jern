@@ -1,0 +1,7 @@
+struct.shiny Point:
+    x: Int
+end struct.shiny Point
+
+fn.main[]:
+    println("never")
+end fn.main

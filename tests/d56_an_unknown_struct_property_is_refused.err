@@ -1,0 +1,5 @@
+CompileTimeError: d56_an_unknown_struct_property_is_refused.jern:1:8, line 1 column 8
+ 1 | struct.shiny Point:
+   |        ^^^^^
+ what: `struct.shiny` isn't a property a struct can have
+ why:  properties of a type are narrowings on `struct` (D56, standard 2.4)

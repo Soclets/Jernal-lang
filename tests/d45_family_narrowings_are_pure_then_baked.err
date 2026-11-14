@@ -1,0 +1,11 @@
+CompileTimeError: d45_family_narrowings_are_pure_then_baked.jern:1:1, line 1 column 1
+ 1 | fam.fn.fast tools:
+   | ^^^
+ what: `fam.fn.fast` isn't a kind of family: its narrowings are `pure`, then `baked`
+ why:  a narrowing on `fam.fn` applies to every member (D41, D45, standard 5.5)
+
+CompileTimeError: d45_family_narrowings_are_pure_then_baked.jern:7:1, line 7 column 1
+ 7 | fam.thing others:
+   | ^^^
+ what: `fam.thing` isn't a kind of family: they're `fam.fn`, `fam.failure`, `fam.handler`, `fam.type.new` and `fam.unit`
+ why:  every family writes its members short, with a keyword (D45, D49, standard 5.5)
