@@ -89,7 +89,7 @@ let sum (item_type : Types.t) span = function
               ~when_:(Printf.sprintf "it would be %s" (Z.to_string total))
               span "a number too big for its type is a check (D54, standard 7.2)";
           Value.integer_of_z t total
-      | Types.Float k -> Value.Float (Numbers.float_sum (List.map (function Value.Float (f, _) -> f | _ -> 0.0) values), k)
+      | Types.Float k -> Value.Float (Numbers.float_sum ~kind:k (List.map (function Value.Float (f, _) -> f | _ -> 0.0) values), k)
       | Types.Rational -> Value.Rational (List.fold_left (fun total v -> match v with Value.Rational q -> Q.add total q | _ -> total) Q.zero values)
       | _ -> Value.Nothing)
   | _ -> Value.Nothing

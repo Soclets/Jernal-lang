@@ -301,15 +301,12 @@ let rec check_number_literal fctx ~(expected : Types.t option) (e : expression) 
         | Syntax.Integer_literal _ -> Q.of_bigint (integer_literal_value ~negative digits)
         | _ -> decimal_literal_value ~negative digits
       in
-      if kind <> Types.F64 then
-        not_built context ~what:(Printf.sprintf "%s isn't built in the oracle yet" (quote (Types.float_name kind))) span
-          "floats are `f16`, `bf16`, `f32` and `f64` (D93, standard 2.1a)";
-      let f = float_of_rational q in
+      let f = Numbers.round_rational (Numbers.format_of kind) q in
       (* trace: D120 *)
       if not (Float.is_finite f) then
         refuse context ~what:(Printf.sprintf "%s is outside the range of %s" (quote text) (type_text (Types.Float kind)))
           span "a float literal outside its type's range is refused (D120, standard 2.1a)";
-      let exact = float_exactly q in
+      let exact = Float.is_finite f && Q.equal (Q.of_float f) q in
       (* trace: D84 *)
       if exact && tilde then refuse context ~fix:(quote (if negative then "-" ^ digits else digits)) span tilde_why;
       if (not exact) && not tilde then refuse context ~fix:(quote ("~" ^ (if negative then "-" else "") ^ digits)) span tilde_why;
@@ -665,7 +662,7 @@ and check_convert fctx (e : expression) value narrowings target =
                     | Types.New (_, u), t | t, Types.New (_, u) -> Types.same (underlying u) (underlying t)
                     | _ -> false) -> ()
    | Types.String, (Types.Integer _ | Types.Bool | Types.String), [] -> ()
-   | Types.String, Types.Float Types.F64, ([] | [ "stored" ]) -> ()
+   | Types.String, Types.Float _, ([] | [ "stored" ]) -> ()
    | Types.String, Types.Rational, [] -> ()   (* trace: D139 *)
    | Types.String, (Types.Struct _ | Types.Union _), _ ->
        not_designed context ~what:"what a struct looks like as text isn't decided yet" span
@@ -680,19 +677,14 @@ and check_convert fctx (e : expression) value narrowings target =
          ~what:(Printf.sprintf "%s isn't a conversion between integers: it's plain `as`, `as.wrap` or `as.saturate`"
                   (quote (String.concat "." ("as" :: narrowing_words))))
          span "conversions say what they do whenever there's a choice (D91, standard 2.1a)"
-   | Types.Integer _, (Types.Float Types.F64 | Types.Rational),
+   | Types.Integer _, (Types.Float _ | Types.Rational),
      ([ "trunc" ] | [ "floor" ] | [ "ceil" ] | [ "round"; "even" ] | [ "round"; "away" ] | [ "exact" ]) -> ()
-   | Types.Integer _, (Types.Float Types.F64 | Types.Rational), [] ->
+   | Types.Integer _, (Types.Float _ | Types.Rational), [] ->
        refuse context
          ~what:(Printf.sprintf "converting %s to an integer says how it rounds: `as.trunc`, `as.floor`, `as.ceil`, `as.round.even`, `as.round.away` or `as.exact`"
                   (type_text value.type_))
          span "there's no bare rounding, since ties are a real choice (D91, standard 2.1a)"
-   | (Types.Float Types.F64 | Types.Rational), (Types.Integer _ | Types.Float Types.F64 | Types.Rational), [] -> ()
-   | (Types.Integer _ | Types.Float _ | Types.Rational), (Types.Integer _ | Types.Float _ | Types.Rational), _
-     when (match underlying target_type, from with Types.Float k, _ | _, Types.Float k -> k <> Types.F64 | _ -> false) ->
-       not_built context
-         ~what:(Printf.sprintf "converting %s to %s isn't built in the oracle yet" (type_text value.type_) (type_text target_type))
-         span "converting between number types uses `as` (D91, standard 2.1a)"
+   | (Types.Float _ | Types.Rational), (Types.Integer _ | Types.Float _ | Types.Rational), [] -> ()
    | (Types.Integer _ | Types.Float _ | Types.Rational), (Types.Integer _ | Types.Float _ | Types.Rational), _ ->
        refuse context
          ~what:(Printf.sprintf "%s doesn't say anything this conversion needs" (quote (String.concat "." ("as" :: narrowing_words))))
@@ -815,9 +807,6 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
            refuse context ~what:(Printf.sprintf "%s isn't an operator" (quote operator_text)) operator.operator_span
              "dividing is `div`, and on integers it says which kind (D88, standard 2.1a)");
       (match t, operator.word, operator.narrowings with
-       | Types.Float k, _, _ when k <> Types.F64 ->
-           not_built context ~what:(Printf.sprintf "maths on %s isn't built in the oracle yet" (type_text l.type_))
-             operator.operator_span "floats are `f16`, `bf16`, `f32` and `f64` (D93, standard 2.1a)"
        | Types.Rational, ("x" | "+" | "-" | "div"), [] -> ()
        | Types.Rational, _, _ ->
            not_designed context ~what:(Printf.sprintf "%s on `Rational` isn't decided yet" (quote operator_text))
@@ -1366,8 +1355,7 @@ and check_method_call fctx span (base : expression) (words : name list) argument
   | Types.List item, "sum", [] -> (
       ignore (positional 0);
       match underlying item with
-      | Types.Integer _ | Types.Float Types.F64 | Types.Rational -> builtin "sum" (Methods.sum (underlying item)) item []
-      | Types.Float _ -> not_built_method target.type_
+      | Types.Integer _ | Types.Float _ | Types.Rational -> builtin "sum" (Methods.sum (underlying item)) item []
       | _ ->
           refuse context ~what:(Printf.sprintf "`sum` adds numbers, and these are %s" (type_text item)) method_name.span
             "`sum` is the exact sum of a list of numbers (D38, standard 13.3)")

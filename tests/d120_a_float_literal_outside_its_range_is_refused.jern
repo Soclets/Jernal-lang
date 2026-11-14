@@ -1,0 +1,3 @@
+fn.main[]:
+    let $x: f16 = 70000.0
+end fn.main

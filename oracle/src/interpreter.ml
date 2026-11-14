@@ -38,6 +38,14 @@ let exact_decimal_of_q (q : Q.t) : string =
   let fraction = trim fraction in
   (if negative then "-" else "") ^ whole ^ (if fraction = "" then "" else "." ^ fraction)
 
+(* Plain decimal text, such as "-12.5", as the fraction Q.of_string reads ("-125/10"). *)
+let q_text (plain : string) : string =
+  match String.index_opt plain '.' with
+  | None -> plain
+  | Some i ->
+      let fraction = String.length plain - i - 1 in
+      String.sub plain 0 i ^ String.sub plain (i + 1) fraction ^ "/1" ^ String.make fraction '0'
+
 (* "1.2345e+02"-style text to plain digits with no exponent (D120). *)
 let plain_of_scientific (text : string) : string =
   let negative = text.[0] = '-' in
@@ -66,14 +74,15 @@ let plain_of_scientific (text : string) : string =
 
 (* The shortest digits that read back as exactly the same float, with `~` when the float isn't
    exactly that decimal (D119, D120). *)
-let float_text _span (f : float) : string =
+let float_text ?(kind = Types.F64) _span (f : float) : string =
   (* trace: D139 *)
   if Float.is_nan f then "NaN"
   else if not (Float.is_finite f) then (if f > 0.0 then "inf" else "-inf")
   else begin
     let rec shortest precision =
       let text = Printf.sprintf "%.*e" (precision - 1) f in
-      if precision >= 17 || Float.equal (float_of_string text) f then text else shortest (precision + 1)
+      let read_back = Numbers.round_rational (Numbers.format_of kind) (Q.of_string (plain_of_scientific text |> q_text)) in
+      if precision >= 17 || Float.equal read_back f then text else shortest (precision + 1)
     in
     let plain = plain_of_scientific (shortest 1) in
     let plain = if Float.sign_bit f && plain.[0] <> '-' then "-" ^ plain else plain in
@@ -99,7 +108,7 @@ let rec to_text span (narrowings : string list) (value : Value.t) : string =
   | Value.String s, _ -> s
   | Value.Float (f, _), [ "stored" ] ->
       if not (Float.is_finite f) then to_text span [] value else exact_decimal_of_q (Q.of_float f)
-  | Value.Float (f, _), _ -> float_text span f
+  | Value.Float (f, kind), _ -> float_text ~kind span f
   | Value.Rational q, _ ->
       (* trace: D139 — always reduced: 7/2, -7/2, 4 *)
       if Z.equal (Q.den q) Z.one then Z.to_string (Q.num q) else Z.to_string (Q.num q) ^ "/" ^ Z.to_string (Q.den q)
@@ -350,15 +359,15 @@ and convert (e : C.expression) (narrowings : string list) (target : Types.t) (v 
       | [ "saturate" ] -> Value.integer_of_z t (saturate t n)
       | _ -> if Types.integer_fits t n then Value.integer_of_z t n else doesnt_fit (Z.to_string n))
   | (Value.Int64_integer _ | Value.Wide_integer _), Types.Float k ->
-      Value.Float (Numbers.float_of_rational (Q.of_bigint (Value.integer_to_z v)), k)
+      Value.Float (Numbers.round_rational (Numbers.format_of k) (Q.of_bigint (Value.integer_to_z v)), k)
   | (Value.Int64_integer _ | Value.Wide_integer _), Types.Rational -> Value.Rational (Q.of_bigint (Value.integer_to_z v))
   | Value.Float (f, _), Types.Integer t ->
       if not (Float.is_finite f) then doesnt_fit (float_text span f) else into_integer t (Q.of_float f)
   | Value.Float (f, _), Types.Rational ->
       if not (Float.is_finite f) then doesnt_fit (float_text span f) else Value.Rational (Q.of_float f)
-  | Value.Float (f, _), Types.Float k -> Value.Float (f, k)
+  | Value.Float (f, _), Types.Float k -> Value.Float (Numbers.round_float k f, k)
   | Value.Rational q, Types.Integer t -> into_integer t q
-  | Value.Rational q, Types.Float k -> Value.Float (Numbers.float_of_rational q, k)
+  | Value.Rational q, Types.Float k -> Value.Float (Numbers.round_rational (Numbers.format_of k) q, k)
   | _ -> v
 
 and list_offset span counting (l : Value.list_value) (p : Value.t) : int =
@@ -449,10 +458,10 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
       | _ -> l)
   | Value.Float (a, k), Value.Float (b, _) -> (
       match operator with
-      | "+" -> Value.Float (a +. b, k)
-      | "-" -> Value.Float (a -. b, k)
-      | "x" -> Value.Float (a *. b, k)
-      | "div" -> Value.Float (a /. b, k)
+      | "+" -> Value.Float (Numbers.round_float k (a +. b), k)
+      | "-" -> Value.Float (Numbers.round_float k (a -. b), k)
+      | "x" -> Value.Float (Numbers.round_float k (a *. b), k)
+      | "div" -> Value.Float (Numbers.round_float k (a /. b), k)
       | _ -> l)
   | Value.Rational a, Value.Rational b -> (
       match operator with

@@ -1,0 +1,5 @@
+CompileTimeError: d120_a_float_literal_outside_its_range_is_refused.jern:2:19, line 2 column 19
+ 2 |     let $x: f16 = 70000.0
+   |                   ^^^^^^^
+ what: `70000.0` is outside the range of `f16`
+ why:  a float literal outside its type's range is refused (D120, standard 2.1a)

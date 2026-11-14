@@ -1,0 +1,19 @@
+fn.main[]:
+    let $a: f32 = ~0.1
+    let $b: f32 = 0.5
+    println($a as String)
+    println($b as String)
+    println(($a + $a) as String)
+    let $wide: Float = $a as Float
+    println($wide as String)
+    let $back: f32 = $wide as f32
+    println($back as String)
+    let $h: f16 = ~0.1
+    let $top: f16 = 65504.0
+    println($h as String)
+    println($top as String)
+    println(($top + $top) as String)
+    let $z: bf16 = ~3.14159
+    println($z as String)
+    println($z as.stored String)
+end fn.main
