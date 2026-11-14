@@ -1,0 +1,4 @@
+fn.main[]:
+    let $arguments: List<String> = args() ?? []
+    println($arguments.len() as String)
+end fn.main

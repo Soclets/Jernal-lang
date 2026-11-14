@@ -2829,7 +2829,10 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
           in
           report context
             { d with kind = (if d.kind = Diagnostic.Runtime_error then Diagnostic.Compile_time_error else d.kind); because }
-      | exception Std_library.Exit_program _ -> ())
+      | exception Std_library.Exit_program _ -> ()
+      | exception Not_found ->
+          (* it calls a function that was refused, so it's unknown, and nothing more is said (D13) *)
+          ())
     context.baked_values;
   let diagnostics = diagnostics @ List.rev (List.filter (fun d -> not (List.memq d diagnostics)) context.diagnostics) in
   (Some program, diagnostics)
