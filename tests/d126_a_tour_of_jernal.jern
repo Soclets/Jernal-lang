@@ -1,0 +1,84 @@
+/// A small library: books, loans and fines, using most of Jernal at once.
+
+union.tagged Status:
+    shelved
+    loaned[days: Int]
+end union.tagged Status
+
+struct Book:
+    title: String
+    price: Decimal
+    status: Status = Status.shelved[]
+end struct Book
+
+fam.failure library_failed:
+    failure no_such_book[title: String]
+    failure already_loaned
+end fam.failure library_failed
+
+fam.fn Book:
+    fn lend[mut $self: Book, $days: Int] fails [library_failed.already_loaned]:
+        labels [$days as days]
+        requires $days at_least 1
+        if $self.status: Status.loaned:
+            fail library_failed.already_loaned
+        end if
+        change $self.status = Status.loaned[days = $days]
+    end fn lend
+end fam.fn Book
+
+fn.pure.baked fine_per_day[] -> Int:
+    return 25
+end fn.pure.baked fine_per_day
+
+let baked $daily_fine: Int = fine_per_day()
+
+fn fine[$days: Int] -> Rational:
+    let $over: Int = $days - 14
+    if $over at_most 0:
+        return 0
+    end if
+    return ($over x $daily_fine) div.rational 100
+end fn fine
+
+fn find[$books: List<Book>, $title: String] -> Int fails [library_failed.no_such_book]:
+    for $book in $books at pos $p:
+        if $book.title == $title:
+            return $p
+        end if
+    end for
+    fail library_failed.no_such_book[title = $title]
+end fn find
+
+fn.main[]:
+    let mut $books: List<Book> = [
+        Book[title = "Dune", price = 9.99],
+        Book[title = "Emma", price = 4.50],
+    ]
+    let $where: Int = find($books, "Emma") otherwise:
+        case library_failed.no_such_book $n:
+            println("missing: " $n.title)
+            instead 0
+    end otherwise
+    $books[pos: $where].lend(days: 20) ?? ignore
+    $books[pos: $where].lend(days: 3) otherwise:
+        case library_failed.already_loaned:
+            println("Emma is out already")
+    end otherwise
+    let $missing: Int = find($books, "Odyssey") ?? 0
+    println("Odyssey at " $missing as String)
+    let mut $total: Decimal = 0
+    for $book in $books:
+        change $total = $total + $book.price
+        match $book.status:
+            case shelved:
+                println($book.title ": on the shelf")
+            case loaned $l:
+                let $owed: Rational = fine($l.days)
+                println($book.title ": out " $l.days as String " days, fine " $owed as String)
+        end match
+    end for
+    println("shelf value " $total as String)
+    let $cents: Int = ($total x 100) as.round.even Int
+    println($cents as String " cents")
+end fn.main
