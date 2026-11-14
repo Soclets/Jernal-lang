@@ -55,7 +55,8 @@ let $w: String = first_word($text) otherwise word_failed.use_placeholder
 
 ## 6.4 Handler families
 
-A `fam.handler` holds named, reusable sets of arms, each after the keyword `handler` (D48, D49). `otherwise
+A `fam.handler` holds named, reusable sets of arms, each after the keyword `handler` (D48, D49). The same handlers
+can hold arms for a union's cases, used by `match $x with family.handler` (D100). `otherwise
 family.handler` works as if its arms were written at the call. A handler's arms are checked at each use, against the
 failures still possible there.
 

@@ -1670,3 +1670,27 @@ out a few cases is done with the case test, `if $x: Type.case:` (D97). Radium's 
 `otherwise` and handlers as being for failures only, with no catch-all in `match`, and suggested reusable arm sets; the
 owner had said: "I think Radium had `otherwise` blocks that could be used with pre-made handlers". Claude recommended
 no catch-all, with arm sets later; the owner asked "What do you recommend?", and chose: "D". (Owner, 2026-11-14)
+
+**D100. Arm sets are `fam.handler`s, used with `match $x with ...`.** Settles D99's open form. The same `fam.handler`
+(D49) holds arms for a union's cases as well as for failures; a handler is checked at each use against what that use
+needs: the failures still possible for `otherwise`, or every case of the union for `match`. `match $x with
+family.handler` is a one-line `match` using a set. A set that can `return` or `break` is used with D48's `*` mark. A
+`match` is either written out or one set, never a mix.
+
+```
+fam.handler key_actions:
+    handler basic:
+        case enter:
+            submit()
+        case escape:
+            cancel()
+        case tab:
+            next_field()
+    end handler basic
+end fam.handler key_actions
+
+match $key with key_actions.basic
+match $key with key_actions.*bail
+```
+
+Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)

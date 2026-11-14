@@ -79,8 +79,10 @@ match $s:
 end match
 ```
 
-There's no catch-all arm: every case is always covered (D99). A named set of arms can be reused across `match`es, and
-must still cover every case; its form isn't decided yet. To pick out a few cases, use the case test below.
+There's no catch-all arm: every case is always covered (D99). A set of arms can be written once in a `fam.handler`
+(6.4) and reused with `match $x with family.handler`, which must still cover every case (D100). A set that can
+`return` or `break` is used with `*`, as in `match $key with key_actions.*bail`. A `match` is either written out or one
+set, never a mix. To pick out a few cases, use the case test below.
 
 `match` is a statement and gives no value; a value from it comes through `decl` and `assign` (D98).
 
