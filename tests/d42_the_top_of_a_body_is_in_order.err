@@ -1,0 +1,5 @@
+CompileTimeError: d42_the_top_of_a_body_is_in_order.jern:4:5, line 4 column 5
+ 4 |     defaults [$a = 1]
+   |     ^^^^^^^^
+ what: `defaults` comes earlier in the top of the body
+ why:  the top of a body says `labels`, `defaults`, `requires` and `ensures`, in that order (D42, standard 5.3)

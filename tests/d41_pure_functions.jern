@@ -1,0 +1,11 @@
+fn.pure square[$n: Int] -> Int:
+    return $n x $n
+end fn.pure square
+
+fn.pure sum_of_squares[$a: Int, $b: Int] -> Int:
+    return square($a) + square($b)
+end fn.pure sum_of_squares
+
+fn.main[]:
+    println(sum_of_squares(3, 4) as String)
+end fn.main

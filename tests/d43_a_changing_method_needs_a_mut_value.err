@@ -1,0 +1,5 @@
+CompileTimeError: d43_a_changing_method_needs_a_mut_value.jern:14:5, line 14 column 5
+ 14 |     $r.warm_up(by: 2)
+    |     ^^
+ what: `warm_up` changes `$r`, which isn't `mut`
+ why:  calling a method that changes its value on a value that can't change is refused (D43, standard 5.4)

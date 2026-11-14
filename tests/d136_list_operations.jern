@@ -1,0 +1,26 @@
+fn show[$xs: List<Int>]:
+    let mut $text: String = ""
+    for $x in $xs:
+        change $text = $text $x as String " "
+    end for
+    println($text)
+end fn show
+
+fn.main[]:
+    let mut $xs: List<Int> = [1, 2, 3]
+    $xs.add(4)
+    show($xs)
+    $xs.add(0, pos: 1)
+    show($xs)
+    $xs.add(9, offset: 4)
+    show($xs)
+    let $removed: Int = $xs.remove(pos: 2)
+    println($removed as String)
+    show($xs)
+    println($xs.contains(3) as String)
+    println($xs.contains(7) as String)
+    println($xs.first() as String)
+    println($xs.last() as String)
+    $xs.clear()
+    println($xs.len() as String)
+end fn.main

@@ -1,0 +1,24 @@
+struct Reading:
+    celsius: Int
+end struct Reading
+
+fam.fn Reading:
+    fn new[$celsius: Int] -> Reading:
+        return Reading[celsius = $celsius]
+    end fn new
+
+    fn warm_up[mut $self: Reading, $by: Int]:
+        labels [$by as by]
+        change $self.celsius = $self.celsius + $by
+    end fn warm_up
+
+    fn describe[$self: Reading] -> String:
+        return $self.celsius as String " degrees"
+    end fn describe
+end fam.fn Reading
+
+fn.main[]:
+    let mut $r: Reading = Reading.new(20)
+    $r.warm_up(by: 2)
+    println($r.describe())
+end fn.main

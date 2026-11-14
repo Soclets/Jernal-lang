@@ -1,0 +1,8 @@
+fn.pure double[$n: Int] -> Int:
+    println("doubling")
+    return $n x 2
+end fn.pure double
+
+fn.main[]:
+    println(double(2) as String)
+end fn.main

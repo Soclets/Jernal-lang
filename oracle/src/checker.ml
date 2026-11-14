@@ -27,6 +27,7 @@ type function_info = {
   file : string;
   mutable parameter_types : Types.t list;
   mutable result_type : Types.t;
+  pure : bool;                      (* fn.pure, or a member of fam.fn.pure (D41, D45) *)
 }
 
 type struct_info = {
@@ -50,6 +51,8 @@ type context = {
   std_visible : bool;
   mutable next_id : int;
   checked : (int, C.function_) Hashtbl.t;
+  presets : (string, (name * expression) list) Hashtbl.t;   (* greet.loud -> its settings (D45) *)
+  families : (string, Span.t) Hashtbl.t;
 }
 
 type function_context = {
@@ -227,7 +230,7 @@ let decimal_literal_value ~negative digits =
   if negative then Q.neg q else q
 
 (* The float nearest an exact fraction, rounding to nearest, ties to even. *)
-let float_of_rational (q : Q.t) : float = Q.to_float q
+let float_of_rational (q : Q.t) : float = Numbers.float_of_rational q
 
 let float_exactly (q : Q.t) : bool =
   let f = float_of_rational q in
@@ -741,6 +744,12 @@ and check_call fctx ~expected (e : expression) callee arguments =
   let context = fctx.context in
   let span = e.expression_span in
   ignore expected;
+  (* A chain of names after a base: geometry.area, greet.casual.loud, $r.warm_up, $s.len.bytes *)
+  let rec flatten (x : expression) words =
+    match x.expression_kind with
+    | Syntax.Member (inner, n) -> flatten inner (n :: words)
+    | _ -> (x, words)
+  in
   match callee.expression_kind with
   | Syntax.Name { my; path; word } -> (
       let user = if path = [] || path = [ "pkg" ] then Hashtbl.find_opt context.functions word else None in
@@ -755,13 +764,12 @@ and check_call fctx ~expected (e : expression) callee arguments =
       (* trace: D63 *)
       let user = match user with Some f when f.declaration.function_my <> my -> (if my then Some f else None) | u -> u in
       match user, std with
-      | Some f, Some s when path = [] ->
+      | Some _, Some s when path = [] ->
           (* trace: D59 *)
           refuse context
             ~what:(Printf.sprintf "%s is both `pkg::%s` and `%s::%s`" (quote word) word s.path word) callee.expression_span
             "a short name that clashes is always refused (D59, standard 9.2)"
-          |> fun _ -> ignore f; assert false
-      | Some f, _ -> check_user_call fctx span f arguments
+      | Some f, _ -> check_user_call fctx span f [] None arguments
       | None, Some s -> check_std_call fctx span s arguments
       | None, None ->
           if word = "main" && not my then
@@ -774,9 +782,55 @@ and check_call fctx ~expected (e : expression) callee arguments =
           else
             refuse context ~what:(Printf.sprintf "there's no function called %s" (quote word)) callee.expression_span
               "a name is visible when it's declared or comes from a package the manifest lists (D59, standard 9.2)")
-  | Syntax.Member (receiver, method_name) -> check_method_call fctx span receiver method_name arguments
+  | Syntax.Member _ -> (
+      let base, words = flatten callee [] in
+      match base.expression_kind with
+      | Syntax.Name { my = false; path = []; word } when not (is_variable_like base) ->
+          check_path_call fctx span callee (word, base.expression_span) words arguments
+      | _ -> check_method_call fctx span base words arguments)
   | _ ->
       refuse context ~what:"this can't be called" callee.expression_span "`( )` runs a function (D15, standard 1.4)"
+
+and is_variable_like (_ : expression) = false
+
+(* geometry.area(...), Reading.new(...), greet.casual.loud(...): a family member, maybe with presets (D45). *)
+and check_path_call fctx span callee (head, head_span) (words : name list) arguments =
+  let context = fctx.context in
+  let all = head :: List.map (fun n -> n.text) words in
+  let rec longest k =
+    if k = 0 then None
+    else
+      let name = String.concat "." (List.filteri (fun i _ -> i < k) all) in
+      match Hashtbl.find_opt context.functions name with
+      | Some f -> Some (f, List.filteri (fun i _ -> i >= k - 1) (List.map (fun n -> n) ({ text = head; span = head_span } :: words)) |> List.tl)
+      | None -> longest (k - 1)
+  in
+  match longest (List.length all) with
+  | None ->
+      refuse context ~what:(Printf.sprintf "there's no function called %s" (quote (String.concat "." all))) callee.expression_span
+        "a family's members are written `<family>.<name>` (D45, standard 5.5)"
+  | Some (f, presets) ->
+      (* trace: D44, D45 *)
+      let settings =
+        List.fold_left
+          (fun settings (preset : name) ->
+            match Hashtbl.find_opt context.presets (f.full_name ^ "." ^ preset.text) with
+            | None ->
+                refuse context
+                  ~what:(Printf.sprintf "%s has no preset called %s" (quote f.full_name) (quote preset.text)) preset.span
+                  "`preset name [...]` fills in some of the family function's labelled arguments (D45, standard 5.6)"
+            | Some preset_settings ->
+                List.iter
+                  (fun ((parameter : name), _) ->
+                    if List.exists (fun ((p : name), _) -> p.text = parameter.text) settings then
+                      refuse context
+                        ~what:(Printf.sprintf "this chain of presets sets `$%s` twice" parameter.text) callee.expression_span
+                        "presets stack, and a chain that sets one parameter twice is refused (D45, standard 5.6)")
+                  preset_settings;
+                settings @ preset_settings)
+          [] presets
+      in
+      check_user_call fctx span f settings None arguments
 
 and check_arguments fctx span ~(function_name : string) ~(parameters : (string * Types.t) list)
     ~(labels : (string * string) list) ~(defaults : (string * expression) list) (arguments : argument list) =
@@ -795,6 +849,20 @@ and check_arguments fctx span ~(function_name : string) ~(parameters : (string *
     labelled;
   if List.length positional > List.length unlabelled_parameters then begin
     let extra = List.nth positional (List.length unlabelled_parameters) in
+    let labelled_given = List.filter_map (fun (a : argument) -> Option.map (fun (l : name) -> l.text) a.label) labelled in
+    let labels_left = List.filter (fun (_, l) -> not (List.mem l labelled_given)) labels in
+    (* one extra argument and one label left: the one fix is to label it *)
+    (match labels_left with
+     | [ (_, label) ] when List.length positional = List.length unlabelled_parameters + 1 ->
+         let at = extra.value.expression_span in
+         let source = Option.value (Diagnostic.source_line at.file at.line) ~default:"" in
+         let text =
+           if at.end_line = at.line then String.sub source (at.column - 1) (at.end_column - at.column) else ""
+         in
+         if text <> "" then
+           refuse context ~fix:(Printf.sprintf "`%s: %s`" label text) at
+             "a labelled parameter is written with its label at the call (D42, standard 5.3)"
+     | _ -> ());
     refuse context
       ~what:(Printf.sprintf "%s takes %d unlabelled argument%s" (quote function_name) (List.length unlabelled_parameters)
                (if List.length unlabelled_parameters = 1 then "" else "s"))
@@ -832,29 +900,47 @@ and check_arguments fctx span ~(function_name : string) ~(parameters : (string *
               refuse context ~what span "every parameter without a default is given (D42, standard 5.3)"))
     parameters
 
-and check_user_call fctx span (f : function_info) arguments =
+(* A call of the program's own function. [settings] are a preset chain's values; [receiver] is the
+   value a method is called on, given as its first argument. *)
+and check_user_call fctx span (f : function_info) (settings : (name * expression) list) (receiver : C.expression option) arguments =
+  let context = fctx.context in
   let declaration = f.declaration in
-  let parameters =
-    List.map2 (fun p t -> (p.parameter.text, t)) declaration.parameters f.parameter_types
+  (* trace: D41 *)
+  if fctx.info.pure && not f.pure then
+    refuse context
+      ~what:(Printf.sprintf "%s isn't `fn.pure`, so a pure function can't call it" (quote f.full_name)) span
+      "a pure function calls only pure functions (D41, standard 5.2)";
+  let parameters = List.map2 (fun p t -> (p.parameter.text, t)) declaration.parameters f.parameter_types in
+  let parameters, receiver_value =
+    match receiver, parameters with
+    | Some r, _ :: rest -> (rest, [ r ])
+    | _ -> (parameters, [])
   in
   let labels = List.map (fun (v, l) -> (v.text, l.text)) declaration.labels in
-  let defaults = List.map (fun (v, e) -> (v.text, e)) declaration.defaults in
+  let defaults =
+    List.map (fun ((v : name), e) -> (v.text, e)) settings
+    @ List.filter_map
+        (fun ((v : name), e) -> if List.exists (fun ((s : name), _) -> s.text = v.text) settings then None else Some (v.text, e))
+        declaration.defaults
+  in
   let checked = check_arguments fctx span ~function_name:f.full_name ~parameters ~labels ~defaults arguments in
   let arguments =
     List.map
       (function
         | `Given c -> c
         | `Default (_, default, parameter_type) ->
-            (* A default is a value written in the declaration; it's checked there, with no variables. *)
+            (* A default or preset is a value written in the declaration, checked with no variables. *)
             let empty = { fctx with scopes = [ Hashtbl.create 1 ] } in
-            let c = check_expression empty ~expected:(Some parameter_type) default in
-            c)
+            check_expression empty ~expected:(Some parameter_type) default)
       checked
   in
-  { C.kind = C.Call_function { function_id = f.function_id; arguments }; type_ = f.result_type; span }
+  { C.kind = C.Call_function { function_id = f.function_id; arguments = receiver_value @ arguments }; type_ = f.result_type; span }
 
 and check_std_call fctx span (s : Std_library.signature) arguments =
   let context = fctx.context in
+  if fctx.info.pure then
+    refuse context ~what:(Printf.sprintf "%s isn't pure, so a pure function can't call it" (quote s.std_name)) span
+      "a pure function calls only pure functions; no I/O (D41, standard 5.2)";
   let parameters = List.mapi (fun i t -> ("p" ^ string_of_int i, t)) s.parameter_types in
   let checked = check_arguments fctx span ~function_name:s.std_name ~parameters ~labels:[] ~defaults:[] arguments in
   let arguments = List.map (function `Given c -> c | `Default _ -> assert false) checked in
@@ -869,34 +955,150 @@ and check_std_call fctx span (s : Std_library.signature) arguments =
      | _ -> ());
   { C.kind = C.Call_builtin { builtin = { C.builtin_name = s.std_name; run = s.run }; arguments }; type_ = s.result; span }
 
-and check_method_call fctx span receiver (method_name : name) arguments =
+(* The variable at the root of a value, such as `$r` in `$r.items`. *)
+and root_variable (x : expression) =
+  match x.expression_kind with
+  | Syntax.Variable name -> Some (name, x.expression_span)
+  | Syntax.Member (inner, _) | Syntax.Index { target = inner; _ } | Syntax.Grouped inner -> root_variable inner
+  | _ -> None
+
+(* A method that changes its value needs the value to be able to change (D43). *)
+and require_changeable fctx (receiver : expression) ~(method_text : string) =
   let context = fctx.context in
-  let target = check_expression fctx ~expected:None receiver in
-  let builtin name run result arguments =
-    { C.kind = C.Call_builtin { builtin = { C.builtin_name = name; run }; arguments = target :: arguments }; type_ = result; span }
+  let why = "calling a method that changes its value on a value that can't change is refused (D43, standard 5.4)" in
+  match root_variable receiver with
+  | None ->
+      refuse context ~what:(Printf.sprintf "%s changes its value, and this value can't change" (quote method_text))
+        receiver.expression_span why
+  | Some (name, name_span) -> (
+      match find_variable fctx name with
+      | Some info when info.is_loop_variable ->
+          refuse context ~what:(Printf.sprintf "`$%s` is the loop's own variable, which can't be changed inside the loop" name)
+            name_span "the loop's own variable can't be changed inside the loop (D37, standard 4.7)"
+      | Some info when not info.is_mutable ->
+          refuse context ~what:(Printf.sprintf "%s changes `$%s`, which isn't `mut`" (quote method_text) name) name_span why
+      | _ -> ())
+
+(* $value.method(...), $value.len.bytes(), $r.items.len(): fields first, then a method and its narrowings. *)
+and check_method_call fctx span (base : expression) (words : name list) arguments =
+  let context = fctx.context in
+  let base_checked = check_expression fctx ~expected:None base in
+  (* walk through fields while more than one word is left *)
+  let rec walk (value : C.expression) (source : expression) (words : name list) =
+    match words with
+    | field :: (_ :: _ as rest) -> (
+        match underlying value.type_ with
+        | Types.Struct struct_name
+          when List.exists (fun (n, _, _) -> n = field.text) (Hashtbl.find context.structs struct_name).resolved_fields ->
+            let _, t, _ = List.find (fun (n, _, _) -> n = field.text) (Hashtbl.find context.structs struct_name).resolved_fields in
+            let source = { expression_kind = Syntax.Member (source, field); expression_span = Span.join source.expression_span field.span } in
+            walk { C.kind = C.Field (value, field.text); type_ = t; span = source.expression_span } source rest
+        | _ -> (value, source, words))
+    | _ -> (value, source, words)
   in
-  let no_arguments () =
-    if arguments <> [] then
-      refuse context ~what:(Printf.sprintf "%s takes no arguments" (quote method_name.text)) span
-        "each built-in method's arguments are set out in std (D136, standard 13.3)"
+  let target, receiver, words = walk base_checked base words in
+  let method_name = List.hd words in
+  let narrowings = List.map (fun n -> n.text) (List.tl words) in
+  let method_text = String.concat "." (List.map (fun n -> n.text) words) in
+  let builtin ?(changes = false) name run result extra =
+    if changes then require_changeable fctx receiver ~method_text;
+    { C.kind = C.Call_builtin { builtin = { C.builtin_name = name; run }; arguments = target :: extra }; type_ = result; span }
   in
-  match underlying target.type_, method_name.text with
-  | Types.Unknown, _ -> raise Skip
-  | Types.String, "len" ->
-      (* trace: D131 *)
-      no_arguments ();
-      builtin "len" (fun _ -> function Value.String s :: _ -> Value.int_of_int64 (Int64.of_int (Text.grapheme_count s)) | _ -> Value.Nothing) Types.int []
-  | (Types.List _ | Types.Map _), "len" ->
-      no_arguments ();
-      builtin "len" (fun _ -> function
-          | Value.List l :: _ -> Value.int_of_int64 (Int64.of_int (Dynarray.length l.items))
-          | Value.Map m :: _ -> Value.int_of_int64 (Int64.of_int (Dynarray.length m.entries))
-          | _ -> Value.Nothing) Types.int []
-  | t, name ->
-      not_built context ~what:(Printf.sprintf "the method %s on %s isn't built in the oracle yet" (quote name) (type_text t))
-        method_name.span "values have methods, called with a dot (D40, standard 13.3)"
+  let positional count =
+    if List.length arguments <> count || List.exists (fun (a : argument) -> a.label <> None) arguments then
+      refuse context
+        ~what:(Printf.sprintf "%s takes %s" (quote method_text)
+                 (match count with 0 -> "no arguments" | 1 -> "one argument" | n -> string_of_int n ^ " arguments"))
+        span "each built-in method's arguments are set out in std (D136, standard 13.3)";
+    List.map (fun (a : argument) -> a.value) arguments
+  in
+  let position_argument (a : argument) =
+    match a.label with
+    | Some { text = "pos"; _ } -> Syntax.Pos
+    | Some { text = "offset"; _ } -> Syntax.Offset
+    | _ ->
+        refuse context ~what:"a position says how it counts: `pos:` from 1, or `offset:` from 0" a.value.expression_span
+          "positions say how they count (D17, D136, standard 13.3)"
+  in
+  let checked_item item_type (x : expression) =
+    let c = check_expression fctx ~expected:(Some item_type) x in
+    expect_type context item_type c;
+    check_hand_off fctx c x;
+    { c with kind = C.Copy c }
+  in
+  let checked_int (x : expression) =
+    let c = check_expression fctx ~expected:(Some Types.int) x in
+    expect_type context Types.int c;
+    c
+  in
+  let not_built_method t =
+    not_built context ~what:(Printf.sprintf "the method %s on %s isn't built in the oracle yet" (quote method_text) (type_text t))
+      method_name.span "values have methods, called with a dot (D40, standard 13.3)"
+  in
+  match underlying target.type_, method_name.text, narrowings with
+  | Types.Unknown, _, _ -> raise Skip
+  (* trace: D130, D131 *)
+  | Types.String, "len", ([] | [ "graphemes" ]) ->
+      ignore (positional 0); builtin "len" (Methods.string_length `Graphemes) Types.int []
+  | Types.String, "len", [ "bytes" ] -> ignore (positional 0); builtin "len.bytes" (Methods.string_length `Bytes) Types.int []
+  | Types.String, "len", [ "code_points" ] ->
+      ignore (positional 0); builtin "len.code_points" (Methods.string_length `Code_points) Types.int []
+  | (Types.List _ | Types.Map _), "len", [] -> ignore (positional 0); builtin "len" Methods.length Types.int []
+  (* trace: D136 *)
+  | Types.List item, "add", [] -> (
+      match arguments with
+      | [ { label = None; value } ] -> builtin ~changes:true "add" Methods.add Types.Nothing [ checked_item item value ]
+      | [ { label = None; value }; at ] ->
+          let counting = position_argument at in
+          builtin ~changes:true "add" (Methods.add_at counting) Types.Nothing [ checked_item item value; checked_int at.value ]
+      | _ ->
+          refuse context ~what:"`add` takes an item, and maybe `pos:` or `offset:`" span
+            "each built-in method's arguments are set out in std (D136, standard 13.3)")
+  | Types.List item, "remove", [] -> (
+      match arguments with
+      | [ at ] ->
+          let counting = position_argument at in
+          builtin ~changes:true "remove" (Methods.remove counting) item [ checked_int at.value ]
+      | _ ->
+          refuse context ~what:"`remove` takes `pos:` or `offset:`" span
+            "each built-in method's arguments are set out in std (D136, standard 13.3)")
+  | Types.List _, "clear", [] -> ignore (positional 0); builtin ~changes:true "clear" Methods.clear Types.Nothing []
+  | Types.List item, "contains", [] -> (
+      match positional 1 with
+      | [ x ] ->
+          let c = check_expression fctx ~expected:(Some item) x in
+          expect_type context item c;
+          builtin "contains" Methods.contains Types.Bool [ c ]
+      | _ -> raise Skip)
+  | Types.List item, "first", [] -> ignore (positional 0); builtin "first" (Methods.first_or_last `First) item []
+  | Types.List item, "last", [] -> ignore (positional 0); builtin "last" (Methods.first_or_last `Last) item []
+  (* trace: D38 *)
+  | Types.List item, "sum", [] -> (
+      ignore (positional 0);
+      match underlying item with
+      | Types.Integer _ | Types.Float Types.F64 | Types.Rational -> builtin "sum" (Methods.sum (underlying item)) item []
+      | Types.Float _ -> not_built_method target.type_
+      | _ ->
+          refuse context ~what:(Printf.sprintf "`sum` adds numbers, and these are %s" (type_text item)) method_name.span
+            "`sum` is the exact sum of a list of numbers (D38, standard 13.3)")
+  | (Types.Struct type_name | Types.Union type_name), _, _ -> (
+      (* a method from the type's family: a function whose first parameter is `$self` (D43) *)
+      match Hashtbl.find_opt context.functions (type_name ^ "." ^ method_name.text) with
+      | Some f when (match f.declaration.parameters with p :: _ -> p.parameter.text = "self" | [] -> false) ->
+          if narrowings <> [] then not_built_method target.type_;
+          let self = List.hd f.declaration.parameters in
+          if self.self_mutable then require_changeable fctx receiver ~method_text;
+          check_user_call fctx span f [] (Some target) arguments
+      | _ ->
+          refuse context
+            ~what:(Printf.sprintf "%s has no method called %s" (type_text target.type_) (quote method_name.text))
+            method_name.span "a type's methods are the functions in its family with `$self` first (D43, standard 5.4)")
+  | t, _, _ -> not_built_method t
 
 (* ---------- Statements ---------- *)
+
+(* A value stored where it can change is its own copy, so nothing frozen changes through it (D6, D52). *)
+let stored (c : C.expression) : C.expression = { c with kind = C.Copy c }
 
 let rec check_block fctx (statements : statement list) : C.statement list =
   in_scope fctx (fun () -> check_statements fctx statements)
@@ -927,7 +1129,7 @@ and check_statement fctx (s : statement) : C.statement list =
          | None -> ());
         let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
         match checked_value with
-        | Some v -> make (C.Define (info.variable, v))
+        | Some v -> make (C.Define (info.variable, if is_mutable then stored v else v))
         | None -> [])
   | Decl { is_mutable; variable; declared_type } ->
       let declared = try resolve_type context declared_type with Skip -> Types.Unknown in
@@ -953,7 +1155,7 @@ and check_statement fctx (s : statement) : C.statement list =
           end
           else
             match check_value fctx info.variable_type value with
-            | v -> info.assigned <- true; make (C.Set (info.variable, v))
+            | v -> info.assigned <- true; make (C.Set (info.variable, if info.is_mutable then stored v else v))
             | exception Skip -> info.assigned <- true; [])
   | Shadow { is_mutable; variable; declared_type; value } -> (
       let declared = try resolve_type context declared_type with Skip -> Types.Unknown in
@@ -965,7 +1167,7 @@ and check_statement fctx (s : statement) : C.statement list =
              "`shadow` gives an existing name a new value (D36, standard 3.4)"
        | Some _ -> ());
       let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
-      match checked_value with Some v -> make (C.Define (info.variable, v)) | None -> [])
+      match checked_value with Some v -> make (C.Define (info.variable, if is_mutable then stored v else v)) | None -> [])
   | Change { target; value } -> (
       try check_change fctx span target value with Skip -> [])
   | Expression_statement e -> (
@@ -1092,18 +1294,18 @@ and check_change fctx span target value =
           match target.expression_kind with
           | Syntax.Variable _ ->
               let v = check_value fctx info.variable_type value in
-              [ { C.statement_kind = C.Set (info.variable, v); statement_span = span } ]
+              [ { C.statement_kind = C.Set (info.variable, stored v); statement_span = span } ]
           | Syntax.Member (inner, field) ->
               let t = check_expression fctx ~expected:None target in
               let inner = check_expression fctx ~expected:None inner in
               let v = check_value fctx t.type_ value in
-              [ { C.statement_kind = C.Set_field { target = inner; field = field.text; value = v }; statement_span = span } ]
+              [ { C.statement_kind = C.Set_field { target = inner; field = field.text; value = stored v }; statement_span = span } ]
           | Syntax.Index { target = inner; counting; position } ->
               let t = check_expression fctx ~expected:None target in
               let inner = check_expression fctx ~expected:None inner in
               let position = check_expression fctx ~expected:(Some Types.int) position in
               let v = check_value fctx t.type_ value in
-              [ { C.statement_kind = C.Set_index { target = inner; counting; position; value = v }; statement_span = span } ]
+              [ { C.statement_kind = C.Set_index { target = inner; counting; position; value = stored v }; statement_span = span } ]
           | _ -> refuse context ~what:"`change` updates a variable, one of its fields or one of its items" target.expression_span why)
 
 and check_if fctx span branches else_body =
@@ -1256,7 +1458,7 @@ let check_function context (info : function_info) =
   if info.result_type <> Types.Nothing && info.result_type <> Types.Unknown && not (always_returns declaration.body) then
     error context
       ~what:(Printf.sprintf "%s can reach its `end` without returning %s" (quote info.full_name) (type_text info.result_type))
-      declaration.function_span "a function with a result always uses `return $value` (D26, standard 5.1)";
+      declaration.function_name.span "a function with a result always uses `return $value` (D26, standard 5.1)";
   Hashtbl.replace context.checked info.function_id
     { C.function_id = info.function_id; function_name = info.full_name; parameters; requires; body;
       returns_value = info.result_type <> Types.Nothing }
@@ -1264,10 +1466,11 @@ let check_function context (info : function_info) =
 let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program option * Diagnostic.t list) =
   let context =
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
-      aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32 }
+      aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32;
+      presets = Hashtbl.create 8; families = Hashtbl.create 8 }
   in
   let mains = ref [] in
-  let declare_function file (declaration : function_declaration) full_name =
+  let declare_function ?(family_pure = false) file (declaration : function_declaration) full_name =
     let is_main = List.map (fun n -> n.text) declaration.narrowings = [ "main" ] in
     if is_main then mains := (declaration, file) :: !mains
     else if Hashtbl.mem context.functions full_name then
@@ -1275,12 +1478,14 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
         "one name means one thing; several parameter lists go in a `versions` block (D46, standard 5.7)"
     else begin
       (* trace: D63 *)
-      if (not declaration.function_my) && (List.mem full_name Parser.keywords || full_name = "main") then
+      let short = declaration.function_name.text in
+      if (not declaration.function_my) && (List.mem short Parser.keywords || short = "main") then
         error context ~fix:(quote ("my::" ^ full_name)) declaration.function_name.span
           "a name of the program's own that is also a built-in word is written with `my::` (D63, standard 9.4)";
       let id = fresh_id context in
       Hashtbl.replace context.functions full_name
-        { function_id = id; declaration; full_name; file; parameter_types = []; result_type = Types.Nothing }
+        { function_id = id; declaration; full_name; file; parameter_types = []; result_type = Types.Nothing;
+          pure = family_pure || List.exists (fun n -> n.text = "pure") declaration.narrowings }
     end
   in
   (* First the names, so declarations can mention each other in any order. *)
@@ -1296,7 +1501,32 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
                   "one name means one thing (D47, standard 5.5)"
               else Hashtbl.replace context.structs s.struct_name.text { struct_declaration = s; resolved_fields = []; struct_file = file.file_name }
           | Union u -> Hashtbl.replace context.unions u.union_name.text { union_declaration = u; resolved_cases = [] }
-          | Type_alias _ | Type_new _ | Family_function _ | Family_failure _ | Family_handler _ ->
+          | Family_function { family_narrowings; family_name; members } ->
+              (* trace: D45, D47 *)
+              if Hashtbl.mem context.families family_name.text then
+                error context ~what:(Printf.sprintf "there's already a family called %s" (quote family_name.text))
+                  family_name.span "a type has exactly one family; a second `fam.fn` with the same name is refused (D47, standard 5.5)"
+              else begin
+                Hashtbl.replace context.families family_name.text family_name.span;
+                let family_pure = List.exists (fun n -> n.text = "pure") family_narrowings in
+                if List.exists (fun n -> n.text <> "pure") family_narrowings then
+                  report context
+                    (Diagnostic.make ~span:d.declaration_span ~what:"this narrowing on `fam.fn` isn't built in the oracle yet"
+                       Diagnostic.Not_built_yet "a narrowing on `fam.fn` applies to every member (D45, standard 5.5)");
+                List.iter
+                  (function
+                    | Member_function f ->
+                        let full_name =
+                          if f.function_name.text = family_name.text then family_name.text
+                          else family_name.text ^ "." ^ f.function_name.text
+                        in
+                        declare_function ~family_pure file.file_name f full_name
+                    | Member_preset { preset_name; settings } ->
+                        Hashtbl.replace context.presets (family_name.text ^ "." ^ preset_name.text) settings
+                    | Member_versions _ -> ())
+                  members
+              end
+          | Type_alias _ | Type_new _ | Family_failure _ | Family_handler _ ->
               report context
                 (Diagnostic.make ~span:d.declaration_span ~what:"this declaration isn't built in the oracle yet" Diagnostic.Not_built_yet
                    (match d.declaration_kind with
@@ -1354,7 +1584,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
         | Some t -> error context ~what:"`fn.main` returns nothing" t.type_span why
         | None -> ());
        let info =
-         { function_id = main_id; declaration; full_name = "fn.main"; file; parameter_types = []; result_type = Types.Nothing }
+         { function_id = main_id; declaration; full_name = "fn.main"; file; parameter_types = []; result_type = Types.Nothing; pure = false }
        in
        info.parameter_types <- List.map (fun _ -> Types.Unknown) declaration.parameters;
        check_function context info
@@ -1370,7 +1600,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   Hashtbl.iter
     (fun name info ->
       let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file = "";
-                   parameter_types = []; result_type = Types.Nothing } in
+                   parameter_types = []; result_type = Types.Nothing; pure = false } in
       let fctx = { context; info = fake; scopes = [ Hashtbl.create 1 ]; loops = [] } in
       let defaults =
         List.map

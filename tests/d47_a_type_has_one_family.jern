@@ -1,0 +1,19 @@
+struct Reading:
+    celsius: Int
+end struct Reading
+
+fam.fn Reading:
+    fn a[$self: Reading] -> Int:
+        return 1
+    end fn a
+end fam.fn Reading
+
+fam.fn Reading:
+    fn b[$self: Reading] -> Int:
+        return 2
+    end fn b
+end fam.fn Reading
+
+fn.main[]:
+    println("never")
+end fn.main

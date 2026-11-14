@@ -1,0 +1,10 @@
+fn f[$a: Int] -> Int:
+    labels [$a as a]
+    requires $a at_least 1
+    defaults [$a = 1]
+    return $a
+end fn f
+
+fn.main[]:
+    println(f() as String)
+end fn.main

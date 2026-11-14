@@ -2,7 +2,7 @@
 
 module C = Checked
 
-exception Runtime_stop of Diagnostic.t
+exception Runtime_stop = C.Runtime_stop
 exception Return_signal of Value.t
 exception Break_signal of int
 exception Instead_signal of Value.t

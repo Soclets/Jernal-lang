@@ -1,0 +1,7 @@
+fn.baked.pure seconds_in[$days: Int] -> Int:
+    return $days x 86400
+end fn.baked.pure seconds_in
+
+fn.main[]:
+    println(seconds_in(1) as String)
+end fn.main

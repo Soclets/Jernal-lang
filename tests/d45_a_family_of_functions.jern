@@ -1,0 +1,14 @@
+fam.fn.pure geometry:
+    fn area[$w: Int, $h: Int] -> Int:
+        return $w x $h
+    end fn area
+
+    fn perimeter[$w: Int, $h: Int] -> Int:
+        return 2 x ($w + $h)
+    end fn perimeter
+end fam.fn.pure geometry
+
+fn.main[]:
+    println(geometry.area(3, 4) as String)
+    println(geometry.perimeter(3, 4) as String)
+end fn.main

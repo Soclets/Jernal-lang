@@ -1,0 +1,11 @@
+fn greet[$name: String]:
+    if $name == "":
+        return early
+    end if
+    println("Hi " $name)
+end fn greet
+
+fn.main[]:
+    greet("")
+    greet("Tankun")
+end fn.main

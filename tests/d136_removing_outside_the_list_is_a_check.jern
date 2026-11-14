@@ -1,0 +1,4 @@
+fn.main[]:
+    let mut $xs: List<Int> = [1]
+    let $x: Int = $xs.remove(pos: 2)
+end fn.main

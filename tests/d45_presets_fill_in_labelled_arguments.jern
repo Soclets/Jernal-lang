@@ -1,0 +1,17 @@
+fam.fn greet:
+    fn greet[$name: String, $greeting: String, $mark: String] -> String:
+        labels [$greeting as greeting, $mark as mark]
+        defaults [$greeting = "Hello", $mark = "."]
+        return $greeting ", " $name $mark
+    end fn greet
+
+    preset loud [$mark = "!"]
+    preset casual [$greeting = "Hi"]
+end fam.fn greet
+
+fn.main[]:
+    println(greet("Ann"))
+    println(greet.loud("Bob"))
+    println(greet.casual.loud("Cy"))
+    println(greet("Di", greeting: "Yo"))
+end fn.main

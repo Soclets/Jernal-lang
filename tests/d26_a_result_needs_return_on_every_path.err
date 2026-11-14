@@ -1,0 +1,5 @@
+CompileTimeError: d26_a_result_needs_return_on_every_path.jern:1:4, line 1 column 4
+ 1 | fn sign[$n: Int] -> Int:
+   |    ^^^^
+ what: `sign` can reach its `end` without returning `Int`
+ why:  a function with a result always uses `return $value` (D26, standard 5.1)

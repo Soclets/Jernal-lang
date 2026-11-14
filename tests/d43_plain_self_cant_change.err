@@ -1,0 +1,5 @@
+CompileTimeError: d43_plain_self_cant_change.jern:7:16, line 7 column 16
+ 7 |         change $self.celsius = 0
+   |                ^^^^^
+ what: `$self` can't change: it isn't `mut`
+ why:  `change` works on what can change (D33, D43, standard 3.5)

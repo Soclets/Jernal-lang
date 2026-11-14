@@ -1,0 +1,7 @@
+fn greet[$name: String]:
+    return $name
+end fn greet
+
+fn.main[]:
+    greet("x")
+end fn.main

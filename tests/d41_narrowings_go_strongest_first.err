@@ -1,0 +1,5 @@
+CompileTimeError: d41_narrowings_go_strongest_first.jern:1:1, line 1 column 1
+ 1 | fn.baked.pure seconds_in[$days: Int] -> Int:
+   | ^^^^^^^^^^^^^
+ fix:  `fn.pure.baked`
+ why:  narrowings go strongest first (D41, standard 5.2)

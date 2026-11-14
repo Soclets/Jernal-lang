@@ -1,0 +1,5 @@
+CompileTimeError: d47_a_type_has_one_family.jern:11:8, line 11 column 8
+ 11 | fam.fn Reading:
+    |        ^^^^^^^
+ what: there's already a family called `Reading`
+ why:  a type has exactly one family; a second `fam.fn` with the same name is refused (D47, standard 5.5)

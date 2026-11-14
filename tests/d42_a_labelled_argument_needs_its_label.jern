@@ -1,0 +1,8 @@
+fn f[$a: Int, $b: Int] -> Int:
+    labels [$b as b]
+    return $a + $b
+end fn f
+
+fn.main[]:
+    println(f(1, 2) as String)
+end fn.main

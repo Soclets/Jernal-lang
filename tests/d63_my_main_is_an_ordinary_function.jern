@@ -1,0 +1,7 @@
+fn my::main[]:
+    println("my main")
+end fn my::main
+
+fn.main[]:
+    my::main()
+end fn.main

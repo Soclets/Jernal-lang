@@ -1,0 +1,10 @@
+fn first_word[$text: String, $limit: Int] -> String:
+    labels [$limit as limit]
+    requires $limit at_least 1
+    return $text
+end fn first_word
+
+fn.main[]:
+    println(first_word("a", limit: 1))
+    println(first_word("b", limit: 0))
+end fn.main

@@ -1,0 +1,6 @@
+RuntimeError: d42_a_false_requires_is_a_check.jern:9:13, line 9 column 13
+ 9 |     println(first_word("b", limit: 0))
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+ what: `requires $limit at_least 1` is false
+ why:  contracts are checked at runtime (D42, D8, standard 7.1)
+ when: calling `first_word`

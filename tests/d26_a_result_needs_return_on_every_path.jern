@@ -1,0 +1,9 @@
+fn sign[$n: Int] -> Int:
+    if $n < 0:
+        return -1
+    end if
+end fn sign
+
+fn.main[]:
+    println(sign(5) as String)
+end fn.main

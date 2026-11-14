@@ -1,0 +1,5 @@
+RuntimeError: d136_first_of_an_empty_list_is_a_check.jern:3:13, line 3 column 13
+ 3 |     println($xs.first() as String)
+   |             ^^^^^^^^^^^
+ what: `first()` on an empty list
+ why:  `first()` and `last()` on an empty list are checks (D136, standard 13.3)

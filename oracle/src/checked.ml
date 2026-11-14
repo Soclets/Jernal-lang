@@ -7,6 +7,9 @@ type failure = { failure_name : string; failure_fields : (string * Value.t) list
 
 exception Failure_raised of failure * Span.t
 
+(* A check that failed while running (chapter 7), or NotDesignedYet met while running. *)
+exception Runtime_stop of Diagnostic.t
+
 type expression = { kind : expression_kind; type_ : Types.t; span : Span.t }
 
 and expression_kind =

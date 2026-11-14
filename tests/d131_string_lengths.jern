@@ -1,0 +1,7 @@
+fn.main[]:
+    let $s: String = "héllo👋🏽"
+    println($s.len.bytes() as String)
+    println($s.len.code_points() as String)
+    println($s.len.graphemes() as String)
+    println($s.len() as String)
+end fn.main

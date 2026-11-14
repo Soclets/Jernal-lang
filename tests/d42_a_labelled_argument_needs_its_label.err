@@ -1,0 +1,5 @@
+CompileTimeError: d42_a_labelled_argument_needs_its_label.jern:7:18, line 7 column 18
+ 7 |     println(f(1, 2) as String)
+   |                  ^
+ fix:  `b: 2`
+ why:  a labelled parameter is written with its label at the call (D42, standard 5.3)

@@ -1,0 +1,5 @@
+CompileTimeError: d41_pure_calls_only_pure.jern:2:5, line 2 column 5
+ 2 |     println("doubling")
+   |     ^^^^^^^^^^^^^^^^^^^
+ what: `println` isn't pure, so a pure function can't call it
+ why:  a pure function calls only pure functions; no I/O (D41, standard 5.2)

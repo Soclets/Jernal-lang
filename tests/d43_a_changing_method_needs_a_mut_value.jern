@@ -1,0 +1,15 @@
+struct Reading:
+    celsius: Int
+end struct Reading
+
+fam.fn Reading:
+    fn warm_up[mut $self: Reading, $by: Int]:
+        labels [$by as by]
+        change $self.celsius = $self.celsius + $by
+    end fn warm_up
+end fam.fn Reading
+
+fn.main[]:
+    let $r: Reading = Reading[celsius = 20]
+    $r.warm_up(by: 2)
+end fn.main

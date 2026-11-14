@@ -1,0 +1,10 @@
+fn.main[]:
+    let $xs: List<Int> = [1, 2, 3]
+    println($xs.sum() as String)
+    let $none: List<Int> = []
+    println($none.sum() as String)
+    let $fs: List<Float> = [~0.1, ~0.2, ~0.3]
+    println($fs.sum() as String)
+    let $big: List<Float> = [10000000000000000.0, 1.0, -10000000000000000.0]
+    println($big.sum() as String)
+end fn.main
