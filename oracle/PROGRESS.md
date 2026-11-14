@@ -32,7 +32,7 @@ for columns and `len()`).
 | `src/manifest.ml` | reading and checking `Journey.siml` |
 | `src/package.ml`, `src/test_runner.ml`, `bin/jernorac.ml` | the commands |
 
-## Built (208 tests passing)
+## Built (224 tests passing)
 
 - Manifest: `name`, `ver`, `need std 2026y-11m-14d`, `kind tests`, `use` blocks for a file and `all` (D60, D114,
   D115); other packages and dates and scoped lines give NotBuiltYet; `rule` lines give NotDesignedYet.
@@ -67,7 +67,7 @@ for columns and `len()`).
 ## Tools
 
 - `oracle/tools/robustness.py <scratch>`: runs every test changed in small ways (cut short, lines and words removed)
-  and reports any crash of the oracle (rule 13). Last run: 22,898 programs, no crashes.
+  and reports any crash of the oracle (rule 13). Last run: 43,244 programs (20,000 with random tokens put in), no crashes.
 - `oracle/tools/crosscheck.py <scratch>`: checks float text (D119), Decimal (D83), integer division and remainders
   (D85, D88), Rational (D139) and f32/f16 sums (D93) against Python's own implementations, about 300 random cases
   each, float sums against math.fsum (D38), and the rounding words of `as` (D91). Last run: 1,894 cases, no differences.
