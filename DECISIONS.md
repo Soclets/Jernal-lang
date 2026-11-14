@@ -1461,3 +1461,9 @@ let $area: Int = ($w + 2) * $h
 Cyborg writes `x` for multiply, and has the same grouping exception and precedence (its D116), as Cyborg's design
 session described on 2026-11-14. Claude proposed `*`, grouping as the one exception, and school maths precedence; the
 owner said: "That means Fuck it, motherfucker", taken as yes to all three. (Owner, 2026-11-14)
+
+**D87. D86 was never approved, and there is no `/`.** D86 recorded "That means Fuck it, motherfucker" as approval of
+`*`, maths grouping and precedence; it wasn't, so D86 is withdrawn and all three are undecided again. D85's use of `/`
+is withdrawn too: Jernal has no `/` operator. How dividing is written, and how a `Rational` like 7/2 is made, are not
+decided yet. D85's written-out `div.trunc`, `div.floor`, `div.exact`, `mod.trunc` and `mod.floor` are not affected. The
+owner said: "Let me be clear here: No `/`, and I didn't approve the last msg". (Owner, 2026-11-14)

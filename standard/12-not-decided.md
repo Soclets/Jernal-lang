@@ -4,8 +4,9 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.1 Language core
 
-- **Numbers and maths:** the full list of `as`
-  rounding words and what `div.exact` does per build mode (D85), which sized types exist, and how numbers convert between types.
+- **Numbers and maths:** how multiplying and dividing are written (there's no `/`, D87), how a `Rational` is made,
+  grouping in maths, precedence, the full list of `as` rounding words, what `div.exact` does per build mode (D85),
+  which sized types exist, and how numbers convert between types.
 - **`Bool`:** its name and its values (`true`, `false`).
 - **Comments:** `//` is used in every example, but isn't decided.
 - **String escapes**, such as a newline or a quote inside a string.

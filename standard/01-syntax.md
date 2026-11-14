@@ -42,7 +42,7 @@ the part that changes how it's used; the top of the body describes it or says wh
 
 ## 1.4 Brackets
 
-- `( )` runs something: a call (D15). In maths, it also groups: `($w + 2) * $h` (D86).
+- `( )` runs something: a call (D15).
 - `[ ]` describes or holds: parameters in a declaration, building a struct, a type's details, list and map literals,
   labelled indexing (D15, D17, D56, D64).
 - `< >` fills in a type: `List<Int>`, `Map<String, Int>` (D18).
