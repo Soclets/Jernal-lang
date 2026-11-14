@@ -1,5 +1,0 @@
-NotBuiltYet: d103_generic_unions_arent_built_yet.jern:1:19, line 1 column 19
- 1 | union.tagged Maybe<?Item: Any>:
-   |                   ^
- what: unions with type parameters aren't built yet
- why:  functions and types can take type parameters (D103, standard 5.8)

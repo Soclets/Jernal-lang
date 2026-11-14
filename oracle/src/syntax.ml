@@ -166,7 +166,7 @@ type struct_declaration = {
 
 type union_case = { union_case : name; case_fields : (name * type_expression) list }
 
-type union_declaration = { union_name : name; cases : union_case list }
+type union_declaration = { union_name : name; union_type_parameters : (name * requirement) list; cases : union_case list }
 
 type family_member =
   | Member_function of function_declaration

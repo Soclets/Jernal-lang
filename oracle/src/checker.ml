@@ -217,6 +217,23 @@ let rec resolve_type context (t : type_expression) : Types.t =
             refuse context ~what:(Printf.sprintf "%s takes one type in `< >`, written bare" (quote (String.concat "." words)))
               t.type_span "a type with one type parameter writes it bare (D102, D132, standard 2.3)"
       in
+      (* trace: D103, D132 — one type parameter is written bare; two or more are labelled by their names *)
+      let instance_of word (parameters : (name * requirement) list) =
+        let labels = List.map (fun ((p : name), _) -> parameter_label p.text) parameters in
+        let given =
+          match parameters, arguments with
+          | [ _ ], [ { argument_label = None; argument_type } ] -> [ (List.hd labels, argument_type) ]
+          | _ :: _ :: _, _ when List.for_all (fun a -> a.argument_label <> None) arguments ->
+              List.map (fun a -> ((Option.get a.argument_label).text, a.argument_type)) arguments
+          | _ -> []
+        in
+        if List.sort compare (List.map fst given) <> List.sort compare labels then
+          refuse context
+            ~what:(Printf.sprintf "%s takes %s in `< >`" (quote word)
+                     (match labels with [ _ ] -> "one type, written bare" | _ -> String.concat " and " (List.map (fun l -> quote (l ^ ":")) labels)))
+            t.type_span "a type with one type parameter writes it bare; with two or more, each is labelled (D102, D132, standard 2.3)";
+        Types.Instance (word, List.map (fun l -> (l, resolve_type context (List.assoc l given))) labels)
+      in
       match my, words with
       | false, [ ("Int" | "i64") ] -> no_arguments Types.int
       | false, [ "Float" ] | false, [ "f64" ] -> no_arguments (Types.Float Types.F64)
@@ -279,26 +296,13 @@ let rec resolve_type context (t : type_expression) : Types.t =
           seen_from context ~name:word ~file:info.struct_file ~visibility:info.struct_visibility t.type_span;
           match info.struct_declaration.struct_type_parameters with
           | [] -> no_arguments (Types.Struct word)
-          | parameters ->
-              (* trace: D103, D132 — one type parameter is written bare; two or more are labelled by their names *)
-              let labels = List.map (fun ((p : name), _) -> parameter_label p.text) parameters in
-              let given =
-                match parameters, arguments with
-                | [ _ ], [ { argument_label = None; argument_type } ] -> [ (List.hd labels, argument_type) ]
-                | _ :: _ :: _, _ when List.for_all (fun a -> a.argument_label <> None) arguments ->
-                    List.map (fun a -> ((Option.get a.argument_label).text, a.argument_type)) arguments
-                | _ -> []
-              in
-              if List.sort compare (List.map fst given) <> List.sort compare labels then
-                refuse context
-                  ~what:(Printf.sprintf "%s takes %s in `< >`" (quote word)
-                           (match labels with [ _ ] -> "one type, written bare" | _ -> String.concat " and " (List.map (fun l -> quote (l ^ ":")) labels)))
-                  t.type_span "a type with one type parameter writes it bare; with two or more, each is labelled (D102, D132, standard 2.3)";
-              Types.Instance (word, List.map (fun l -> (l, resolve_type context (List.assoc l given))) labels))
-      | _, [ word ] when Hashtbl.mem context.unions word ->
+          | parameters -> instance_of word parameters)
+      | _, [ word ] when Hashtbl.mem context.unions word -> (
           let info = Hashtbl.find context.unions word in
           seen_from context ~name:word ~file:info.union_file ~visibility:info.union_visibility t.type_span;
-          no_arguments (Types.Union word)
+          match info.union_declaration.union_type_parameters with
+          | [] -> no_arguments (Types.Union word)
+          | parameters -> instance_of word parameters)
       | _, [ family; member ] when Hashtbl.mem context.new_types (family ^ "." ^ member) ->
           let word = family ^ "." ^ member in
           no_arguments (Types.New (word, resolve_type context (Hashtbl.find context.new_types word)))
@@ -492,6 +496,23 @@ let find_function context ~(from_file : string) ~(span : Span.t) (name : string)
         ~what:(Printf.sprintf "%s is declared in %s" (quote name)
                  (String.concat " and " (List.map (fun (f : function_info) -> quote f.file) visible)))
         span "a short name that clashes is always refused (D59, standard 9.2)"
+
+(* The union a value's type is, with a generic union's type arguments (D97, D103). *)
+let union_of context (t : Types.t) : (string * (string * Types.t) list) option =
+  match t with
+  | Types.Union u -> Some (u, [])
+  | Types.Case (u, _, arguments) -> Some (u, arguments)
+  | Types.Instance (u, arguments) when Hashtbl.mem context.unions u -> Some (u, arguments)
+  | _ -> None
+
+(* A case's fields, with a generic union's type parameters filled in. *)
+let case_fields context (u : string) (arguments : (string * Types.t) list) (case_name : string) =
+  let info = Hashtbl.find context.unions u in
+  let bindings =
+    if arguments = [] then []
+    else List.map2 (fun ((p : name), _) (_, t) -> (p.text, t)) info.union_declaration.union_type_parameters arguments
+  in
+  Option.map (List.map (fun (n, t) -> (n, substitute_parameters bindings t))) (List.assoc_opt case_name info.resolved_cases)
 
 (* ---------- Literals (D84) ---------- *)
 
@@ -1282,7 +1303,7 @@ and check_member fctx (e : expression) target field =
   let span = e.expression_span in
   let target = check_expression fctx ~expected:None target in
   match underlying target.type_ with
-  | Types.Struct struct_name | Types.Instance (struct_name, _) -> (
+  | (Types.Struct struct_name | Types.Instance (struct_name, _)) when Hashtbl.mem context.structs struct_name -> (
       let info = Hashtbl.find context.structs struct_name in
       let bindings =
         match underlying target.type_ with
@@ -1305,15 +1326,14 @@ and check_member fctx (e : expression) target field =
       | None ->
           refuse context ~what:(Printf.sprintf "the failure %s carries no %s" (quote failure_name) (quote field.text))
             field.span "a failure can carry data (D48, standard 6.2)")
-  | Types.Case (union_name, case_name) -> (
-      let info = Hashtbl.find context.unions union_name in
-      match List.assoc_opt field.text (Option.value (List.assoc_opt case_name info.resolved_cases) ~default:[]) with
+  | Types.Case (union_name, case_name, arguments) -> (
+      match List.assoc_opt field.text (Option.value (case_fields context union_name arguments case_name) ~default:[]) with
       | Some t -> { C.kind = C.Field (target, field.text); type_ = t; span }
       | None ->
           refuse context
             ~what:(Printf.sprintf "%s has no field called %s" (quote (union_name ^ "." ^ case_name)) (quote field.text))
             field.span "a case's data goes in `[ ]` with labelled fields (D97, standard 2.4a)")
-  | Types.Union union_name ->
+  | Types.Union union_name | Types.Instance (union_name, _) when Hashtbl.mem context.unions union_name ->
       (* trace: D97 *)
       let because =
         match target.kind with
@@ -1404,11 +1424,42 @@ and check_build fctx ~expected (e : expression) built fields =
       { C.kind = C.Build_struct { struct_name = word; fields = given }; type_; span }
   | Syntax.Member ({ expression_kind = Syntax.Name { word; _ }; _ }, case) when Hashtbl.mem context.unions word -> (
       let info = Hashtbl.find context.unions word in
+      seen_from context ~name:word ~file:info.union_file ~visibility:info.union_visibility built.expression_span;
+      let parameters = info.union_declaration.union_type_parameters in
       match List.assoc_opt case.text info.resolved_cases with
       | None ->
           refuse context ~what:(Printf.sprintf "%s has no case called %s" (quote word) (quote case.text)) case.span
             "a union's cases are its narrowings (D97, standard 2.4a)"
-      | Some case_fields ->
+      | Some raw_fields ->
+          (* a generic union's types come from where it goes, or from the case's fields (D103) *)
+          let bindings =
+            if parameters = [] then []
+            else
+              match Option.map underlying expected with
+              | Some (Types.Instance (name, arguments)) when name = word ->
+                  List.map2 (fun ((p : name), _) (_, t) -> (p.text, t)) parameters arguments
+              | _ ->
+                  let found = Hashtbl.create 4 in
+                  List.iter
+                    (fun { field; field_value } ->
+                      match List.assoc_opt field.text raw_fields with
+                      | Some (Types.Parameter p) when not (Hashtbl.mem found p) -> (
+                          let saved = context.diagnostics in
+                          match (check_expression fctx ~expected:None field_value).type_ with
+                          | t -> context.diagnostics <- saved; if t <> Types.Unknown then Hashtbl.replace found p t
+                          | exception Skip -> context.diagnostics <- saved)
+                      | _ -> ())
+                    fields;
+                  List.map
+                    (fun ((p : name), _) ->
+                      match Hashtbl.find_opt found p.text with
+                      | Some t -> (p.text, t)
+                      | None ->
+                          refuse context ~what:(Printf.sprintf "nothing here says what `?%s` is" p.text) span
+                            "a type parameter is worked out from the values or where the result goes (D103, standard 5.8)")
+                    parameters
+          in
+          let case_fields = List.map (fun (n, t) -> (n, substitute_parameters bindings t)) raw_fields in
           let seen = Hashtbl.create 8 in
           let given =
             List.map
@@ -1431,7 +1482,11 @@ and check_build fctx ~expected (e : expression) built fields =
                 refuse context ~what:(Printf.sprintf "%s must be given" (quote n)) span
                   "a case's fields are all given (D97, standard 2.4a)")
             case_fields;
-          { C.kind = C.Build_union { union_name = word; case_name = case.text; fields = given }; type_ = Types.Union word; span })
+          let type_ =
+            if parameters = [] then Types.Union word
+            else Types.Instance (word, List.map (fun ((p : name), _) -> (parameter_label p.text, List.assoc p.text bindings)) parameters)
+          in
+          { C.kind = C.Build_union { union_name = word; case_name = case.text; fields = given }; type_; span })
   | _ ->
       refuse context ~what:"only a struct or a union's case is built with `[ ... = ... ]`" span
         "a struct is built with `[ ]` and `=` (D56, standard 2.4)"
@@ -2451,7 +2506,12 @@ and check_change fctx span target value =
             refuse context ~fix:(quote "assign") (keyword_span span "change") "`assign` gives a `decl` its first value (D34, standard 3.3)";
           match target.expression_kind with
           | Syntax.Variable _ ->
-              let declared = match info.variable_type with Types.Case (u, _) -> Types.Union u | t -> t in
+              let declared =
+                match info.variable_type with
+                | Types.Case (u, _, []) -> Types.Union u
+                | Types.Case (u, _, arguments) -> Types.Instance (u, arguments)
+                | t -> t
+              in
               let v = check_value ~escapes fctx declared value in
               (* trace: D97 — a change ends what a case test knew *)
               (match info.variable_type with
@@ -2567,7 +2627,8 @@ and check_case_test fctx (value : expression) (tested : type_expression) : C.exp
   | Named_type { words = [ union_name; case_name ]; arguments = []; details = []; my = false } -> (
       match underlying checked.type_ with
       | Types.Unknown -> raise Skip
-      | Types.Union u | Types.Case (u, _) when u = union_name -> (
+      | t when (match union_of context t with Some (u, _) -> u = union_name | None -> false) -> (
+          let u, arguments = Option.get (union_of context t) in
           let info = Hashtbl.find context.unions u in
           match List.assoc_opt case_name info.resolved_cases with
           | None ->
@@ -2575,7 +2636,7 @@ and check_case_test fctx (value : expression) (tested : type_expression) : C.exp
                 "a union's cases are its narrowings (D97, standard 2.4a)"
           | Some _ ->
               ( { C.kind = C.Is_case { value = checked; case_name }; type_ = Types.Bool; span = tested.type_span },
-                Some (Types.Case (u, case_name)) ))
+                Some (Types.Case (u, case_name, arguments)) ))
       | t ->
           refuse context ~what:(Printf.sprintf "this is %s, and the test asks about %s" (type_text t) (quote (union_name ^ "." ^ case_name)))
             tested.type_span "the case test asks which case a value is (D97, standard 4.5a)")
@@ -2605,7 +2666,8 @@ and check_match fctx span subject (match_arms : match_arms) : C.statement list =
       let checked = try Some (check_expression fctx ~expected:None subject) with Skip -> None in
       let cases =
         match Option.map (fun (c : C.expression) -> underlying c.type_) checked with
-        | Some (Types.Union u | Types.Case (u, _)) ->
+        | Some t when union_of context t <> None ->
+            let u, _ = Option.get (union_of context t) in
             Some (u, List.map (fun (name, _) -> name) (Hashtbl.find context.unions u).resolved_cases)
         | Some Types.Bool -> Some ("Bool", [ "true"; "false" ])
         | Some Types.Unknown | None -> None
@@ -2650,7 +2712,13 @@ and check_match fctx span subject (match_arms : match_arms) : C.statement list =
                         let t =
                           match cases with
                           | Some ("Bool", _) -> Types.Bool
-                          | Some (u, _) when arm_ok -> Types.Case (u, arm.case_name.text)
+                          | Some (u, _) when arm_ok ->
+                              let arguments =
+                                match Option.bind checked (fun (c : C.expression) -> union_of context (underlying c.type_)) with
+                                | Some (_, arguments) -> arguments
+                                | None -> []
+                              in
+                              Types.Case (u, arm.case_name.text, arguments)
                           | _ -> Types.Unknown
                         in
                         (add_variable fctx ~name:b ~variable_type:t ~is_mutable:false ~assigned:true ()).variable)
@@ -3052,11 +3120,14 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
   Hashtbl.iter
     (fun _ info ->
       context.current_file <- info.union_file;
+      context.type_parameters <-
+        List.map (fun ((n : name), (r : requirement)) -> (n.text, r.requirement_names)) info.union_declaration.union_type_parameters;
       info.resolved_cases <-
         List.map
           (fun c ->
             (c.union_case.text, List.map (fun (n, t) -> (n.text, try resolve_type context t with Skip -> Types.Unknown)) c.case_fields))
-          info.union_declaration.cases)
+          info.union_declaration.cases;
+      context.type_parameters <- [])
     context.unions;
   let resolve_signature info =
     let d = info.declaration in

@@ -1,8 +1,0 @@
-union.tagged Maybe<?Item: Any>:
-    nothing
-    some[value: ?Item]
-end union.tagged Maybe
-
-fn.main[]:
-    println("x")
-end fn.main

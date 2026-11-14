@@ -1547,9 +1547,7 @@ let parse_union state : declaration_kind =
   let union_my = if is_word state "my" && (peek_at state 1).kind = Double_colon then (ignore (advance state); ignore (advance state); true) else false in
   let union_name = expect_name state "the union's name" in
   check_built_in_type_name state ~my:union_my union_name;
-  if peek_kind state = Type_open then
-    raise (Line_error (Diagnostic.make ~span:(peek state).span ~what:"unions with type parameters aren't built yet"
-                         Diagnostic.Not_built_yet "functions and types can take type parameters (D103, standard 5.8)"));
+  let union_type_parameters = parse_type_parameters state in
   ignore (expect state Colon "`:`");
   end_of_line state;
   (* the closer repeats what the opening line said (D24) *)
@@ -1572,7 +1570,7 @@ let parse_union state : declaration_kind =
   in
   expect_closer state ~opener:start.span ~expected:closer;
   end_of_line state;
-  Union { union_name; cases }
+  Union { union_name; union_type_parameters; cases }
 
 let parse_family state : declaration_kind =
   let start = expect_word state "fam" in

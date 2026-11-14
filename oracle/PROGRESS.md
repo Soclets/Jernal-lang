@@ -51,7 +51,7 @@ for columns and `len()`).
   `while`, `for`, named `break`, `at pos`/`at offset`, ranges (a literal one that never ends is refused), `sum`.
 - Chapter 5: functions, `return early`, labels, defaults, `requires`, `fn.pure`, `fn.pure.baked`, `fam.fn`, presets,
   methods with `$self`/`mut $self`, dot calls on a family function's first argument, `versions` (D46), generic
-  functions, structs and their methods (D103), interfaces, type sets and `satisfies` (D105), `fn.main`, `my::`.
+  functions, structs, unions and methods (D103), interfaces, type sets and `satisfies` (D105), `fn.main`, `my::`.
 - Chapter 6: `fails`, `fail`, `?`, `??`, `?? ignore`, `otherwise` with `instead`, `fam.failure` written in full (D140),
   `fam.handler` with `*`, `match ... with`, for-line handling (D134), unhandled failures crash (D137).
 - Chapter 7: the message format, knock-on errors with `because:` (each fix is an in-memory edit, D13), recovery of
@@ -64,7 +64,6 @@ for columns and `len()`).
 ## Next
 
 - Tests for multi-file packages, `pub` and `use` errors, once package tests are decided (asked).
-- Unions with type parameters (D103) give NotBuiltYet: the case type would need to carry its type arguments.
 - Bounds written as a top-level `let baked` of literals work (D135); one that calls a function, or a local
   `let baked`, gives NotBuiltYet, since types are resolved before those are worked out.
 - Whatever Tankun decides on the open questions below.

@@ -22,7 +22,8 @@ type t =
   | Struct of string
   | Instance of string * (string * t) list   (* a generic struct with its types: Pair<left: Int, right: String> (D103) *)
   | Union of string
-  | Case of string * string      (* a union value known to be one case, inside a case test or arm (D97) *)
+  | Case of string * string * (string * t) list
+      (* a union value known to be one case, inside a case test or arm (D97), with a generic union's types *)
   | Failure of string * (string * t) list   (* a failure's data, named in an `otherwise` arm (D48) *)
   | New of string * t           (* type.new: a distinct type over the same data (D61) *)
   | Parameter of string         (* a type parameter, ?Item, inside its generic function (D103) *)
@@ -76,7 +77,7 @@ let rec name = function
   | Struct n | Union n -> n
   | Instance (n, [ (_, t) ]) -> n ^ "<" ^ name t ^ ">"
   | Instance (n, arguments) -> n ^ "<" ^ String.concat ", " (List.map (fun (l, t) -> l ^ ": " ^ name t) arguments) ^ ">"
-  | Case (u, c) -> u ^ "." ^ c
+  | Case (u, c, _) -> u ^ "." ^ c
   | Failure (f, _) -> f
   | New (n, _) -> n
   | Parameter p -> "?" ^ p
@@ -122,7 +123,9 @@ let rec same a b =
   | List x, List y -> same x y
   | Array (x, n), Array (y, m) -> n = m && same x y
   | Map (k1, a1, b1), Map (k2, a2, b2) -> k1 = k2 && same a1 a2 && same b1 b2
-  | Case (u, _), Union v | Union u, Case (v, _) -> u = v
+  | Case (u, _, []), Union v | Union u, Case (v, _, []) -> u = v
+  | Case (u, _, xs), Instance (v, ys) | Instance (v, ys), Case (u, _, xs) ->
+      u = v && List.length xs = List.length ys && List.for_all2 (fun (_, x) (_, y) -> same x y) xs ys
   | Instance (a, xs), Instance (b, ys) ->
       a = b && List.length xs = List.length ys && List.for_all2 (fun (_, x) (_, y) -> same x y) xs ys
   | _ -> a = b
