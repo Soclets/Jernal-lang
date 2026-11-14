@@ -151,8 +151,8 @@ let read ~(text : string) : t * Diagnostic.t list =
                 end
             | "kind", [ ("tests", _) ] -> kind := Some "tests"
             | "rule", _ ->
-                not_built "manifest rules aren't built in the oracle yet" (span_of (first, first_start))
-                  "the compiler's and linter's rules live in the manifest (D76, standard 9.1)"
+                report (Diagnostic.make ~span:(span_of (first, first_start)) ~what:"which rules the manifest can set isn't decided yet"
+                          Diagnostic.Not_designed_yet "not decided yet (D76, standard 9.1)")
             | ("name" | "ver" | "need" | "kind"), _ ->
                 error ~what:(Printf.sprintf "this `%s` line doesn't have the shape the manifest expects" first)
                   (line_span ()) "siml is one fact per line: what the line is, then its values (D76, standard 9.1)"

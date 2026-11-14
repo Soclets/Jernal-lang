@@ -1,0 +1,5 @@
+CompileTimeError: d61_new_types_in_a_family_dont_mix.jern:8:25, line 8 column 25
+ 8 |     let $o: Ids.Order = $u
+   |                         ^^
+ what: this is `Ids.User`, and `Ids.Order` is expected here
+ why:  a value has the type its place expects (D56, standard 2)

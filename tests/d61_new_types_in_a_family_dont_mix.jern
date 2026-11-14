@@ -1,0 +1,9 @@
+fam.type.new Ids:
+    type User = Int
+    type Order = Int
+end fam.type.new Ids
+
+fn.main[]:
+    let $u: Ids.User = 5
+    let $o: Ids.Order = $u
+end fn.main

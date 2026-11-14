@@ -1630,6 +1630,34 @@ let parse_family state : declaration_kind =
       expect_closer state ~opener:start.span ~expected:closer;
       end_of_line state;
       Family_handler { handler_family; handlers }
+  | [ { text = "type"; _ }; { text = "new"; _ } ] ->
+      (* trace: D61 *)
+      let type_family = expect_name state "the family's name" in
+      ignore (expect state Colon "`:`");
+      end_of_line state;
+      let closer = "fam.type.new " ^ type_family.text in
+      let new_types =
+        with_block state closer (fun () ->
+            let rec go acc =
+              skip_blank_lines state;
+              if is_word state "end" || peek_kind state = End_of_file then List.rev acc
+              else
+                match
+                  ignore (expect_word state "type");
+                  let n = expect_name state "the type's name" in
+                  ignore (expect state Equals "`=`");
+                  let t = parse_type state in
+                  end_of_line state;
+                  (n, t)
+                with
+                | m -> go (m :: acc)
+                | exception Line_error d -> report state d; skip_line state; go acc
+            in
+            go [])
+      in
+      expect_closer state ~opener:start.span ~expected:closer;
+      end_of_line state;
+      Family_type_new { type_family; new_types }
   | { text = "unit"; _ } :: _ ->
       unfinished_declaration state ~what:"units aren't built yet: they come after v1"
         ~why:"units are designed now and built after v1 (D58, standard 2.6)" ~designed:true

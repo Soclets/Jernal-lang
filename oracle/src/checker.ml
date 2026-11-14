@@ -281,6 +281,9 @@ let rec resolve_type context (t : type_expression) : Types.t =
           let info = Hashtbl.find context.unions word in
           seen_from context ~name:word ~file:info.union_file ~visibility:info.union_visibility t.type_span;
           no_arguments (Types.Union word)
+      | _, [ family; member ] when Hashtbl.mem context.new_types (family ^ "." ^ member) ->
+          let word = family ^ "." ^ member in
+          no_arguments (Types.New (word, resolve_type context (Hashtbl.find context.new_types word)))
       | _, [ word ] when Hashtbl.mem context.aliases word || Hashtbl.mem context.new_types word ->
           if List.mem word context.resolving then
             refuse context ~what:(Printf.sprintf "%s is defined in terms of itself" (quote word)) t.type_span
@@ -1428,6 +1431,13 @@ and check_call fctx ~expected (e : expression) callee arguments =
           else
             refuse context ~what:(Printf.sprintf "there's no function called %s" (quote word)) callee.expression_span
               "a name is visible when it's declared or comes from a package the manifest lists (D59, standard 9.2)")
+  | Syntax.Member (
+      { expression_kind = Syntax.Name { word = ("args" | "read_line" | "read_all" | "lines") as word; path = []; my = false }; _ },
+      { text = "raw"; _ })
+    when context.std_visible ->
+      (* trace: D133 *)
+      not_designed context ~what:(Printf.sprintf "what `%s.raw()` gives isn't decided yet" word) span
+        "not decided yet (D133, standard 12.1)"
   | Syntax.Member _ -> (
       let base, words = flatten callee [] in
       match base.expression_kind with
@@ -2846,6 +2856,8 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
           | Interface { interface_name; includes; operations } ->
               Hashtbl.replace context.interfaces interface_name.text (includes, operations)
           | Type_set { set_name; members } -> Hashtbl.replace context.type_sets set_name.text members
+          | Family_type_new { type_family; new_types } ->
+              List.iter (fun ((n : name), t) -> Hashtbl.replace context.new_types (type_family.text ^ "." ^ n.text) t) new_types
           | Satisfies _ -> ()
           | Unfinished_declaration { what; why; designed } ->
               report context
