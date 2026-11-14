@@ -79,6 +79,7 @@ for columns and `len()`).
 ## Error wording proposed by the oracle (D137)
 
 Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal Design Claude reviews it.
+`python3 -I oracle/tools/wording.py` lists each distinct text once (173 so far), with a test that shows it.
 
 ## Choices made without a decision (to confirm)
 
