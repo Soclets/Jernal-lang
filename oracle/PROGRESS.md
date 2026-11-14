@@ -103,6 +103,10 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 
 ## Next batch for Jernal Design Claude (send about hourly)
 
+(empty; the last batch went at 13:40)
+
+## Open questions (sent to Jernal Design Claude, waiting on Tankun)
+
 - How tightly `??`, `?`, `otherwise` and `as` bind next to D90's operators: `$m.get(key: $k) ?? 0 + 1` [`??` loosest].
 - A number literal with nowhere to land, as in `println(5 as String)` [an `Int`; `2.5 as String` is refused].
 - A map literal giving one key twice, `["a" => 1, "a" => 2]` [the last one wins; refusing it is the other option].
@@ -113,14 +117,10 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
   that isn't in the package is refused [not refused].
 - A handler used at a call that can't raise one of its arms' failures (D49: "one handler may cover several failure
   families"): is that arm allowed there? [refused, as an inline arm would be]
-- FYI, not a question: NotBuiltYet messages said "isn't built in the oracle yet", against 7.3 ("never says which
-  implementation printed it"); now "isn't built yet". It changed one recorded .err (d78_inline_foreign_code...).
 - 4.3: an operator inside a join is refused "with a `fix:` that names a step first", but the step needs a name the
   writer chooses, so it isn't one fix. What should the line show? [a `what:` saying a named step is needed]
 - The exact list of keywords, since `my::` depends on it (D63). [the oracle's list is in `oracle/src/parser.ml`,
   `keywords`; `range`, `pos`, `offset`, `from`, `to`, `before`, `step_by`, `key`, `self` and `Any` aren't in it]
-
-## Open questions (sent to Jernal Design Claude, waiting on Tankun)
 
 - Package tests: a subfolder of `tests/` with its own `Journey.siml` is one test, with `<folder>.out/.err/.exit`.
 - A `.in` file beside a test as its standard input.
