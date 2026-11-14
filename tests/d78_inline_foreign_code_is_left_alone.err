@@ -1,5 +1,5 @@
 NotBuiltYet: d78_inline_foreign_code_is_left_alone.jern:3:5, line 3 column 5
  3 |     inline.llvm_ir:
    |     ^^^^^^
- what: inline foreign code needs a quill, and quills aren't built in the oracle
+ what: inline foreign code needs a quill, and quills aren't built yet
  why:  raw code in another language goes inside an `inline.something:` block (D78, standard 11.3)

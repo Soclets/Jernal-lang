@@ -225,7 +225,7 @@ let rec resolve_type context (t : type_expression) : Types.t =
       | false, ([ "String" ] | [ "String"; "utf8" ]) -> no_arguments Types.String
       | false, [ "List" ] -> one_argument (fun item -> Types.List item)
       | false, [ "Array" ] ->
-          not_built context ~what:"`Array` isn't built in the oracle yet" t.type_span
+          not_built context ~what:"`Array` isn't built yet" t.type_span
             "an `Array` is a fixed-size list that lives inline (D135, standard 2.3a)"
       | false, ("Map" :: rest) -> (
           let kind =
@@ -332,7 +332,7 @@ and resolve_details context (t : type_expression) named =
       | Syntax.Decimal_literal { digits; negative; tilde = false } -> decimal_literal_value ~negative:(negative <> negate) digits
       | Syntax.Negate inner -> literal inner (not negate)
       | _ ->
-          not_built context ~what:"a bound that's worked out, rather than written as a number, isn't built in the oracle yet"
+          not_built context ~what:"a bound that's worked out, rather than written as a number, isn't built yet"
             d.detail_value.expression_span "all bounds are `baked` (D135, standard 2.3a)"
     in
     literal d.detail_value false

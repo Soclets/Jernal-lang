@@ -168,12 +168,12 @@ let read ~(text : string) : t * Diagnostic.t list =
                     (* trace: D128, D137 *)
                     if List.mem date std_dates then needs_std := true
                     else
-                      not_built (Printf.sprintf "std as of `%s` isn't built in the oracle" date)
+                      not_built (Printf.sprintf "std as of `%s` isn't built yet" date)
                         (span_of (date, date_start))
                         "`need std <date>` means std as specified on that date (D128, standard 13)"
                   end
                   else
-                    not_built "packages other than std aren't built in the oracle yet"
+                    not_built "packages other than std aren't built yet"
                       (span_of (package, package_start))
                       "every package the manifest lists is visible by short names (D59, standard 9.2)"
                 end
