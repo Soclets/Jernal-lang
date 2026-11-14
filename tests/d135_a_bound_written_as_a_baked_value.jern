@@ -1,0 +1,10 @@
+let baked $most: Int = 3
+let baked $top_score: Int = 50 x 2
+
+fn.main[]:
+    let mut $xs: List<Int[min: 0, max: $top_score]>[len.max: $most] = [100]
+    $xs.add(7)
+    $xs.add(8)
+    println($xs.len() as String)
+    $xs.add(9)
+end fn.main

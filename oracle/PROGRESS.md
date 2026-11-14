@@ -65,7 +65,8 @@ for columns and `len()`).
 
 - Tests for multi-file packages, `pub` and `use` errors, once package tests are decided (asked).
 - Unions with type parameters (D103) give NotBuiltYet: the case type would need to carry its type arguments.
-- Bounds written as `let baked` values (D135) give NotBuiltYet: types are resolved before baked values exist.
+- Bounds written as a top-level `let baked` of literals work (D135); one that calls a function, or a local
+  `let baked`, gives NotBuiltYet, since types are resolved before those are worked out.
 - Whatever Tankun decides on the open questions below.
 - Out of scope: units (after v1), quills and Dialects, threads, shields, every build mode but `Interp`.
 

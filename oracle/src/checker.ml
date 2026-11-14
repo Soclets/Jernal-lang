@@ -78,6 +78,7 @@ type context = {
   mutable type_parameters : (string * name list) list;           (* the generic function being checked (D103) *)
   short_names : Manifest.short_name list;                        (* `use` lines from the manifest (D60, D114) *)
   mutable current_file : string;                                 (* the file being checked, for `pub` (D106) *)
+  mutable global_syntax : (string * statement) list;             (* each file's top-level lets, as written *)
   mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
 }
 
@@ -136,6 +137,9 @@ let decimal_literal_value ~negative digits =
 
 (* What a type.new is made of (D61). *)
 let rec underlying = function Types.New (_, t) | Types.Bounded (t, _) -> underlying t | t -> t
+
+(* A bound written as a top-level `let baked` value, worked out when it's needed (D135); set below. *)
+let baked_bound_ref : (context -> name -> Q.t option) ref = ref (fun _ _ -> None)
 
 (* ---------- Types ---------- *)
 
@@ -334,6 +338,12 @@ and resolve_details context (t : type_expression) named =
           Q.of_bigint (integer_literal_value ~negative:(negative <> negate) digits)
       | Syntax.Decimal_literal { digits; negative; tilde = false } -> decimal_literal_value ~negative:(negative <> negate) digits
       | Syntax.Negate inner -> literal inner (not negate)
+      | Syntax.Variable v when not negate -> (
+          match !baked_bound_ref context { text = v; span = e.expression_span } with
+          | Some q -> q
+          | None ->
+              not_built context ~what:"a bound that's worked out, rather than written as a number, isn't built yet"
+                d.detail_value.expression_span "all bounds are `baked` (D135, standard 2.3a)")
       | _ ->
           not_built context ~what:"a bound that's worked out, rather than written as a number, isn't built yet"
             d.detail_value.expression_span "all bounds are `baked` (D135, standard 2.3a)"
@@ -2760,6 +2770,44 @@ and check_for fctx span loop_name (variable : name) iterable at handling body =
 
 let () = check_statements_ref := check_statements
 
+(* A top-level `let baked` of the file being checked, worked out now for a bound (D135). Anything it can't
+   work out yet, such as a call to a function not checked yet, gives None, and the bound stays NotBuiltYet. *)
+let () =
+  baked_bound_ref :=
+    fun context (variable : name) ->
+      let found =
+        List.find_opt
+          (fun (file, (s : statement)) ->
+            file = context.current_file
+            && (match s.statement_kind with Let { baked = true; variable = v; _ } -> v.text = variable.text | _ -> false))
+          context.global_syntax
+      in
+      match found with
+      | Some (_, { statement_kind = Let { declared_type; value; _ }; _ }) -> (
+          let saved = context.diagnostics in
+          let fake =
+            { function_id = 0; declaration = { narrowings = []; function_name = variable; function_my = false; type_parameters = [];
+                                               parameters = []; result = None; fails = []; labels = []; defaults = []; requires = [];
+                                               ensures = []; body = []; function_span = Span.none; function_visibility = File_only;
+                                               header_broken = false };
+              full_name = ""; file = context.current_file; parameter_types = []; result_type = Types.Nothing; pure = false;
+              failures = []; baked = false }
+          in
+          let fctx = { context; info = fake; scopes = [ Hashtbl.create 1 ]; loops = []; arm_values = [] } in
+          let result =
+            try
+              let t = resolve_type context declared_type in
+              let c = check_value fctx t value in
+              require_baked fctx c;
+              let program = { C.functions = context.checked; main = 0; struct_defaults = Hashtbl.create 1; globals = [] } in
+              Fits.number_of (Interpreter.evaluate_with program (Hashtbl.create 1) c)
+            with _ -> None
+          in
+          (* whatever went wrong is said where the `let baked` itself is checked *)
+          context.diagnostics <- saved;
+          result)
+      | _ -> None
+
 (* ---------- Declarations ---------- *)
 
 let dummy_declaration =
@@ -2869,7 +2917,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
       presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = []; versions = Hashtbl.create 8; overlapping_versions = Hashtbl.create 4;
       interfaces = Hashtbl.create 4; type_sets = Hashtbl.create 4; satisfied = []; type_parameters = [];
-      short_names = uses; current_file = "";
+      short_names = uses; current_file = ""; global_syntax = [];
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
@@ -2972,7 +3020,9 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
                 error context ~what:(Printf.sprintf "there's already a handler family called %s" (quote handler_family.text))
                   handler_family.span "one name means one thing (D47, standard 5.5)"
               else Hashtbl.replace context.handler_families handler_family.text handlers
-          | Global statement -> globals := (file.file_name, statement) :: !globals
+          | Global statement ->
+              globals := (file.file_name, statement) :: !globals;
+              context.global_syntax <- context.global_syntax @ [ (file.file_name, statement) ]
           | Interface { interface_name; includes; operations } ->
               Hashtbl.replace context.interfaces interface_name.text (includes, operations)
           | Type_set { set_name; members } -> Hashtbl.replace context.type_sets set_name.text members
