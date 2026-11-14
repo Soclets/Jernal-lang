@@ -1,0 +1,5 @@
+CompileTimeError: d48_a_jumping_handler_needs_a_star.jern:16:50, line 16 column 50
+ 16 |     let $w: String = first_word($text) otherwise word_failed.bail
+    |                                                  ^^^^^^^^^^^^^^^^
+ fix:  `word_failed.*bail`
+ why:  a handler that can `return` or `break` is marked `*` where it's used (D48, standard 6.4)

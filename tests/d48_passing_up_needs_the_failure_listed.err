@@ -1,0 +1,5 @@
+CompileTimeError: d48_passing_up_needs_the_failure_listed.jern:9:17, line 9 column 17
+ 9 |     return half(half($n)?)?
+   |                 ^^^^^^^^^
+ what: this can fail with `odd`, and `quarter` doesn't list it after `fails`
+ why:  `?` passes a failure up, refused unless this function lists it (D48, standard 6.3)

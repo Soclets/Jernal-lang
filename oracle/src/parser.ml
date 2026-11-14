@@ -1068,17 +1068,20 @@ and parse_match state : statement =
     end
     else None
   in
-  ignore (expect state Colon "`:`");
-  end_of_line state;
-  let match_arms =
-    match with_handler with
-    | Some (family, handler, jumps) -> Match_with { family; handler; jumps }
-    | None -> Match_arms (with_block state "match" (fun () -> parse_arms state))
-  in
-  expect_closer state ~opener:start.span ~expected:"match";
-  let s = statement_of (Match { subject; match_arms }) start state in
-  end_of_line state;
-  s
+  match with_handler with
+  | Some (family, handler, jumps) ->
+      (* trace: D100 — `match $x with family.handler` is a one-line match *)
+      let s = statement_of (Match { subject; match_arms = Match_with { family; handler; jumps } }) start state in
+      end_of_line state;
+      s
+  | None ->
+      ignore (expect state Colon "`:`");
+      end_of_line state;
+      let match_arms = Match_arms (with_block state "match" (fun () -> parse_arms state)) in
+      expect_closer state ~opener:start.span ~expected:"match";
+      let s = statement_of (Match { subject; match_arms }) start state in
+      end_of_line state;
+      s
 
 (* ---------- Declarations ---------- *)
 

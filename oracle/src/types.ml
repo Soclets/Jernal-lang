@@ -22,6 +22,7 @@ type t =
   | Struct of string
   | Union of string
   | Case of string * string      (* a union value known to be one case, inside a case test or arm (D97) *)
+  | Failure of string * (string * t) list   (* a failure's data, named in an `otherwise` arm (D48) *)
   | New of string * t           (* type.new: a distinct type over the same data (D61) *)
   | Unknown                     (* after an error: nothing is guessed about it (D13) *)
   | Nothing                     (* what a function that returns nothing gives *)
@@ -50,6 +51,7 @@ let rec name = function
   | Lines -> "lines"
   | Struct n | Union n -> n
   | Case (u, c) -> u ^ "." ^ c
+  | Failure (f, _) -> f
   | New (n, _) -> n
   | Unknown -> "?"
   | Nothing -> "nothing"

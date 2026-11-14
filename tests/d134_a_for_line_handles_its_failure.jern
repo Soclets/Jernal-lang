@@ -1,0 +1,6 @@
+fn.main[]:
+    for $line in lines() ?? "(not text)":
+        println($line)
+    end for
+    println("end")
+end fn.main

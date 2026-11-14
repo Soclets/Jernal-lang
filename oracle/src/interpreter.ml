@@ -287,13 +287,24 @@ and evaluate_plain context (e : C.expression) : Value.t =
   | C.Otherwise { value; arms } -> (
       try evaluate_call context value
       with C.Failure_raised (failure, _) -> (
-        match List.find_opt (fun (a : C.arm) -> a.arm_failure = failure.failure_name) arms with
-        | Some arm -> (
-            try
-              execute_block context arm.arm_body;
-              Value.Nothing
-            with Instead_signal v -> v)
+        match run_arms context arms failure with
+        | Some v -> v
         | None -> raise (C.Failure_raised (failure, e.span))))
+
+(* Runs the arm for [failure]: what `instead` gives, or nothing; [None] if no arm covers it. *)
+and run_arms context (arms : C.arm list) (failure : C.failure) : Value.t option =
+  match List.find_opt (fun (a : C.arm) -> a.arm_failure = failure.failure_name) arms with
+  | Some arm -> (
+      Option.iter
+        (fun v ->
+          define context v
+            (Value.Struct { struct_name = failure.failure_name; fields = List.map (fun (n, x) -> (n, ref x)) failure.failure_fields }))
+        arm.arm_binding;
+      try
+        execute_block context arm.arm_body;
+        Some Value.Nothing
+      with Instead_signal v -> Some v)
+  | None -> None
 
 and list_offset span counting (l : Value.list_value) (p : Value.t) : int =
   let n = Value.integer_to_z p in
@@ -473,10 +484,13 @@ and execute context (s : C.statement) =
               match Std_library.next_line iterable.span with
               | Some line -> run_item line
               | None -> finished := true
-              | exception C.Failure_raised (failure, _) -> (
+              | exception (C.Failure_raised (failure, _) as raised) -> (
                   match handling with
                   | C.Loop_fallback stand_in -> run_item (evaluate context stand_in)
-                  | _ ->
+                  | C.Loop_pass_up -> raise raised
+                  | C.Loop_arms arms -> (
+                      match run_arms context arms failure with Some item -> run_item item | None -> raise raised)
+                  | C.Loop_crash ->
                       flush stdout;
                       runtime_error
                         ~what:(Printf.sprintf "`lines` failed with `%s`, and nothing handled it" failure.failure_name)

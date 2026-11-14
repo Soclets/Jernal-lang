@@ -1,0 +1,22 @@
+fn first_word[$text: String] -> String fails [no_words]:
+    if $text == "":
+        fail no_words
+    end if
+    return $text
+end fn first_word
+
+fam.handler word_failed:
+    handler bail:
+        case no_words:
+            return early
+    end handler bail
+end fam.handler word_failed
+
+fn show[$text: String]:
+    let $w: String = first_word($text) otherwise word_failed.bail
+    println($w)
+end fn show
+
+fn.main[]:
+    show("a")
+end fn.main

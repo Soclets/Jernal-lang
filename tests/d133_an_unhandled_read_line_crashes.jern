@@ -1,0 +1,4 @@
+fn.main[]:
+    let $n: String = read_line()
+    println($n)
+end fn.main

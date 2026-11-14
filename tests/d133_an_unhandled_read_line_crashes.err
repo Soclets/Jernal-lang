@@ -1,0 +1,5 @@
+RuntimeError: d133_an_unhandled_read_line_crashes.jern:2:22, line 2 column 22
+ 2 |     let $n: String = read_line()
+   |                      ^^^^^^^^^^^
+ what: `read_line` failed with `end_of_input`, and nothing handled it
+ why:  a failure nobody handles crashes (D48, standard 6.3)

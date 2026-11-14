@@ -1,0 +1,14 @@
+fn half[$n: Int] -> Int fails [odd]:
+    if $n mod.trunc 2 != 0:
+        fail odd
+    end if
+    return $n div.trunc 2
+end fn half
+
+fn quarter[$n: Int] -> Int:
+    return half(half($n)?)?
+end fn quarter
+
+fn.main[]:
+    println(quarter(8) as String)
+end fn.main

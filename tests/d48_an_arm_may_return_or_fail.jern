@@ -1,0 +1,28 @@
+fn half[$n: Int] -> Int fails [odd]:
+    if $n mod.trunc 2 != 0:
+        fail odd
+    end if
+    return $n div.trunc 2
+end fn half
+
+fn halves[$n: Int] -> String fails [gave_up]:
+    let $h: Int = half($n) otherwise:
+        case odd:
+            fail gave_up
+    end otherwise
+    if $h == 1:
+        return "one"
+    end if
+    let $q: Int = half($h) otherwise:
+        case odd:
+            return "odd half"
+    end otherwise
+    return $q as String
+end fn halves
+
+fn.main[]:
+    println(halves(8) ?? "gave up")
+    println(halves(6) ?? "gave up")
+    println(halves(2) ?? "gave up")
+    println(halves(5) ?? "gave up")
+end fn.main

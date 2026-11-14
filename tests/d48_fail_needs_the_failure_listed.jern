@@ -1,0 +1,9 @@
+fn check[$n: Int]:
+    if $n < 0:
+        fail negative
+    end if
+end fn check
+
+fn.main[]:
+    check(1)
+end fn.main

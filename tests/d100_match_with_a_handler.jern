@@ -1,0 +1,20 @@
+union.tagged Key:
+    enter
+    escape
+end union.tagged Key
+
+fam.handler key_actions:
+    handler basic:
+        case enter:
+            println("submit")
+        case escape:
+            println("cancel")
+    end handler basic
+end fam.handler key_actions
+
+fn.main[]:
+    let $k: Key = Key.escape[]
+    match $k with key_actions.basic
+    let $e: Key = Key.enter[]
+    match $e with key_actions.basic
+end fn.main

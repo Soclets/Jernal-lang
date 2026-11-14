@@ -1,0 +1,5 @@
+RuntimeError: d48_an_unhandled_failure_crashes.jern:10:19, line 10 column 19
+ 10 |     let $h: Int = half(3)
+    |                   ^^^^^^^
+ what: `half` failed with `odd`, and nothing handled it
+ why:  a failure nobody handles crashes (D48, standard 6.3)

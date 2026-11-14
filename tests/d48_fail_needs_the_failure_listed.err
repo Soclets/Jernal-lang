@@ -1,0 +1,5 @@
+CompileTimeError: d48_fail_needs_the_failure_listed.jern:3:14, line 3 column 14
+ 3 |         fail negative
+   |              ^^^^^^^^
+ what: `negative` isn't listed after `fails` on `check`
+ why:  a function lists the failures it can raise on its opening line (D48, standard 6.2)

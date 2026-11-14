@@ -1,0 +1,6 @@
+fn.main[]:
+    let $name: String = read_line() ?? "stranger"
+    println("Hello, " $name)
+    let $all: String = read_all() ?? ""
+    println("[" $all "]")
+end fn.main

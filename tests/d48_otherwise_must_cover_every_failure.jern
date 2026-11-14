@@ -1,0 +1,13 @@
+fn half[$n: Int] -> Int fails [odd, negative[got: Int]]:
+    if $n mod.trunc 2 != 0:
+        fail odd
+    end if
+    return $n div.trunc 2
+end fn half
+
+fn.main[]:
+    let $h: Int = half(3) otherwise:
+        case odd:
+            instead 0
+    end otherwise
+end fn.main

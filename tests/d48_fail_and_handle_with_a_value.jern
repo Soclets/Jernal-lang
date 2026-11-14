@@ -1,0 +1,15 @@
+fn half[$n: Int] -> Int fails [odd, negative[got: Int]]:
+    if $n < 0:
+        fail negative[got = $n]
+    end if
+    if $n mod.trunc 2 != 0:
+        fail odd
+    end if
+    return $n div.trunc 2
+end fn half
+
+fn.main[]:
+    println((half(10) ?? 0) as String)
+    let $a: Int = half(7) ?? -1
+    println($a as String)
+end fn.main

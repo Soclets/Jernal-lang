@@ -1,0 +1,38 @@
+fn first_word[$text: String] -> String fails [too_long, no_words]:
+    if $text == "":
+        fail no_words
+    end if
+    if $text.len() > 5:
+        fail too_long
+    end if
+    return $text
+end fn first_word
+
+fam.handler word_failed:
+    handler use_placeholder:
+        case too_long:
+            instead "..."
+        case no_words:
+            instead "(none)"
+    end handler use_placeholder
+
+    handler bail:
+        case too_long:
+            return early
+        case no_words:
+            return early
+    end handler bail
+end fam.handler word_failed
+
+fn show[$text: String]:
+    let $w: String = first_word($text) otherwise word_failed.*bail
+    println("got " $w)
+end fn show
+
+fn.main[]:
+    println(first_word("hi") otherwise word_failed.use_placeholder)
+    println(first_word("") otherwise word_failed.use_placeholder)
+    println(first_word("toolong") otherwise word_failed.use_placeholder)
+    show("ok")
+    show("")
+end fn.main

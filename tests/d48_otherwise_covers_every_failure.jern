@@ -1,0 +1,26 @@
+fn half[$n: Int] -> Int fails [odd, negative[got: Int]]:
+    if $n < 0:
+        fail negative[got = $n]
+    end if
+    if $n mod.trunc 2 != 0:
+        fail odd
+    end if
+    return $n div.trunc 2
+end fn half
+
+fn describe[$n: Int]:
+    let $h: Int = half($n) otherwise:
+        case odd:
+            instead 0
+        case negative $f:
+            println("negative: " $f.got as String)
+            instead -1
+    end otherwise
+    println($h as String)
+end fn describe
+
+fn.main[]:
+    describe(8)
+    describe(3)
+    describe(-4)
+end fn.main

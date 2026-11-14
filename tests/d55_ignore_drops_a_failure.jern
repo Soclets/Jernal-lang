@@ -1,0 +1,12 @@
+fn save[$text: String] fails [disk_full]:
+    if $text == "":
+        fail disk_full
+    end if
+    println("saved " $text)
+end fn save
+
+fn.main[]:
+    save("a") ?? ignore
+    save("") ?? ignore
+    println("done")
+end fn.main

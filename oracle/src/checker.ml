@@ -30,6 +30,7 @@ type function_info = {
   mutable parameter_types : Types.t list;
   mutable result_type : Types.t;
   pure : bool;                      (* fn.pure, or a member of fam.fn.pure (D41, D45) *)
+  mutable failures : (string * (string * Types.t) list) list;   (* what it lists after `fails` (D48) *)
 }
 
 type struct_info = {
@@ -57,6 +58,9 @@ type context = {
   presets : (string, (name * expression) list) Hashtbl.t;   (* greet.loud -> its settings (D45) *)
   families : (string, Span.t) Hashtbl.t;
   file_scopes : (string, (string, variable_info) Hashtbl.t) Hashtbl.t;   (* each file's top-level `let`s (D139) *)
+  function_by_id : (int, function_info) Hashtbl.t;
+  failure_families : (string, failure_shape list) Hashtbl.t;
+  handler_families : (string, handler_set list) Hashtbl.t;
   mutable globals : C.statement list;
 }
 
@@ -65,7 +69,11 @@ type function_context = {
   info : function_info;
   mutable scopes : (string, variable_info) Hashtbl.t list;
   mutable loops : (string option * int) list;
+  mutable arm_values : Types.t option list;   (* inside `otherwise` arms: the type `instead` gives, if any (D48) *)
 }
+
+(* Statements are checked after expressions are defined; an `otherwise` arm holds statements. *)
+let check_statements_ref : (function_context -> statement list -> C.statement list) ref = ref (fun _ _ -> [])
 
 exception Skip   (* the statement has an error that was already reported *)
 
@@ -445,22 +453,46 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         let value = check_expression fctx ~expected:None value in
         require_can_fail context value;
         { C.kind = C.Ignore value; type_ = Types.Nothing; span }
-    | Syntax.Pass_up _ | Syntax.Otherwise _ ->
-        not_built context ~what:"this way of handling a failure isn't built in the oracle yet" span
-          "a caller has these tools to handle a failure (D48, D55, standard 6.3)"
+    | Syntax.Pass_up inner ->
+        (* trace: D48 — `?` passes a failure up, refused unless this function lists it *)
+        let value = check_expression fctx ~expected inner in
+        require_can_fail context value;
+        List.iter
+          (fun (name, fields) ->
+            match List.assoc_opt name fctx.info.failures with
+            | Some listed when Types.same (Types.Failure (name, listed)) (Types.Failure (name, fields)) -> ()
+            | Some _ ->
+                refuse context
+                  ~what:(Printf.sprintf "%s here carries different data from the %s this function lists" (quote name) (quote name))
+                  span "`?` passes a failure up as it is (D48, standard 6.3)"
+            | None ->
+                refuse context
+                  ~what:(Printf.sprintf "this can fail with %s, and %s doesn't list it after `fails`" (quote name)
+                           (quote (if fctx.info.full_name = "" then "this" else fctx.info.full_name)))
+                  span "`?` passes a failure up, refused unless this function lists it (D48, standard 6.3)")
+          (failures_of context value);
+        { C.kind = C.Pass_up value; type_ = value.type_; span }
+    | Syntax.Otherwise { value; handling } ->
+        let value = check_expression fctx ~expected value in
+        require_can_fail context value;
+        let arms = check_handling fctx ~at:value.span ~possible:(failures_of context value) ~gives:value.type_ handling in
+        { C.kind = C.Otherwise { value; arms }; type_ = value.type_; span }
     | Syntax.Narrowed_member _ ->
         not_built context ~what:"this isn't built in the oracle yet" span "handlers that jump are marked `*` (D100, standard 6.4)"
   in
   result
 
+(* The failures a call can raise, with their data (D48). *)
+and failures_of context (value : C.expression) : (string * (string * Types.t) list) list =
+  match value.kind with
+  | C.Call_builtin { builtin; _ } -> List.map (fun f -> (f, [])) builtin.fails
+  | C.Call_function { function_id; _ } -> (
+      match Hashtbl.find_opt context.function_by_id function_id with Some f -> f.failures | None -> [])
+  | C.Arithmetic { operator = "div"; narrowings = [ "exact" ]; _ } -> [ ("not_exact", []) ]   (* trace: D139 *)
+  | _ -> []
+
 and require_can_fail context (value : C.expression) =
-  let fails =
-    match value.kind with
-    | C.Call_builtin { builtin; _ } -> builtin.fails <> []
-    | C.Call_function _ -> true
-    | C.Arithmetic { operator = "div"; narrowings = [ "exact" ]; _ } -> true   (* fails with `not_exact` (D139) *)
-    | _ -> false
-  in
+  let fails = failures_of context value <> [] in
   if not fails && value.type_ <> Types.Unknown then
     refuse context ~what:"nothing here can fail, so there's nothing to handle" value.span
       "a caller handles the failures a call can raise (D48, standard 6.3)"
@@ -470,6 +502,118 @@ and expect_type context (expected : Types.t) (actual : C.expression) =
     refuse context
       ~what:(Printf.sprintf "this is %s, and %s is expected here" (type_text actual.type_) (type_text expected))
       actual.span "a value has the type its place expects (D56, standard 2)"
+
+(* Arms after `otherwise`, or a handler's arms used there: every failure still possible is covered,
+   and nothing else (D48, D49). [gives] is the call's type, which `instead` gives in an arm. *)
+and check_handling fctx ~(at : Span.t) ~possible ~(gives : Types.t) (handling : handling) : C.arm list =
+  let context = fctx.context in
+  let arms =
+    match handling with
+    | Arms arms -> arms
+    | Handler { family; handler; jumps } -> handler_arms fctx ~family ~handler ~jumps
+  in
+  let seen = Hashtbl.create 8 in
+  let checked =
+    List.filter_map
+      (fun (arm : arm) ->
+        let known =
+          match List.assoc_opt arm.case_name.text possible with
+          | None ->
+              error context ~what:(Printf.sprintf "%s isn't a failure this call can raise" (quote arm.case_name.text))
+                arm.case_name.span "arms cover the failures still possible there (D48, standard 6.3)";
+              None
+          | Some fields ->
+              if Hashtbl.mem seen arm.case_name.text then begin
+                error context ~what:(Printf.sprintf "%s is covered twice" (quote arm.case_name.text)) arm.case_name.span
+                  "each failure still possible is covered once (D48, standard 6.3)";
+                None
+              end
+              else (Hashtbl.add seen arm.case_name.text (); Some fields)
+        in
+        let needs_value = gives <> Types.Nothing in
+        fctx.arm_values <- (if needs_value then Some gives else None) :: fctx.arm_values;
+        let result =
+          in_scope fctx (fun () ->
+              let binding =
+                Option.map
+                  (fun (b : name) ->
+                    let t = match known with Some fields -> Types.Failure (arm.case_name.text, fields) | None -> Types.Unknown in
+                    (add_variable fctx ~name:b ~variable_type:t ~is_mutable:false ~assigned:true ()).variable)
+                  arm.binding
+              in
+              (binding, !check_statements_ref fctx arm.arm_body))
+        in
+        fctx.arm_values <- List.tl fctx.arm_values;
+        (* an arm in place of a value ends with `instead`, `return`, `break` or `fail` on every path *)
+        if needs_value && not (ends_every_path arm.arm_body) then
+          error context ~what:"this arm can reach its end without `instead`, `return`, `break` or `fail`" arm.case_name.span
+            "`instead` gives the value used in place of the failed call (D48, standard 6.3)";
+        match known with
+        | Some _ -> let binding, body = result in Some { C.arm_failure = arm.case_name.text; arm_binding = binding; arm_body = body }
+        | None -> None)
+      arms
+  in
+  let missing = List.filter (fun (name, _) -> not (Hashtbl.mem seen name)) possible in
+  if missing <> [] then
+    refuse context
+      ~what:(Printf.sprintf "%s %s still possible here and not covered"
+               (String.concat ", " (List.map (fun (n, _) -> quote n) missing)) (if List.length missing = 1 then "is" else "are"))
+      at "every failure still possible must be covered (D48, standard 6.3)";
+  if List.length checked <> List.length arms then raise Skip;
+  checked
+
+(* A handler's arms, from its family; `*` marks one that can jump out (D48, D49). *)
+and handler_arms fctx ~(family : name) ~(handler : name) ~(jumps : bool) : arm list =
+  let context = fctx.context in
+  match Hashtbl.find_opt context.handler_families family.text with
+  | None ->
+      refuse context ~what:(Printf.sprintf "there's no handler family called %s" (quote family.text)) family.span
+        "a `fam.handler` holds named, reusable sets of arms (D48, standard 6.4)"
+  | Some handlers -> (
+      match List.find_opt (fun h -> h.handler_name.text = handler.text) handlers with
+      | None ->
+          refuse context ~what:(Printf.sprintf "%s has no handler called %s" (quote family.text) (quote handler.text))
+            handler.span "a `fam.handler` holds named, reusable sets of arms (D48, standard 6.4)"
+      | Some h ->
+          let can_jump = List.exists (fun (a : arm) -> can_jump_out a.arm_body) h.handler_arms in
+          let place = Span.join family.span handler.span in
+          (* trace: D48, D49 *)
+          if can_jump && not jumps then
+            refuse context ~fix:(quote (family.text ^ ".*" ^ handler.text)) place
+              "a handler that can `return` or `break` is marked `*` where it's used (D48, standard 6.4)"
+          else if jumps && not can_jump then
+            refuse context ~fix:(quote (family.text ^ "." ^ handler.text)) place
+              "only a handler that can `return` or `break` is marked `*` (D48, standard 6.4)";
+          h.handler_arms)
+
+(* Whether statements always end with `instead`, `return`, `break` or `fail`. *)
+and ends_every_path (statements : statement list) =
+  List.exists
+    (fun (s : statement) ->
+      match s.statement_kind with
+      | Instead _ | Return _ | Return_early | Break _ | Fail _ -> true
+      | If { branches; else_body = Some e } -> List.for_all (fun b -> ends_every_path b.branch_body) branches && ends_every_path e
+      | Match { match_arms = Match_arms arms; _ } -> arms <> [] && List.for_all (fun (a : arm) -> ends_every_path a.arm_body) arms
+      | _ -> false)
+    statements
+
+(* Whether statements can `return`, or `break` out of a loop they're not inside. *)
+and can_jump_out (statements : statement list) =
+  let rec go loop_depth (statements : statement list) =
+    List.exists
+      (fun (s : statement) ->
+        match s.statement_kind with
+        | Return _ | Return_early -> true
+        | Break _ -> loop_depth = 0
+        | If { branches; else_body } ->
+            List.exists (fun b -> go loop_depth b.branch_body) branches || (match else_body with Some e -> go loop_depth e | None -> false)
+        | Match { match_arms = Match_arms arms; _ } -> List.exists (fun (a : arm) -> go loop_depth a.arm_body) arms
+        | While { body; _ } | For { body; _ } -> go (loop_depth + 1) body
+        | Broken_block { body; _ } -> go loop_depth body
+        | _ -> false)
+      statements
+  in
+  go 0 statements
 
 (* A join holds only strings, variables, fields and `as` (D20, D23). *)
 and check_join fctx (e : expression) items =
@@ -707,6 +851,12 @@ and check_member fctx (e : expression) target field =
           refuse context ~what:(Printf.sprintf "%s has no field called %s" (quote struct_name) (quote field.text)) field.span
             "fields are read with `.` (D56, standard 2.4)")
   | Types.Unknown -> { C.kind = C.Field (target, field.text); type_ = Types.Unknown; span }
+  | Types.Failure (failure_name, fields) -> (
+      match List.assoc_opt field.text fields with
+      | Some t -> { C.kind = C.Field (target, field.text); type_ = t; span }
+      | None ->
+          refuse context ~what:(Printf.sprintf "the failure %s carries no %s" (quote failure_name) (quote field.text))
+            field.span "a failure can carry data (D48, standard 6.2)")
   | Types.Case (union_name, case_name) -> (
       let info = Hashtbl.find context.unions union_name in
       match List.assoc_opt field.text (Option.value (List.assoc_opt case_name info.resolved_cases) ~default:[]) with
@@ -1352,14 +1502,50 @@ and check_statement fctx (s : statement) : C.statement list =
         (Diagnostic.make ~span ~what (if designed then Diagnostic.Not_built_yet else Diagnostic.Not_designed_yet) why);
       []
   | Match { subject; match_arms } -> check_match fctx span subject match_arms
-  | Fail _ | Instead _ ->
-      report context
-        (Diagnostic.make ~span ~what:"this statement isn't built in the oracle yet" Diagnostic.Not_built_yet
-           (match s.statement_kind with
-            | Match _ -> "`match` covers every case of a tagged union (D97, standard 4.5a)"
-            | Fail _ -> "a function raises a failure with `fail` (D48, standard 6.2)"
-            | _ -> "`instead` gives the value used in place of a failed call (D48, standard 6.3)"));
-      []
+  | Fail { failure; fields } -> (
+      (* trace: D48 — `fail` raises one of the function's listed failures, and leaves it *)
+      match List.assoc_opt failure.text fctx.info.failures with
+      | None ->
+          error context
+            ~what:(Printf.sprintf "%s isn't listed after `fails` on %s" (quote failure.text)
+                     (if fctx.info.full_name = "" then "this function" else quote fctx.info.full_name))
+            failure.span "a function lists the failures it can raise on its opening line (D48, standard 6.2)";
+          []
+      | Some shape -> (
+          try
+            let seen = Hashtbl.create 4 in
+            let given =
+              List.map
+                (fun { field; field_value } ->
+                  match List.assoc_opt field.text shape with
+                  | None ->
+                      refuse context ~what:(Printf.sprintf "%s carries no %s" (quote failure.text) (quote field.text)) field.span
+                        "a failure can carry data (D48, standard 6.2)"
+                  | Some t ->
+                      Hashtbl.replace seen field.text ();
+                      (field.text, check_value fctx t field_value))
+                fields
+            in
+            List.iter
+              (fun (n, _) ->
+                if not (Hashtbl.mem seen n) then
+                  refuse context ~what:(Printf.sprintf "%s needs %s" (quote failure.text) (quote n)) span
+                    "a failure's data is all given (D48, standard 6.2)")
+              shape;
+            make (C.Fail { failure = failure.text; fields = given })
+          with Skip -> []))
+  | Instead value -> (
+      match fctx.arm_values with
+      | Some t :: _ -> (
+          try make (C.Instead (check_value fctx t value)) with Skip -> [])
+      | None :: _ ->
+          error context ~what:"this call gives nothing, so there's nothing for `instead` to give" span
+            "`instead` gives the value used in place of the failed call (D48, standard 6.3)";
+          []
+      | [] ->
+          error context ~what:"`instead` is only used in an arm that handles a failure" span
+            "`instead` gives the value used in place of the failed call (D48, standard 6.3)";
+          [])
 
 (* Variables a refused line still creates, so nothing that uses them is refused because of it (D13). *)
 and declare_recovered fctx (declares : recovered list) =
@@ -1535,13 +1721,15 @@ and check_case_test fctx (value : expression) (tested : type_expression) : C.exp
 (* `match` (D97, D98, D101): every case is covered once, with no catch-all. *)
 and check_match fctx span subject (match_arms : match_arms) : C.statement list =
   let context = fctx.context in
-  match match_arms with
-  | Match_with _ ->
-      report context
-        (Diagnostic.make ~span ~what:"`match ... with` a handler isn't built in the oracle yet" Diagnostic.Not_built_yet
-           "a set of arms can be written once in a `fam.handler` (D100, standard 4.5a)");
-      []
-  | Match_arms arms -> (
+  let arms_of = function
+    | Match_arms arms -> Some arms
+    | Match_with { family; handler; jumps } -> (
+        (* trace: D100 *)
+        try Some (handler_arms fctx ~family ~handler ~jumps) with Skip -> None)
+  in
+  match arms_of match_arms with
+  | None -> []
+  | Some arms -> (
       let checked = try Some (check_expression fctx ~expected:None subject) with Skip -> None in
       let cases =
         match Option.map (fun (c : C.expression) -> underlying c.type_) checked with
@@ -1656,11 +1844,22 @@ and check_for fctx span loop_name (variable : name) iterable at handling body =
           expect_type context item_type c;
           Some (C.Loop_fallback c)
         with Skip -> None)
-    | Some _ ->
-        report context
-          (Diagnostic.make ~span:iterable.expression_span ~what:"this way of handling a failure isn't built in the oracle yet"
-             Diagnostic.Not_built_yet "a failure while a `for` gets its next item is handled on the `for` line (D134, standard 4.6)");
-        None
+    | Some Loop_pass_up -> (
+        try
+          List.iter
+            (fun name ->
+              if not (List.mem_assoc name fctx.info.failures) then
+                refuse context
+                  ~what:(Printf.sprintf "getting the next line can fail with %s, and this function doesn't list it" (quote name))
+                  iterable.expression_span "`?` passes a failure up, refused unless this function lists it (D48, D134, standard 4.6)")
+            [ "not_text" ];
+          Some C.Loop_pass_up
+        with Skip -> None)
+    | Some (Loop_handler { family; handler; jumps }) -> (
+        try
+          Some (C.Loop_arms (check_handling fctx ~at:iterable.expression_span ~possible:[ ("not_text", []) ] ~gives:item_type
+                               (Handler { family; handler; jumps })))
+        with Skip -> None)
   in
   let loop_id = fresh_id context in
   fctx.loops <- (Option.map (fun n -> n.text) loop_name, loop_id) :: fctx.loops;
@@ -1686,6 +1885,8 @@ and check_for fctx span loop_name (variable : name) iterable at handling body =
       [ { C.statement_kind = C.For { loop_id; variable = v.variable; position; iterable; handling; body }; statement_span = span } ]
   | _ -> []
 
+let () = check_statements_ref := check_statements
+
 (* ---------- Declarations ---------- *)
 
 let dummy_declaration =
@@ -1700,7 +1901,7 @@ let file_scope context file =
 
 let check_function context (info : function_info) =
   let declaration = info.declaration in
-  let fctx = { context; info; scopes = [ Hashtbl.create 8; file_scope context info.file ]; loops = [] } in
+  let fctx = { context; info; scopes = [ Hashtbl.create 8; file_scope context info.file ]; loops = []; arm_values = [] } in
   let parameters =
     List.map2
       (fun p t ->
@@ -1753,7 +1954,8 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   let context =
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
-      presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = [] }
+      presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = [];
+      function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
   let globals = ref [] in
@@ -1770,9 +1972,12 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
         error context ~fix:(quote ("my::" ^ full_name)) declaration.function_name.span
           "a name of the program's own that is also a built-in word is written with `my::` (D63, standard 9.4)";
       let id = fresh_id context in
-      Hashtbl.replace context.functions full_name
+      let info =
         { function_id = id; declaration; full_name; file; parameter_types = []; result_type = Types.Nothing;
-          pure = family_pure || List.exists (fun n -> n.text = "pure") declaration.narrowings }
+          pure = family_pure || List.exists (fun n -> n.text = "pure") declaration.narrowings; failures = [] }
+      in
+      Hashtbl.replace context.functions full_name info;
+      Hashtbl.replace context.function_by_id id info
     end
   in
   (* First the names, so declarations can mention each other in any order. *)
@@ -1815,14 +2020,12 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
               end
           | Type_alias { alias_name; aliased } -> Hashtbl.replace context.aliases alias_name.text aliased
           | Type_new { new_name; underlying } -> Hashtbl.replace context.new_types new_name.text underlying
-          | Family_failure _ | Family_handler _ ->
-              report context
-                (Diagnostic.make ~span:d.declaration_span ~what:"this declaration isn't built in the oracle yet" Diagnostic.Not_built_yet
-                   (match d.declaration_kind with
-                    | Type_alias _ | Type_new _ -> "`type.alias` and `type.new` name a type (D61, standard 2.5)"
-                    | Family_function _ -> "a `fam.fn` block holds things that belong under one name (D45, standard 5.5)"
-                    | Family_failure _ -> "a named set of failures is a family (D49, standard 6.2)"
-                    | _ -> "a `fam.handler` holds named, reusable sets of arms (D48, standard 6.4)"))
+          | Family_failure { failure_family; failures } -> Hashtbl.replace context.failure_families failure_family.text failures
+          | Family_handler { handler_family; handlers } ->
+              if Hashtbl.mem context.handler_families handler_family.text then
+                error context ~what:(Printf.sprintf "there's already a handler family called %s" (quote handler_family.text))
+                  handler_family.span "one name means one thing (D47, standard 5.5)"
+              else Hashtbl.replace context.handler_families handler_family.text handlers
           | Global statement -> globals := (file.file_name, statement) :: !globals
           | Unfinished_declaration { what; why; designed } ->
               report context
@@ -1852,10 +2055,21 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
       report context
         (Diagnostic.make ~span:(fst (List.hd d.type_parameters)).span ~what:"generic functions aren't built in the oracle yet"
            Diagnostic.Not_built_yet "functions and types can take type parameters (D103, standard 5.8)");
-    if d.fails <> [] then
-      report context
-        (Diagnostic.make ~span:(List.hd d.fails).failure_name.span ~what:"declaring failures isn't built in the oracle yet"
-           Diagnostic.Not_built_yet "a function lists the failures it can raise on its opening line (D48, standard 6.2)");
+    info.failures <-
+      List.filter_map
+        (fun (shape : failure_shape) ->
+          if Hashtbl.mem context.failure_families shape.failure_name.text then begin
+            report context
+              (Diagnostic.make ~span:shape.failure_name.span
+                 ~what:"listing a failure family after `fails` isn't decided yet" Diagnostic.Not_designed_yet
+                 "not decided yet (D49, standard 12.2)");
+            None
+          end
+          else
+            Some
+              ( shape.failure_name.text,
+                List.map (fun ((n : name), t) -> (n.text, try resolve_type context t with Skip -> Types.Unknown)) shape.failure_fields ))
+        d.fails;
     info.parameter_types <- List.map (fun p -> try resolve_type context p.parameter_type with Skip -> Types.Unknown) d.parameters;
     info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown)
   in
@@ -1864,8 +2078,8 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   List.iter
     (fun (file, statement) ->
       let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file; parameter_types = [];
-                   result_type = Types.Nothing; pure = false } in
-      let fctx = { context; info = fake; scopes = [ file_scope context file ]; loops = [] } in
+                   result_type = Types.Nothing; pure = false; failures = [] } in
+      let fctx = { context; info = fake; scopes = [ file_scope context file ]; loops = []; arm_values = [] } in
       context.globals <- context.globals @ check_statement fctx statement)
     (List.rev !globals);
   (* trace: D62 *)
@@ -1882,7 +2096,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
         | Some t -> error context ~what:"`fn.main` returns nothing" t.type_span why
         | None -> ());
        let info =
-         { function_id = main_id; declaration; full_name = "fn.main"; file; parameter_types = []; result_type = Types.Nothing; pure = false }
+         { function_id = main_id; declaration; full_name = "fn.main"; file; parameter_types = []; result_type = Types.Nothing; pure = false; failures = [] }
        in
        info.parameter_types <- List.map (fun _ -> Types.Unknown) declaration.parameters;
        check_function context info
@@ -1898,8 +2112,8 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   Hashtbl.iter
     (fun name info ->
       let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file = "";
-                   parameter_types = []; result_type = Types.Nothing; pure = false } in
-      let fctx = { context; info = fake; scopes = [ Hashtbl.create 1 ]; loops = [] } in
+                   parameter_types = []; result_type = Types.Nothing; pure = false; failures = [] } in
+      let fctx = { context; info = fake; scopes = [ Hashtbl.create 1 ]; loops = []; arm_values = [] } in
       let defaults =
         List.map
           (fun (n, t, default) ->

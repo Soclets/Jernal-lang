@@ -1,0 +1,5 @@
+CompileTimeError: d48_otherwise_must_cover_every_failure.jern:9:19, line 9 column 19
+ 9 |     let $h: Int = half(3) otherwise:
+   |                   ^^^^^^^
+ what: `negative` is still possible here and not covered
+ why:  every failure still possible must be covered (D48, standard 6.3)
