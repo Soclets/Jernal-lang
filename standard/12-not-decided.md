@@ -6,7 +6,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 - **Text:** what a `Bool`, a `Float` or a struct looks like as text, and the formatting tool for things like decimal
   places, newlines and tabs (D21, D95).
-- **Generics and interfaces:** how user code declares them.
+- **Generics:** interfaces and how a type fits one, value parameters, and naming a type at a call (D103).
 - **`pub`:** what a package or file shows, on functions, families, their members and struct fields.
 - **A raw pointer type**, such as the `Ptr<u8>` in 11.2's example.
 

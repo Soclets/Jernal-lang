@@ -31,7 +31,7 @@ as the fix. The closer repeats everything (D41).
 - `fn.pure`: the same input always gives the same output, and nothing else changes or is seen; no I/O, and only pure
   functions are called.
 - `fn.pure.baked`: pure, and can also run while compiling, for a `let baked`.
-- `fn.main`: where the program starts (5.8).
+- `fn.main`: where the program starts (5.9).
 
 ```
 fn.pure.baked seconds_in[$days: Int] -> Int:
@@ -158,7 +158,33 @@ area(3)         // 9
 area(3, 4)      // 12
 ```
 
-## 5.8 `fn.main`
+## 5.8 Generics
+
+Functions and types can take type parameters in `< >` (D103). A type parameter is written `?` and a capitalized name,
+and always writes its requirement, even `Any` for none. Calls never write the types: they're worked out from the
+arguments, or from where the result goes. Generics are compiled once per type they're used with, and the body is checked
+once, at the definition, against its requirements.
+
+```
+fn largest<?Item: Ordered>[$a: ?Item, $b: ?Item] -> ?Item:
+    if $a > $b:
+        return $a
+    end if
+    return $b
+end fn largest
+
+struct Pair<?Left: Any, ?Right: Any>:
+    first: ?Left
+    second: ?Right
+end struct Pair
+
+let $big: Int = largest(3, 5)
+let $p: Pair<left.type: Int, right.type: String> = Pair[first = 1, second = "a"]
+```
+
+A type's labels come from its parameters' names: `?Left` is labelled `left.type:` (D102, D103).
+
+## 5.9 `fn.main`
 
 A program starts at its one `fn.main` (D62). It takes no parameters and returns nothing, ending at `end fn.main` or with
 `return early`. A program with none, or with two, is refused. A plain `fn main` is refused, with `fix: fn.main`; a

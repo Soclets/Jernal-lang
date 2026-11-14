@@ -1713,3 +1713,31 @@ let $ages: Map<key.type: String, val.type: Int> = ["Ann" => 30]
 
 This is Cyborg's (its D25), as Cyborg's design session described on 2026-11-14. The owner asked "What the fuck, why do
 we write `Map<String, Int>`" and "`val.type`?", and said: "`value: Int`. Int is a fucking type". (Owner, 2026-11-14)
+
+**D103. Generics.** Functions and types can take type parameters in `< >`. A type parameter is written `?` and a
+capitalized name, so it can't be mistaken for a real type, and always writes its requirement, even `Any` for none. A
+type's labels (D102) come from its parameters' names: `?Left` is labelled `left.type:`. Calls never write the types:
+they're worked out from the arguments, or from where the result goes, and if nothing says, it's refused. Generics are
+compiled once per type they're used with, and the body is checked once, at the definition, against its requirements, so
+a body using something its requirements don't promise is refused there.
+
+```
+fn largest<?Item: Ordered>[$a: ?Item, $b: ?Item] -> ?Item:
+    if $a > $b:
+        return $a
+    end if
+    return $b
+end fn largest
+
+struct Pair<?Left: Any, ?Right: Any>:
+    first: ?Left
+    second: ?Right
+end struct Pair
+
+let $big: Int = largest(3, 5)
+let $p: Pair<left.type: Int, right.type: String> = Pair[first = 1, second = "a"]
+```
+
+Not decided yet: interfaces and how a type fits one, value parameters, and naming a type at a call. This is Cyborg's
+(its D85, D89, D234, D239, D241), as Cyborg's design session described on 2026-11-14, with capitalized names. Claude
+proposed it; the owner chose: "yes". (Owner, 2026-11-14)
