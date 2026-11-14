@@ -1210,3 +1210,18 @@ differ, the spec decides which is wrong. The two stay apart: neither is written 
 can't agree. The oracle is also the `Interp` build mode, which runs a program with no compiling. Other build modes are
 not decided yet. This follows Cyborg's oracle (its rule 3) and multifinity's notes. Claude proposed it; the owner chose:
 "Oracle that says fuck you to perf, and kisses safety's ass, and also somehow is in `Interp` mode." (Owner, 2026-11-14)
+
+**D70. Build modes.** Jernal has six build modes, from multifinity's notes:
+
+| Mode | What it's for | In v1 |
+|---|---|---|
+| `Interp` | runs on the oracle, with no compiling (D69) | yes |
+| `Working` | everyday development: the optimization level is chosen, every check stays | yes |
+| `FinalSafe` | release: fully optimized, keeps every check it can't prove away (D9) | yes |
+| `FinalPerf` | release: fully optimized, drops some checks for speed | yes |
+| `FinalQuick` | fast compiling, like Go; needs a second backend such as Cranelift | later |
+| `UB++` | drops contracts and bounds checks, and anything wrong is undefined behaviour | later |
+
+Not decided yet: exactly which checks `FinalPerf` drops. Claude proposed `Interp`, `Working` and `FinalSafe` for v1;
+the owner chose: "Accept all of those. `Interp`, `Working`, `FinalSafe`, and `FinalPerf` is in v1." (Owner,
+2026-11-14)
