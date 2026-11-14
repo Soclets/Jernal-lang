@@ -67,7 +67,7 @@ for columns and `len()`).
 ## Tools
 
 - `oracle/tools/robustness.py <scratch>`: runs every test changed in small ways (cut short, lines and words removed)
-  and reports any crash of the oracle (rule 13). Last run: 15,196 programs, no crashes.
+  and reports any crash of the oracle (rule 13). Last run: 22,898 programs, no crashes.
 
 ## Error wording proposed by the oracle (D137)
 
@@ -102,7 +102,8 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 ## Open questions (sent to Jernal Design Claude, waiting on Tankun)
 
 - Package tests: a subfolder of `tests/` with its own `Journey.siml` is one test, with `<folder>.out/.err/.exit`.
-- Float and Decimal dividing by zero: IEEE (inf, NaN) or a check? [IEEE]
+- Float and Decimal dividing by zero: IEEE (inf, NaN) or a check? [IEEE] Tests that lean on it:
+  `d139_nan_and_infinity_as_text`, `d82_negative_zero`, `d83_decimal_infinity_is_ordered`.
 - `for` over a list changed inside the loop [the items it had when the loop started]; `for` over `Map.insertion`/
   `Map.sorted` [NotDesignedYet]; `remove(key:)` with a missing key [a check]; Decimal text `1.10` [`1.1`]; converting
   Float or Rational into Decimal [NotDesignedYet]; a case with no data [`Status.ok[]`; design expects `Status.ok`].

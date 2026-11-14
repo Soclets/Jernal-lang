@@ -83,7 +83,12 @@ let divide a b =
       if Q.sign y = 0 then (if Q.sign x = 0 then Not_a_number else Infinity (Q.sign x < 0))
       else round (Q.div x y)
 
-let compare_values a b = match a, b with Finite x, Finite y -> Some (Q.compare x y) | _ -> None
+(* IEEE's order: -inf below every number, inf above; NaN is unordered. *)
+let compare_values a b =
+  let rank = function Infinity true -> Some (-1) | Finite _ -> Some 0 | Infinity false -> Some 1 | Not_a_number -> None in
+  match a, b with
+  | Finite x, Finite y -> Some (Q.compare x y)
+  | _ -> (match rank a, rank b with Some x, Some y -> Some (compare x y) | _ -> None)
 
 let equal a b =
   match a, b with

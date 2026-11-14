@@ -1,0 +1,10 @@
+fn.main[]:
+    let $one: Decimal = 1
+    let $zero: Decimal = 0
+    let $inf: Decimal = $one div $zero
+    let $minus: Decimal = -$inf
+    println($inf as String)
+    println(($inf > $one) as String)
+    println(($minus < $one) as String)
+    println(($inf == $inf) as String)
+end fn.main
