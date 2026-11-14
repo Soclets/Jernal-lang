@@ -114,6 +114,7 @@ let compare_keys (a : Value.t) (b : Value.t) : int =
   | Value.String x, Value.String y -> String.compare x y   (* UTF-8 bytes sort in code point order *)
   | Value.Float (x, _), Value.Float (y, _) -> Float.compare x y
   | Value.Rational x, Value.Rational y -> Q.compare x y
+  | Value.Decimal x, Value.Decimal y -> Option.value (Decimal.compare_values x y) ~default:0
   | _ -> 0
 
 let missing_key span =

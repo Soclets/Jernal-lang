@@ -2000,7 +2000,7 @@ and check_method_call_checked fctx span (target : C.expression) (receiver : expr
   | Types.Map (_, key_type, _), "keys", [ "sorted" ] -> (
       ignore (positional 0);
       match underlying key_type with
-      | Types.Integer _ | Types.String | Types.Float Types.F64 | Types.Rational ->
+      | Types.Integer _ | Types.String | Types.Float _ | Types.Rational | Types.Decimal ->
           builtin "keys.sorted" Methods.map_keys_sorted (Types.List key_type) []
       | t ->
           not_designed context ~what:(Printf.sprintf "how %s keys are ordered isn't decided yet" (type_text t))
