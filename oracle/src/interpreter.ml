@@ -532,6 +532,7 @@ and execute context (s : C.statement) =
       let x = evaluate context value in
       match place with
       | Value.Struct st -> (List.assoc field st.fields) := x
+      | Value.Union u -> (List.assoc field u.case_fields) := x
       | _ -> ())
   | C.Set_index { target; counting; position; value } -> (
       let list = evaluate context target in
