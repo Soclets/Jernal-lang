@@ -114,8 +114,8 @@ let add_knock_ons ~(manifest_text : string) (texts : (string * string) list) (di
                 result.(j) <-
                   { other with
                     because =
-                      [ Printf.sprintf "with %s at line %d column %d, this error goes away"
-                          (Option.value d.fix ~default:"") fix_span.line (Diagnostic.grapheme_column fix_span) ] })
+                      [ { Diagnostic.at = fix_span;
+                          note = Printf.sprintf "with %s here, this error goes away" (Option.value d.fix ~default:"") } ] })
             result
       | _ -> ())
     result;

@@ -1340,8 +1340,7 @@ and check_member fctx (e : expression) target field =
         | C.Read v -> (
             match find_variable fctx v.variable_name with
             | Some { case_known_until = Some change_span; _ } ->
-                [ Printf.sprintf "the `change` at line %d column %d ends what the case test knew" change_span.line
-                    (Diagnostic.grapheme_column change_span) ]
+                [ { Diagnostic.at = change_span; note = "this `change` ends what the case test knew" } ]
             | _ -> [])
         | _ -> []
       in
@@ -3365,8 +3364,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
             if d.span = Some value.span then d.because
             else
               d.because
-              @ [ Printf.sprintf "working out `$%s` at line %d column %d, when compiling" variable.variable_name value.span.line
-                    (Diagnostic.grapheme_column value.span) ]
+              @ [ { Diagnostic.at = value.span; note = Printf.sprintf "working out `$%s` here, when compiling" variable.variable_name } ]
           in
           report context
             (if d.kind = Diagnostic.Runtime_error then

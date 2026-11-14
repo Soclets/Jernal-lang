@@ -8,6 +8,9 @@ type kind =
   | Not_built_yet
   | Compiler_bug
 
+(* An earlier line that led to an error (7.3's `because:`): its place, and a note on it. *)
+type step = { at : Span.t; note : string }
+
 type t = {
   kind : kind;
   span : Span.t option;      (* [None]: no code line caused it *)
@@ -15,7 +18,7 @@ type t = {
   fix : string option;
   why : string;
   when_ : string option;
-  because : string list;
+  because : step list;
   edit : (Span.t * string) option;
       (* the fix as a text edit, applied in memory to find knock-on errors (D13) *)
 }
@@ -77,26 +80,28 @@ let render (d : t) : string =
   let add = Buffer.add_string buffer in
   add (kind_word d.kind);
   add ":";
+  (* the place twice, then the code line and the `^` run under the part in question (7.3) *)
+  let place (span : Span.t) =
+    let line_text = Option.value (source_line span.file span.line) ~default:"" in
+    let grapheme_column = Text.grapheme_count (safe_sub line_text 0 (span.column - 1)) + 1 in
+    let number = string_of_int span.line in
+    let gutter = String.make (String.length number) ' ' in
+    let end_column = if span.end_line > span.line then String.length line_text + 1 else span.end_column in
+    let marked = safe_sub line_text (span.column - 1) (end_column - span.column) in
+    let width = max 1 (Text.grapheme_count marked) in
+    ( Printf.sprintf "%s:%d:%d, line %d column %d" span.file span.line span.column span.line grapheme_column,
+      Printf.sprintf " %s | %s\n %s | %s%s\n" number line_text gutter (String.make (grapheme_column - 1) ' ') (String.make width '^'),
+      String.length number )
+  in
   (match d.span with
    | None -> (
        match d.kind with
        | Compiler_bug -> add " the compiler itself failed\n"
        | _ -> add "\n")
    | Some span ->
-       let line_text = Option.value (source_line span.file span.line) ~default:"" in
-       let grapheme_column = Text.grapheme_count (safe_sub line_text 0 (span.column - 1)) + 1 in
-       add (Printf.sprintf " %s:%d:%d, line %d column %d\n" span.file span.line span.column span.line
-              grapheme_column);
-       let number = string_of_int span.line in
-       let gutter = String.make (String.length number) ' ' in
-       add (Printf.sprintf " %s | %s\n" number line_text);
-       let end_column =
-         if span.end_line > span.line then String.length line_text + 1 else span.end_column
-       in
-       let marked = safe_sub line_text (span.column - 1) (end_column - span.column) in
-       let width = max 1 (Text.grapheme_count marked) in
-       add (Printf.sprintf " %s | %s%s\n" gutter (String.make (grapheme_column - 1) ' ')
-              (String.make width '^')));
+       let header, code, _ = place span in
+       add (" " ^ header ^ "\n");
+       add code);
   let label name text =
     let padded = if String.length name < 5 then name ^ String.make (5 - String.length name) ' ' else name in
     add (Printf.sprintf " %s %s\n" padded text)
@@ -115,7 +120,14 @@ let render (d : t) : string =
         | None, None -> ());
        label "why:" d.why;
        Option.iter (label "when:") d.when_;
-       List.iter (label "because:") d.because);
+       (* trace: D10 — an earlier line is shown in the same shape, with its note under it *)
+       List.iter
+         (fun step ->
+           let header, code, digits = place step.at in
+           label "because:" header;
+           add code;
+           add (Printf.sprintf "%s%s\n" (String.make (digits + 4) ' ') step.note))
+         d.because);
   Buffer.contents buffer
 
 (* By place, with errors that have no place last. *)

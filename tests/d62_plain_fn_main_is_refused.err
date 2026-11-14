@@ -9,9 +9,15 @@ CompileTimeError: d62_plain_fn_main_is_refused.jern:1:4, line 1 column 4
    |    ^^^^
  fix:  `my::main`
  why:  a name of the program's own that is also a built-in word is written with `my::` (D63, standard 9.4)
- because: with `fn.main` at line 1 column 1, this error goes away
+ because: d62_plain_fn_main_is_refused.jern:1:1, line 1 column 1
+ 1 | fn main[]:
+   | ^^^^^^^
+     with `fn.main` here, this error goes away
 
 CompileTimeError:
  what: the program has no `fn.main`
  why:  a program starts at its one `fn.main` (D62, standard 5.9)
- because: with `fn.main` at line 1 column 1, this error goes away
+ because: d62_plain_fn_main_is_refused.jern:1:1, line 1 column 1
+ 1 | fn main[]:
+   | ^^^^^^^
+     with `fn.main` here, this error goes away

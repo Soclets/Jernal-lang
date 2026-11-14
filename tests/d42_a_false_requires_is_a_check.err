@@ -3,4 +3,7 @@ RuntimeError: d42_a_false_requires_is_a_check.jern:3:14, line 3 column 14
    |              ^^^^^^^^^^^^^^^^^
  what: this `requires` is false
  why:  contracts are checked at runtime (D8, D42, standard 7.1)
- because: `first_word` was called at line 9 column 13
+ because: d42_a_false_requires_is_a_check.jern:9:13, line 9 column 13
+ 9 |     println(first_word("b", limit: 0))
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+     `first_word` is called here
