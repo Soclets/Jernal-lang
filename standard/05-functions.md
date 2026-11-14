@@ -179,10 +179,10 @@ struct Pair<?Left: Any, ?Right: Any>:
 end struct Pair
 
 let $big: Int = largest(3, 5)
-let $p: Pair<left.type: Int, right.type: String> = Pair[first = 1, second = "a"]
+let $p: Pair<left: Int, right: String> = Pair[first = 1, second = "a"]
 ```
 
-A type's labels come from its parameters' names: `?Left` is labelled `left.type:` (D102, D103).
+A type's labels come from its parameters' names: `?Left` is labelled `left:` (D103, D132).
 
 An `interface` lists operations with no code, and can include another with `includes` (D105). It has no laws; promises
 go in `///` documentation (D104). A `type_set` is a closed list of types. Requirements combine with `and`, and only an

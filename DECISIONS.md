@@ -2104,3 +2104,10 @@ as characters, the same as `length.graphemes()`, which stays allowed. `length.by
 the narrowings for when that's what's needed; bytes is also the fast one. Swift's `count` does the same. The owner
 asked "Isn't it supposed to be progressive? Is there a good default for length?"; Claude proposed graphemes; the owner
 chose: "yes". (Owner, 2026-11-14)
+
+**D132. Type parameter labels drop `.type`, a map is `Map<key: …, val: …>`, and `length` is `len`.** Replaces D102's
+and D109's `.type` labels: a type parameter's label is just its name, so a map is `Map<key: String, val: Int>` and a
+pair is `Pair<left: Int, right: String>`. Replaces D130's and D131's `length`: it's `len()`, with `len.bytes()`,
+`len.code_points()` and `len.graphemes()` on strings. The owner said "Holy shitttttttttttttttt, why is Map so fucking
+long. It's the labels", and, when Claude proposed `Map<String => Int>`: "In all fucking seriousness, how about we calm
+down with `.type`, and just say `key:`, and `val:`? And maybe say `.len` instead?" (Owner, 2026-11-14)

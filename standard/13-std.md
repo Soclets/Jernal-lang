@@ -64,18 +64,18 @@ own errors (7.6), and `exit` refuses them.
 
 Methods always take `( )` (D15, D40).
 
-### `length`
+### `len`
 
 ```
-$xs.length() -> Int                  // a List: the number of items
-$m.length() -> Int                   // a Map: the number of entries
-$s.length() -> Int                   // a String: its grapheme clusters, the same as length.graphemes()
-$s.length.bytes() -> Int             // a String: its UTF-8 bytes
-$s.length.code_points() -> Int       // a String: its Unicode code points
-$s.length.graphemes() -> Int         // a String: its grapheme clusters
+$xs.len() -> Int                  // a List: the number of items
+$m.len() -> Int                   // a Map: the number of entries
+$s.len() -> Int                   // a String: its grapheme clusters, the same as len.graphemes()
+$s.len.bytes() -> Int             // a String: its UTF-8 bytes
+$s.len.code_points() -> Int       // a String: its Unicode code points
+$s.len.graphemes() -> Int         // a String: its grapheme clusters
 ```
 
-A string's bare `length()` counts graphemes, what a person sees as characters (D131); the narrowings give bytes, which
+A string's bare `len()` counts graphemes, what a person sees as characters (D131); the narrowings give bytes, which
 is also fast, and code points (D130). For `"héllo👋🏽"`, bytes, code points and graphemes are 12, 7 and 6. Which code
 points form one grapheme follows the Unicode version that the `need std <date>` fixes; which version each date means
 isn't decided yet.
