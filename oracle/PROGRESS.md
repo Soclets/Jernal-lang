@@ -28,7 +28,10 @@ for columns and `len()`).
 | `src/types.ml`, `src/checker.ml` | types and every compile-time check; produces `Checked` |
 | `src/checked.ml` | the checked program the interpreter runs |
 | `src/value.ml`, `src/interpreter.ml` | values and running, with every runtime check |
-| `src/std_library.ml` | std, from chapter 13 (D127) |
+| `src/numbers.ml`, `src/decimal.ml` | correctly rounded binary floats; decimal128 |
+| `src/fits.ml` | whether a value fits a type's bounds (D135) |
+| `src/methods.ml`, `src/std_library.ml` | built-in methods (13.3) and std's functions, from chapter 13 (D127) |
+| `src/source.ml` | quoting the program in messages |
 | `src/manifest.ml` | reading and checking `Journey.siml` |
 | `src/package.ml`, `src/test_runner.ml`, `bin/jernorac.ml` | the commands |
 
@@ -66,7 +69,8 @@ for columns and `len()`).
 
 ## Tools
 
-- `oracle/tools/robustness.py <scratch>`: runs every test changed in small ways (cut short, lines and words removed)
+- `oracle/tools/robustness.py <scratch>`: runs every test changed in small ways (cut short, lines removed, repeated or
+  swapped, words removed or shortened, random tokens put in)
   and reports any crash of the oracle (rule 13). Last run: 43,244 programs (20,000 with random tokens put in), no crashes.
 - `oracle/tools/crosscheck.py <scratch>`: checks float text (D119), Decimal (D83), integer division and remainders
   (D85, D88), Rational (D139) and f32/f16 sums (D93) against Python's own implementations, about 300 random cases
@@ -111,12 +115,13 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 ## Open questions (sent to Jernal Design Claude, waiting on Tankun)
 
 - Package tests: a subfolder of `tests/` with its own `Journey.siml` is one test, with `<folder>.out/.err/.exit`.
+- A `.in` file beside a test as its standard input.
+- An `assign` inside a loop followed by `break` (runs once): allowed? [refused]
 - Float and Decimal dividing by zero: IEEE (inf, NaN) or a check? [IEEE] Tests that lean on it:
   `d139_nan_and_infinity_as_text`, `d82_negative_zero`, `d83_decimal_infinity_is_ordered`.
 - `for` over a list changed inside the loop [the items it had when the loop started]; `for` over `Map.insertion`/
   `Map.sorted` [NotDesignedYet]; `remove(key:)` with a missing key [a check]; Decimal text `1.10` [`1.1`]; converting
   Float or Rational into Decimal [NotDesignedYet]; a case with no data [`Status.ok[]`; design expects `Status.ok`].
-
 - Exactly what "known when compiling" is (D8, D135): proposed the baked expressions; the oracle uses literals and baked.
 - A literal argument that fits more than one version (D46): the oracle refuses the call (choice b, kept for now).
 - Where `Equatable`/`Ordered` come from, and how a type defines `==` and `<` (D105): the oracle uses program-declared
