@@ -650,7 +650,9 @@ and call_function (program : C.program) span function_id (arguments : Value.t li
           raise
             (C.Runtime_stop
                (Diagnostic.make ~span:condition.span ~what:"this `requires` is false"
-                  ~because:[ { Diagnostic.at = span; note = Printf.sprintf "`%s` is called here" f.function_name } ]
+                  ~because:
+                    (* `fn.main` is called by no line of the program *)
+                    (if span.Span.line = 0 then [] else [ { Diagnostic.at = span; note = Printf.sprintf "`%s` is called here" f.function_name } ])
                   Diagnostic.Runtime_error "contracts are checked at runtime (D8, D42, standard 7.1)")))
     f.requires;
   try
