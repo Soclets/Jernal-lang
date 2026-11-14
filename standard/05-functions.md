@@ -85,7 +85,7 @@ A `fam.fn` block holds things that belong under one name (D45):
 3. a type's makers and methods.
 
 Inside `fam.fn <family>`, members are written short, after a keyword, and each one's full name is `<family>.<name>`; a
-function named `<family>` itself is the family's own, called as `X(...)` (D45, D49). A narrowing on `fam.fn`, such as `fam.fn.pure`, applies to
+function named `<family>` itself is the family's own, called as `<family>(...)` (D45, D49). A narrowing on `fam.fn`, such as `fam.fn.pure`, applies to
 every member.
 
 ```
