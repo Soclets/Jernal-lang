@@ -28,8 +28,7 @@ fn args[] -> List<String> fails [not_text]
 ```
 
 Gives the program's command-line arguments, without the program's own name, in order: `$args[pos: 1]` is the first
-(D108). The arguments are what came after `--` on `jern`'s command line (D121). If one isn't valid text, it fails with
-`not_text`.
+(D108). The arguments are what came after `--` on `jern`'s command line (D121). If one isn't valid text, it fails. The failure's name, `not_text`, is a placeholder.
 
 ### `args.raw`
 
@@ -37,7 +36,8 @@ Gives the program's command-line arguments, without the program's own name, in o
 args.raw() -> List<List<u8>>
 ```
 
-A narrowing of `args` (D44) giving every argument as raw bytes, which never fails (D108).
+A narrowing of `args` (D44) giving every argument as raw bytes, which never fails (D108). The exact result type,
+`List<List<u8>>`, is a placeholder.
 
 ### `program_path`
 

@@ -4,7 +4,7 @@ You work in `/Users/ts/Jernal oracle`, a clone of github.com/Soclets/Jernal-lang
 <context>
 Jernal is designed but not implemented yet. The design lives in two places in this repository:
 
-- `standard/` says what Jernal is, by topic, in 12 chapters. It is the only source you build from.
+- `standard/` says what Jernal is, by topic, in 13 chapters; chapter 13 is std. It is the only source you build from.
 - `DECISIONS.md` is the log of how each part was chosen (D1 to D126 so far). You don't need to read it all; read new
   entries whenever you pull (rule 17).
 
@@ -25,6 +25,7 @@ fast. Speed doesn't matter at all here.
 Build JernOrac in OCaml, in `oracle/`, with dune, and its tests in `tests/`.
 
 1. Read all of `standard/` first, including chapter 12 (not decided yet), before writing code.
+   Build std into the oracle yourself, in OCaml, from chapter 13 (D127); never run std's Jernal code.
 2. Make an executable that runs a Jernal package: the folder with a `Journey.siml` (standard 9.1, 10.1), every `.jern`
    file in it, starting at `fn.main`, with the arguments after `--` reaching `args()`. This is what
    `jern run --Interp -- ...` will call. Read the manifest yourself in the oracle; don't share code with anything else.
