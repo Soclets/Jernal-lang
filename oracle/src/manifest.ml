@@ -112,12 +112,40 @@ let read ~(text : string) : t * Diagnostic.t list =
       | None, [ (word, _) ] when String.length word > 1 && word.[String.length word - 1] = ':' ->
           let block = String.sub word 0 (String.length word - 1) in
           in_block := Some block
-      | None, (first, first_start) :: rest -> (
-          let scoped = String.contains first '.' in
-          if scoped then
-            not_built "scoped manifest lines aren't built in the oracle yet" (span_of (first, first_start))
-              "a line that applies only in some situations starts with a scope (D111, standard 9.1)"
-          else
+      | None, all_words -> (
+          (* trace: D111 — a scope, joined with `.`, says when the line applies *)
+          let rec scoped words =
+            match words with
+            | (first, first_start) :: rest when String.contains first '.' -> (
+                let parts = String.split_on_char '.' first in
+                let rec pairs = function k :: v :: more -> (k, v) :: pairs more | [ k ] -> [ (k, "") ] | [] -> [] in
+                let modes = [ "Interp"; "Working"; "FinalSafe"; "FinalPerf"; "FinalQuick"; "UB++" ] in
+                let applies =
+                  List.for_all
+                    (fun (kind, value) ->
+                      match kind with
+                      | "mode" when List.mem value modes -> value = "Interp"
+                      | "mode" ->
+                          error ~what:(Printf.sprintf "`%s` isn't a build mode" value) (span_of (first, first_start))
+                            "build modes are Interp, Working, FinalSafe, FinalPerf, FinalQuick and UB++ (D70, standard 10.3)";
+                          false
+                      | "target" ->
+                          report (Diagnostic.make ~span:(span_of (first, first_start))
+                                    ~what:"the names of targets aren't decided yet" Diagnostic.Not_designed_yet
+                                    "not decided yet (D111, standard 9.1)");
+                          false
+                      | _ ->
+                          error ~what:(Printf.sprintf "`%s` isn't a scope: a scope is `target.` or `mode.`" kind)
+                            (span_of (first, first_start)) "a line that applies only in some situations starts with a scope (D111, standard 9.1)";
+                          false)
+                    (pairs parts)
+                in
+                if applies then scoped rest else ())
+            | words -> fact words
+          and fact words =
+            match words with
+            | [] -> ()
+            | (first, first_start) :: rest -> (
             match first, rest with
             | "name", [ (n, _) ] -> package_name := Some n
             | "ver", [ (date, date_start); (word, word_start) ] ->
@@ -158,6 +186,8 @@ let read ~(text : string) : t * Diagnostic.t list =
                   (line_span ()) "siml is one fact per line: what the line is, then its values (D76, standard 9.1)"
             | _ ->
                 error ~what:(Printf.sprintf "`%s` isn't a fact the manifest knows" first)
-                  (span_of (first, first_start)) "siml is one fact per line: what the line is, then its values (D76, standard 9.1)"))
+                  (span_of (first, first_start)) "siml is one fact per line: what the line is, then its values (D76, standard 9.1)")
+          in
+          scoped all_words))
     lines;
   ({ uses = !uses; package_name = !package_name; kind = !kind; needs_std = !needs_std }, List.rev !diagnostics)

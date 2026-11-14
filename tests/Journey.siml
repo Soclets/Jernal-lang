@@ -5,6 +5,9 @@ kind tests
 
 need std 2026y-11m-14d
 
+// Only for another build mode, so the oracle skips it (D111).
+mode.Working rule unused.variable warn
+
 d60_use_gives_a_short_name.jern:
 use geometry.area as area
 use greet.loud as "shout"
