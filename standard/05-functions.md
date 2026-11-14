@@ -184,6 +184,29 @@ let $p: Pair<left.type: Int, right.type: String> = Pair[first = 1, second = "a"]
 
 A type's labels come from its parameters' names: `?Left` is labelled `left.type:` (D102, D103).
 
+An `interface` lists operations with no code, and can include another with `includes` (D105). It has no laws; promises
+go in `///` documentation (D104). A `type_set` is a closed list of types. Requirements combine with `and`, and only an
+interface gives operations. A type fits an interface only through a written `Type satisfies Interface` line, which only
+the type's package or the interface's package may write. A type defines only `==` and `<`; `!=`, `>`, `at_least` and
+`at_most` follow.
+
+```
+/// Must be a total order: if a < b and b < c, then a < c.
+interface Ordered<?Self>:
+    includes Equatable
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+type_set Whole:
+    i32
+    i64
+end type_set Whole
+
+Reading satisfies Ordered
+
+fn smallest<?Item: Whole and Ordered>[$xs: List<?Item>] -> ?Item:
+```
+
 ## 5.9 `fn.main`
 
 A program starts at its one `fn.main` (D62). It takes no parameters and returns nothing, ending at `end fn.main` or with

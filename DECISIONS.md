@@ -1757,3 +1757,29 @@ end interface Ordered
 Cyborg's interfaces have laws (its D235). The owner asked "The fuck is proving laws?", "So, it's a runtime check?",
 "Wait, why isn't it a runtime check?" and "Should we even have laws?"; Claude recommended none in v1; the owner chose:
 "yea". (Owner, 2026-11-14)
+
+**D105. Interfaces, type sets, and `satisfies`.** An `interface` lists operations with no code, and can include another
+with `includes`. A `type_set` is a closed list of types that nothing can join later. Requirements combine with `and`,
+and only an interface gives operations, so a body can't use `+` on a type-set-only parameter. A type fits an interface
+only through a written line, `Type satisfies Interface`, never just by having the right operations; only the type's
+package or the interface's package may write it. A type defines only `==` and `<`; `!=`, `>`, `at_least` and `at_most`
+follow from them, so they can't disagree. Arithmetic is defined directly.
+
+```
+interface Ordered<?Self>:
+    includes Equatable
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+type_set Whole:
+    i32
+    i64
+end type_set Whole
+
+Reading satisfies Ordered
+
+fn smallest<?Item: Whole and Ordered>[$xs: List<?Item>] -> ?Item:
+```
+
+This is Cyborg's (its D87, D235 to D237, D240), as Cyborg's design session described on 2026-11-14, without laws
+(D104). Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
