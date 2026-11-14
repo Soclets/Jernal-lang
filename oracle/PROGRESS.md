@@ -68,8 +68,9 @@ for columns and `len()`).
 
 - `oracle/tools/robustness.py <scratch>`: runs every test changed in small ways (cut short, lines and words removed)
   and reports any crash of the oracle (rule 13). Last run: 22,898 programs, no crashes.
-- `oracle/tools/crosscheck.py <scratch>`: checks float text (D119) and Decimal maths (D83) against Python's own IEEE
-  implementations, 300 random cases each. Last run: no differences.
+- `oracle/tools/crosscheck.py <scratch>`: checks float text (D119), Decimal (D83), integer division and remainders
+  (D85, D88), Rational (D139) and f32/f16 sums (D93) against Python's own implementations, about 300 random cases
+  each. Last run: 1,494 cases, no differences.
 
 ## Error wording proposed by the oracle (D137)
 

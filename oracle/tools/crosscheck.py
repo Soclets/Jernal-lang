@@ -4,10 +4,13 @@
   oracle's text must be Python's shortest round-trip digits, with `~` when that isn't exact.
 - Decimal (D83): 300 random +, -, x and div results must equal Python's decimal module in decimal128's
   context: 34 digits, ties to even, Emax 6144, Emin -6143.
+- Integers (D85, D88): div.trunc, div.floor, mod.trunc and mod.floor against Python's integers.
+- Rational (D83, D139): +, -, x and div against fractions.Fraction, printed reduced.
+- f32 and f16 (D93): sums rounded to the format must equal Python's struct rounding ('f' and 'e').
 
 Usage, from the repository root:  python3 -I oracle/tools/crosscheck.py <scratch folder>
 """
-import decimal, os, random, struct, subprocess, sys
+import decimal, fractions, os, random, struct, subprocess, sys
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 exe = os.path.join(root, "oracle", "_build", "default", "bin", "jernorac.exe")
@@ -71,4 +74,50 @@ for i in range(300):
     text = plain(result)
     expected.append("0" if text == "-0" else text)
 decimals_ok = run("decimals", lines, expected)
-sys.exit(0 if floats_ok and decimals_ok else 1)
+random.seed(88)
+lines, expected = [], []
+for i in range(300):
+    a = random.randint(-10**12, 10**12)
+    b = random.randint(-10**6, 10**6) or 7
+    op = ["div.trunc", "div.floor", "mod.trunc", "mod.floor"][i % 4]
+    lines += ["    let $a%d: Int = %d" % (i, a), "    let $b%d: Int = %d" % (i, b),
+              "    let $c%d: Int = $a%d %s $b%d" % (i, i, op, i), "    println($c%d as String)" % i]
+    q = abs(a) // abs(b) * (1 if (a >= 0) == (b >= 0) else -1)   # toward zero
+    expected.append(str({"div.trunc": q, "div.floor": a // b, "mod.trunc": a - q * b, "mod.floor": a % b}[op]))
+integers_ok = run("integers", lines, expected)
+
+random.seed(39)
+lines, expected = [], []
+for i in range(300):
+    a = fractions.Fraction(random.randint(-10**9, 10**9), random.randint(1, 10**6))
+    b = fractions.Fraction(random.randint(-10**9, 10**9) or 1, random.randint(1, 10**6))
+    op = ["+", "-", "x", "div"][i % 4]
+    lines += ["    let $a%d: Rational = %d div.rational %d" % (i, a.numerator, a.denominator),
+              "    let $b%d: Rational = %d div.rational %d" % (i, b.numerator, b.denominator),
+              "    let $c%d: Rational = $a%d %s $b%d" % (i, i, op, i), "    println($c%d as String)" % i]
+    r = {"+": a + b, "-": a - b, "x": a * b, "div": a / b}[op]
+    expected.append(str(r.numerator) if r.denominator == 1 else "%d/%d" % (r.numerator, r.denominator))
+rationals_ok = run("rationals", lines, expected)
+
+random.seed(32)
+lines, expected = [], []
+for i in range(300):
+    kind, code = (("f32", "f") if i % 2 == 0 else ("f16", "e"))
+    limit = 1e30 if kind == "f32" else 60000.0
+    def value():
+        x = random.uniform(-1, 1) * (limit if random.random() < 0.3 else random.choice([1.0, 100.0, 1e-3]))
+        return struct.unpack("<" + code, struct.pack("<" + code, x))[0]
+    a, b = value(), value()
+    total = a + b
+    try:
+        rounded = struct.unpack("<" + code, struct.pack("<" + code, total))[0]
+    except OverflowError:
+        continue
+    if abs(rounded) == float("inf"):
+        continue
+    lines += ["    let $a%d: %s = %s" % (i, kind, plain(decimal.Decimal(a)) + ("" if "." in plain(decimal.Decimal(a)) else ".0")),
+              "    let $b%d: %s = %s" % (i, kind, plain(decimal.Decimal(b)) + ("" if "." in plain(decimal.Decimal(b)) else ".0")),
+              "    let $c%d: %s = $a%d + $b%d" % (i, kind, i, i), "    println($c%d as.stored String)" % i]
+    expected.append(plain(decimal.Decimal(rounded)))
+small_floats_ok = run("small_floats", lines, expected)
+sys.exit(0 if floats_ok and decimals_ok and integers_ok and rationals_ok and small_floats_ok else 1)
