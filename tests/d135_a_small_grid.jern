@@ -1,0 +1,36 @@
+struct Cell:
+    alive: Bool = false
+    neighbours: Int[min: 0, max: 8] = 0
+end struct Cell
+
+fn count_alive[$grid: List<List<Cell>>] -> Int:
+    let mut $count: Int = 0
+    for $row in $grid:
+        for $cell in $row:
+            if $cell.alive:
+                change $count = $count + 1
+            end if
+        end for
+    end for
+    return $count
+end fn count_alive
+
+fn.main[]:
+    let mut $grid: List<List<Cell>> = []
+    for $r in range[from: 1, to: 3]:
+        let mut $row: List<Cell> = []
+        for $c in range[from: 1, to: 3]:
+            $row.add(Cell[alive = ($r + $c) mod.trunc 2 == 0])
+        end for
+        $grid.add(give $row)
+    end for
+    println(count_alive($grid) as String)
+    change $grid[pos: 2][pos: 2].neighbours = 4
+    let $middle: Cell = copy $grid[pos: 2][pos: 2]
+    println($middle.neighbours as String)
+    let $corners: Array<Int>[len: 4] = [1, 3, 7, 9]
+    println($corners.last() as String)
+    let $nine: Int = 3 x 3
+    change $grid[pos: 1][pos: 1].neighbours = $nine
+    println("never")
+end fn.main

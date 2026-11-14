@@ -1,0 +1,6 @@
+RuntimeError: d135_a_small_grid.jern:34:47, line 34 column 47
+ 34 |     change $grid[pos: 1][pos: 1].neighbours = $nine
+    |                                               ^^^^^
+ what: `$nine` doesn't fit in `Int[min: 0, max: 8]`
+ why:  a value that might break a bound is checked where it's stored (D135, standard 2.3a)
+ when: it is 9
