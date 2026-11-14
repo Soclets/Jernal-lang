@@ -2016,3 +2016,11 @@ truly needs something that isn't reproducible, such as embedding the build time,
 the build report lists it, as it lists shields (D79). Quills are pinned in `Journey.lock` by version and content hash,
 as every package is (D116). Cyborg leaves this to the limb's author (its D334), as Cyborg's design session described on
 2026-11-14. The owner said "Ask Cyborg"; Claude proposed this; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D124. A verified quill matches the registry's own build.** Journey's registry builds every published quill from its
+source and records the binary's content hash. A quill is verified when the binary used has exactly that hash. An
+unverified quill, such as one from a private source or with a different hash, is used with a warning; `rule
+quill.unverified refuse` in `Journey.siml` makes it an error. There are no signing keys: the hash is the proof, and
+`Journey.lock` pins it (D116). The warning rather than a refusal follows the owner's CyborgPL ruling, "warn them, don't
+refuse", as Cyborg's design session quoted on 2026-11-14, and the hash idea is its suggestion. Claude proposed it; the
+owner chose: "yea". (Owner, 2026-11-14)

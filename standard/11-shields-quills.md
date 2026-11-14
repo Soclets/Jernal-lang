@@ -59,6 +59,10 @@ its inputs: the checked program, the manifest, and files the manifest names. `je
 and compares, and a difference is an error naming the quill. A quill that needs something that isn't reproducible
 declares it in its own manifest, and the build report lists it.
 
+Journey's registry builds every published quill from its source and records the binary's hash; a quill is verified when
+the binary used has exactly that hash (D124). An unverified quill is used with a warning, and `rule quill.unverified
+refuse` makes it an error.
+
 Quills have no marker (D78). Their names are ordinary names, and a clash is an error. Their syntax uses only shapes
 Jernal already has: names (calls, types, narrowings), blocks in the `word ...:` / `end word` shape, and raw code in
 another language inside an `inline.something:` block, which tools leave alone.
