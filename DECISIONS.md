@@ -2252,3 +2252,22 @@ end for
 
 The owner asked "Why is 7 banned, and why does 2 use codepoint instead of grapheme?" and "How would you get a
 hashmap's stuff?", and chose: "yes". The name of the failure from `get` is not decided yet. (Owner, 2026-11-14)
+
+**D139. Eleven details, asked by Jernal Oracle Claude.**
+
+1. Chained comparisons read as maths when they all point the same way: `1 < $x < 5` means `1 < $x and $x < 5`. Mixed
+   directions, and chains of `==` or `!=`, are refused; group them.
+2. `Bool` has no order: `false < true` is refused.
+3. `exit` takes `Int[min: 0, max: 117]` (D135): a bad literal is a `CompileTimeError`, and anything else is a check.
+4. Under `--Interp`, `program_path()` gives the package folder's path.
+5. Passing a value whose inside can change to a plain parameter needs no word: the function sees it frozen for the
+   call. To keep it after returning, such as by storing it in a struct, the function must `copy` it.
+6. `let` and `let baked` are allowed at the top of a file, outside any function; a top-level `let mut` is refused.
+7. The failure of `div.exact` and `as.exact` is `not_exact`.
+8. As text, a float's NaN is `NaN`, and infinity is `inf` or `-inf`. A `Decimal` gives its exact digits, as `0.1`. A
+   `Rational` is always reduced: `7/2`, `-7/2`, and `4` for a whole number.
+9. Several errors are printed in source order, with one blank line between them; the exit code is the first one's.
+10. `as` binds tighter than unary `-`: `-$x as i32` is `-($x as i32)`.
+11. D95 refuses every control character inside a string, and the line and paragraph separators U+2028 and U+2029.
+
+Claude proposed all of them; the owner chose: "tes", taken as yes. (Owner, 2026-11-14)

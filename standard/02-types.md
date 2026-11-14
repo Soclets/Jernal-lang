@@ -40,7 +40,7 @@ Multiplying is `x` (D89). Overflow on purpose is a narrowing of the operation's 
 ```
 7 div.trunc 2        // 3: rounds toward zero
 -7 div.floor 2       // -4: rounds down
-6 div.exact 2        // 3; with a remainder, it fails (undefined behaviour in UB++, D94)
+6 div.exact 2        // 3; with a remainder, it fails with `not_exact` (D139; undefined behaviour in UB++, D94)
 7 div.rational 2     // 7/2, an exact Rational
 7 div 2              // refused: say which
 ```
@@ -58,6 +58,9 @@ println($a as String)                // 0.5
 println($b as String)                // ~0.1
 println($b as.stored String)         // 0.1000000000000000055511151231257827021181583404541015625
 ```
+
+As text, NaN is `NaN` and infinity `inf` or `-inf`; a `Decimal` gives its exact digits; a `Rational` is reduced, as
+`7/2`, `-7/2`, or `4` for a whole number (D139). `as` binds tighter than unary `-`: `-$x as i32` is `-($x as i32)`.
 
 Floats print with no exponent for now: `1e23` prints all 24 digits (D120). A float literal outside its type's range,
 such as `70000.0` for an `f16`, is a `CompileTimeError` (D120).
@@ -88,7 +91,8 @@ A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals n
 
 A string is written in double quotes. Inside a string, `$` is just a character, so `"Price: $5"` needs no escape (D20).
 `\` is always special: `\"` is a quote and `\\` is a backslash, and any other `\` followed by a character is refused
-(D95). Plain strings hold no layout characters, such as a newline or a tab; those come with the formatting tool. Several
+(D95). Plain strings hold no control characters, such as a newline or a tab, and no U+2028 or U+2029 (D139); layout
+comes with the formatting tool. Several
 lines means several `println`s, since `println` ends its line.
 Strings are joined by writing them side by side (chapter 4). `String.utf8` is the spelled-out form of `String` (D64).
 

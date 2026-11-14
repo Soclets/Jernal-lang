@@ -10,6 +10,10 @@
 
 `>=` and `<=` are refused, with the word as the fix, and `=` in a condition is refused, with `fix: ==` (D27).
 
+Comparisons chain as in maths when they all point the same way: `1 < $x < 5` means `1 < $x and $x < 5`. Mixed
+directions, and chains of `==` or `!=`, are refused (D139). Strings order by code point (D138); `Bool` has no order
+(D139).
+
 ## 4.2 Logic
 
 Conditions combine with `and`, `or` and `not` (D28). `and` and `or` short-circuit: the right side runs only if it can

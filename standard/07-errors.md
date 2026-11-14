@@ -77,6 +77,9 @@ error goes away". For errors with no single fix:
 - A broken function header still creates the function; whatever is broken counts as unknown.
 - Nothing is guessed: an error that only happens because something is unknown isn't shown.
 
+Several errors are printed in source order, with one blank line between them; the exit code is the first one's
+(D139).
+
 ## 7.5 When the compiler itself fails
 
 ```

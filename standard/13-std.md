@@ -74,12 +74,12 @@ A narrowing of `args` (D44) giving every argument as raw bytes, which never fail
 fn program_path[] -> String
 ```
 
-Gives the path of the running program (D108).
+Gives the path of the running program (D108); under `--Interp`, the package folder's path (D139).
 
 ### `exit`
 
 ```
-fn exit[$code: Int]
+fn exit[$code: Int[min: 0, max: 117]]
 ```
 
 Ends the program with `$code` as its exit code (D11). Codes 1 to 117 are the program's; 118 to 122 belong to Jernal's

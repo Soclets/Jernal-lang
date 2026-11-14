@@ -92,4 +92,9 @@ let $d: List<Int> = give $a            // $a is retired, and the list is now fro
 let $n: Int = $x                       // plain values need no word
 ```
 
+Passing a value whose inside can change to a plain parameter needs no word: the function sees it frozen for the call,
+and must `copy` it to keep it after returning (D139).
+
+`let` and `let baked` are allowed at the top of a file, outside any function; a top-level `let mut` is refused (D139).
+
 There is no `Lend`, no lifetimes and no borrow checker (D7).
