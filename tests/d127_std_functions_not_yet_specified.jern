@@ -1,0 +1,4 @@
+fn.main[]:
+    let $text: String = "  hi  "
+    println($text.trim())
+end fn.main

@@ -1446,6 +1446,10 @@ and check_call fctx ~expected (e : expression) callee arguments =
           if word = "main" && not my then
             refuse context ~fix:"`my::main`" callee.expression_span
               "a name of the program's own that is also a built-in word is written with `my::` (D63, standard 9.4)"
+          else if context.std_visible && List.mem word [ "open"; "close"; "now" ] then
+            (* trace: D127 — std functions used in examples but never specified *)
+            not_designed context ~what:(Printf.sprintf "%s isn't in std yet" (quote word)) callee.expression_span
+              "not decided yet (D127, standard 12.1)"
           else if (not context.std_visible) && Std_library.find word <> None then
             refuse context
               ~what:(Printf.sprintf "%s is in std, and the manifest has no `need std` line" (quote word)) callee.expression_span
@@ -1880,8 +1884,9 @@ and check_method_call_checked fctx span (target : C.expression) (receiver : expr
     c
   in
   let not_built_method t =
-    not_built context ~what:(Printf.sprintf "the method %s on %s isn't built in the oracle yet" (quote method_text) (type_text t))
-      method_name.span "values have methods, called with a dot (D40, standard 13.3)"
+    (* trace: D127 — a method of a built-in type that chapter 13 doesn't list isn't decided yet *)
+    not_designed context ~what:(Printf.sprintf "the method %s on %s isn't in std yet" (quote method_text) (type_text t))
+      method_name.span "not decided yet (D127, standard 12.1)"
   in
   match underlying target.type_, method_name.text, narrowings with
   | Types.Unknown, _, _ -> raise Skip

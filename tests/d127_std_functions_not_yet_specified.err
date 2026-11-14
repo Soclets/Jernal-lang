@@ -1,0 +1,5 @@
+NotDesignedYet: d127_std_functions_not_yet_specified.jern:3:19, line 3 column 19
+ 3 |     println($text.trim())
+   |                   ^^^^
+ what: the method `trim` on `String` isn't in std yet
+ why:  not decided yet (D127, standard 12.1)
