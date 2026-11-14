@@ -7,7 +7,7 @@ long one is split into named steps. The only exception is inside brackets: a cal
 between its items, and a comma after the last item is allowed (D64).
 
 ```
-let $subtotal: Int = $price * $count
+let $subtotal: Int = $price x $count
 let $total: Int = $subtotal + $shipping
 
 let $user: User = make_user(

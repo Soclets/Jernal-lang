@@ -35,7 +35,7 @@ as the fix. The closer repeats everything (D41).
 
 ```
 fn.pure.baked seconds_in[$days: Int] -> Int:
-    return $days * 86400
+    return $days x 86400
 end fn.pure.baked seconds_in
 
 let baked $week: Int = seconds_in(7)
@@ -91,7 +91,7 @@ every member.
 ```
 fam.fn.pure geometry:
     fn area[$w: Int, $h: Int] -> Int:            // geometry.area(3, 4)
-        return $w * $h
+        return $w x $h
     end fn area
 end fam.fn.pure geometry
 
@@ -146,10 +146,10 @@ call are refused, and so is a default that would make them overlap.
 fam.fn area:
     versions area:
         [$side: Int] -> Int:
-            return $side * $side
+            return $side x $side
         end version
         [$w: Int, $h: Int] -> Int:
-            return $w * $h
+            return $w x $h
         end version
     end versions area
 end fam.fn area
