@@ -1,0 +1,11 @@
+fam.fn.pure.baked time:
+    fn seconds_in[$days: Int] -> Int:
+        return $days x 86400
+    end fn seconds_in
+end fam.fn.pure.baked time
+
+let baked $week: Int = time.seconds_in(7)
+
+fn.main[]:
+    println($week as String)
+end fn.main

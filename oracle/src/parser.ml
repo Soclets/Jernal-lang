@@ -1698,9 +1698,10 @@ let parse_family state : declaration_kind =
       unfinished_declaration state ~what:"units aren't built yet: they come after v1"
         ~why:"units are designed now and built after v1 (D58, standard 2.6)" ~designed:true
   | _ ->
-      unfinished_declaration state
-        ~what:(Printf.sprintf "`fam.%s` isn't built in the oracle yet" (String.concat "." (List.map (fun n -> n.text) narrowings)))
-        ~why:"a family holds things that belong under one name (D45, standard 5.5)" ~designed:true
+      fail_line
+        ~what:(Printf.sprintf "`fam.%s` isn't a kind of family: they're `fam.fn`, `fam.failure`, `fam.handler`, `fam.type.new` and `fam.unit`"
+                 (String.concat "." (List.map (fun n -> n.text) narrowings)))
+        start.span "every family writes its members short, with a keyword (D45, D49, standard 5.5)"
 
 let parse_type_declaration state : declaration_kind =
   let start = expect_word state "type" in

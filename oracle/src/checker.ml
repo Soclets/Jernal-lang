@@ -821,7 +821,8 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         let arms = check_handling fctx ~at:value.span ~possible:(failures_of context value) ~gives:value.type_ handling in
         { C.kind = C.Otherwise { value; arms }; type_ = value.type_; span }
     | Syntax.Narrowed_member _ ->
-        not_built context ~what:"this isn't built in the oracle yet" span "handlers that jump are marked `*` (D100, standard 6.4)"
+        refuse context ~what:"`.*` marks a handler that can jump, where it's used after `otherwise` or `match ... with`" span
+          "a handler that can `return` or `break` is marked `*` where it's used (D48, standard 6.4)"
   in
   result
 
@@ -2838,7 +2839,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
   in
   let mains = ref [] in
   let globals = ref [] in
-  let declare_function ?(family_pure = false) file (declaration : function_declaration) full_name =
+  let declare_function ?(family_pure = false) ?(family_baked = false) file (declaration : function_declaration) full_name =
     let is_main = List.map (fun n -> n.text) declaration.narrowings = [ "main" ] in
     if is_main then mains := (declaration, file) :: !mains
     else if
@@ -2859,7 +2860,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
       let info =
         { function_id = id; declaration; full_name; file; parameter_types = []; result_type = Types.Nothing;
           pure = family_pure || List.exists (fun n -> n.text = "pure") declaration.narrowings; failures = [];
-          baked = List.exists (fun n -> n.text = "baked") declaration.narrowings }
+          baked = family_baked || List.exists (fun n -> n.text = "baked") declaration.narrowings }
       in
       Hashtbl.add context.functions full_name info;
       Hashtbl.replace context.function_by_id id info
@@ -2889,11 +2890,15 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
                   family_name.span "a type has exactly one family; a second `fam.fn` with the same name is refused (D47, standard 5.5)"
               else begin
                 Hashtbl.replace context.families family_name.text family_name.span;
-                let family_pure = List.exists (fun n -> n.text = "pure") family_narrowings in
-                if List.exists (fun n -> n.text <> "pure") family_narrowings then
-                  report context
-                    (Diagnostic.make ~span:d.declaration_span ~what:"this narrowing on `fam.fn` isn't built in the oracle yet"
-                       Diagnostic.Not_built_yet "a narrowing on `fam.fn` applies to every member (D45, standard 5.5)");
+                (* trace: D45 — a narrowing on `fam.fn` applies to every member *)
+                let words = List.map (fun (n : name) -> n.text) family_narrowings in
+                let family_pure = List.mem "pure" words in
+                if not (List.mem words [ []; [ "pure" ]; [ "pure"; "baked" ] ]) then
+                  error context
+                    ~what:(Printf.sprintf "`fam.fn.%s` isn't a kind of family: its narrowings are `pure`, then `baked`"
+                             (String.concat "." words))
+                    d.declaration_span "a narrowing on `fam.fn` applies to every member (D41, D45, standard 5.5)";
+                let family_baked = List.mem "baked" words in
                 List.iter
                   (function
                     | Member_function f ->
@@ -2901,7 +2906,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
                           if f.function_name.text = family_name.text then family_name.text
                           else family_name.text ^ "." ^ f.function_name.text
                         in
-                        declare_function ~family_pure file.file_name f full_name
+                        declare_function ~family_pure ~family_baked file.file_name f full_name
                     | Member_preset { preset_name; settings } ->
                         Hashtbl.replace context.presets (family_name.text ^ "." ^ preset_name.text) settings
                     | Member_versions { versions_name; versions } ->
