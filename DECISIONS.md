@@ -1188,3 +1188,9 @@ move, since `gc.relocate` updates every pointer, which leaves room for a compact
 `inkwell` can't reach goes in D65's C++ pieces. Long loops will need safepoint polls once there are threads. Claude
 compared a shadow stack, stack maps and mostly-precise scanning; the owner asked "I heard there's an option that uses
 both." and "Stack maps?", and chose: "stack maps from the start". (Owner, 2026-11-14)
+
+**D67. A generational GC.** New objects are allocated by bumping a pointer in a small copying nursery, which is
+collected often; objects that survive move to an old area collected by mark-and-sweep. Moving relies on D66's
+`gc.relocate`. Write barriers catch an old object getting a pointer to a new one; frozen `let` values (D6) never change,
+so they never trigger one. Claude compared non-moving, copying and generational collectors; the owner chose: "Gener".
+(Owner, 2026-11-14)
