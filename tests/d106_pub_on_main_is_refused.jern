@@ -1,0 +1,3 @@
+pub.pkg fn.main[]:
+    println("never")
+end fn.main

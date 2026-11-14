@@ -1344,9 +1344,10 @@ let parse_visibility state : visibility * Token.t option =
     | [ { text = "pkg"; _ } ] -> (Package, Some t)
     | [ { text = "all"; _ } ] -> (Everyone, Some t)
     | [] ->
-        (* trace: D106 *)
-        raise (Line_error (error_diagnostic ~what:"a bare `pub` doesn't say how far: `pub.pkg` or `pub.all`" t.span
-                             "`pub` always says how far (D106, standard 9.2a)"))
+        (* trace: D106 — the declaration is still read, seen only in its file, so nothing else is refused (D13) *)
+        report state (error_diagnostic ~what:"a bare `pub` doesn't say how far: `pub.pkg` or `pub.all`" t.span
+                        "`pub` always says how far (D106, standard 9.2a)");
+        (File_only, Some t)
     | _ -> unexpected state "`pub.pkg` or `pub.all`"
   end
   else (File_only, None)

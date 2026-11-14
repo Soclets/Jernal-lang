@@ -1,0 +1,5 @@
+CompileTimeError: d106_a_bare_pub_is_refused.jern:1:1, line 1 column 1
+ 1 | pub fn helper[] -> Int:
+   | ^^^
+ what: a bare `pub` doesn't say how far: `pub.pkg` or `pub.all`
+ why:  `pub` always says how far (D106, standard 9.2a)

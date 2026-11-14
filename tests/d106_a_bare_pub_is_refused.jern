@@ -1,0 +1,7 @@
+pub fn helper[] -> Int:
+    return 1
+end fn helper
+
+fn.main[]:
+    println(helper() as String)
+end fn.main

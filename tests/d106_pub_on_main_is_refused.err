@@ -1,0 +1,5 @@
+CompileTimeError: d106_pub_on_main_is_refused.jern:1:1, line 1 column 1
+ 1 | pub.pkg fn.main[]:
+   | ^^^
+ what: `fn.main` is where the program starts, so it takes no `pub`
+ why:  `pub.…` on `fn.main` is refused (D106, standard 9.2a)
