@@ -1,0 +1,23 @@
+struct Box<?Item: Any>:
+    item: ?Item
+end struct Box
+
+fam.fn Box:
+    fn get<?Item: Any>[$self: Box<?Item>] -> ?Item:
+        return $self.item
+    end fn get
+
+    fn put<?Item: Any>[mut $self: Box<?Item>, $new: ?Item]:
+        change $self.item = $new
+    end fn put
+end fam.fn Box
+
+fn.main[]:
+    let mut $b: Box<String> = Box[item = "first"]
+    println($b.get())
+    $b.put("second")
+    println($b.get())
+    let $n: Box<Int> = Box[item = 5]
+    let $five: Int = $n.get()
+    println($five as String)
+end fn.main

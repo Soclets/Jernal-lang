@@ -1430,7 +1430,7 @@ and check_path_call fctx span callee (head, head_span) (words : name list) argum
 
 (* A generic function's type parameters are worked out from the arguments, or from where the result
    goes; if nothing says, the call is refused (D103). Each must meet its requirements (D105). *)
-and instantiate fctx span (f : function_info) (expected : Types.t option) arguments : function_info =
+and instantiate fctx span (f : function_info) (expected : Types.t option) ~(receiver : Types.t option) arguments : function_info =
   let context = fctx.context in
   let saved_diagnostics = context.diagnostics in
   let variables = List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> info :: acc) scope []) fctx.scopes in
@@ -1457,10 +1457,18 @@ and instantiate fctx span (f : function_info) (expected : Types.t option) argume
     | Types.List a, Types.List b -> unify a b
     | Types.Map (_, k1, v1), Types.Map (_, k2, v2) -> unify k1 k2; unify v1 v2
     | Types.Bounded (a, _), b | a, Types.Bounded (b, _) -> unify a b
+    | Types.Instance (a, xs), Types.Instance (b, ys) when a = b && List.length xs = List.length ys ->
+        List.iter2 (fun (_, x) (_, y) -> unify x y) xs ys
     | _ -> ()
   in
   let labels = List.map (fun ((v : name), (l : name)) -> (v.text, l.text)) f.declaration.labels in
   let parameters = List.combine (List.map (fun p -> p.parameter.text) f.declaration.parameters) f.parameter_types in
+  (* a method's receiver is its first parameter *)
+  let parameters =
+    match receiver, parameters with
+    | Some r, (_, first) :: rest -> unify first r; rest
+    | _ -> parameters
+  in
   let positional_parameters = List.filter (fun (p, _) -> not (List.mem_assoc p labels)) parameters in
   let position = ref 0 in
   List.iter
@@ -1628,7 +1636,10 @@ and check_arguments fctx span ~(function_name : string) ~(parameters : (string *
    value a method is called on, given as its first argument. *)
 and check_user_call ?expected fctx span (f : function_info) (settings : (name * expression) list) (receiver : C.expression option) arguments =
   let context = fctx.context in
-  let f = if f.declaration.type_parameters = [] then f else instantiate fctx span f expected arguments in
+  let f =
+    if f.declaration.type_parameters = [] then f
+    else instantiate fctx span f expected ~receiver:(Option.map (fun (r : C.expression) -> r.type_) receiver) arguments
+  in
   let declaration = f.declaration in
   (* trace: D41 *)
   if fctx.info.baked && not f.baked then
@@ -1857,7 +1868,7 @@ and check_method_call_checked fctx span (target : C.expression) (receiver : expr
       | _ ->
           refuse context ~what:(Printf.sprintf "`sum` adds numbers, and these are %s" (type_text item)) method_name.span
             "`sum` is the exact sum of a list of numbers (D38, standard 13.3)")
-  | (Types.Struct type_name | Types.Union type_name), _, _ -> (
+  | (Types.Struct type_name | Types.Union type_name | Types.Instance (type_name, _)), _, _ -> (
       (* a method from the type's family: a function whose first parameter is `$self` (D43) *)
       match find_function context ~from_file:fctx.info.file ~span:method_name.span (type_name ^ "." ^ method_name.text) with
       | Some f when (match f.declaration.parameters with p :: _ -> p.parameter.text = "self" | [] -> false) ->
