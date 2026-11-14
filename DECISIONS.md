@@ -1005,3 +1005,38 @@ let $c: Reading = Reading[place = "Bangkok"]                  // refused: celsiu
 
 Settles two of D56's open questions; both are still open in Cyborg. Claude proposed them; the owner chose: "yea".
 (Owner, 2026-11-14)
+
+**D58. Units: Cyborg's system, after v1.** Jernal takes Cyborg's unit system (its standard 2.16), as Cyborg's design
+session described on 2026-11-14, adapted to Jernal's style. It's designed now and built after v1.
+
+```
+fam.unit money:
+    unit cents: base
+    unit dollars = 100 cents
+end fam.unit money
+
+fam.unit motion:
+    unit speed = length.meters per time.seconds
+    unit area = length.meters x length.meters
+end fam.unit motion
+
+let $price: Int[unit: money.cents] = 1999 money.cents
+let $m: Float[unit: length.meters] = $km as Float[unit: length.meters]
+```
+
+- Units are opt-in: a plain `Int` is just a number, and a unit applies only where a type asks for one with `unit:`.
+  Values then write theirs after the number, naming its family.
+- Mixing units, or leaving one off where it's needed, is refused.
+- Converting within a family uses `as`. An integer going to a bigger unit says how it rounds: `as.trunc`, `as.floor`,
+  or `as.exact`, which fails if anything would be lost.
+- Combined units are declared once with `per` and `x`. The compiler tracks every value as powers of its base units,
+  and storing needs a declared unit whose powers match.
+- Scales with an offset, such as temperature, separate points from spans: a point plus a span is a point, a point minus
+  a point is a span, and a point plus a point is refused.
+- Prefixes are declared once and opted into, so `kilo` on `length.meters` gives `length.kilometers`.
+- `std` ships `time`, `storage` and `angle`; `sin` asks for radians.
+
+Differences from Cyborg: there's no built-in `items` unit, since D17 indexes with plain `pos:` and `offset:`, so
+lengths stay plain `Int`. Cyborg's placeholder words (`offset`, `with`, `fam.prefix`, `decibels of`) are placeholders
+here too. The owner said: "Cyborg's unit system could very much be copied here, instead of redesigning"; Claude adapted
+it; the owner chose: "yea, post-v1". (Owner, 2026-11-14)
