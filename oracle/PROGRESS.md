@@ -94,6 +94,8 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - A number literal with nowhere to land, as in `println(5 as String)` [an `Int`; `2.5 as String` is refused].
 - A map literal giving one key twice, `["a" => 1, "a" => 2]` [the last one wins; refusing it is the other option].
 - Order of evaluation: arguments, operands and struct fields [left to right, as written].
+- How precise "can reach its end without returning" is (D26): a `while true:` with a `return` inside, or a call to
+  `exit()` last [both are refused: only `return`, `fail`, and `if`/`else` or `match` where every branch ends, count].
 - The exact list of keywords, since `my::` depends on it (D63). [the oracle's list is in `oracle/src/parser.ml`,
   `keywords`; `range`, `pos`, `offset`, `from`, `to`, `before`, `step_by`, `key`, `self` and `Any` aren't in it]
 
