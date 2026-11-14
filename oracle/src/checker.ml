@@ -752,7 +752,8 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         let known (c : C.expression) = match c.kind with C.Constant v -> Some (Value.integer_to_z v) | _ -> None in
         (match step_by with
          | Some s when known s = Some Z.zero ->
-             refuse context ~what:"`step_by:` is 0, so the range never ends" s.span "a `step_by:` of 0 is a check (D37, standard 4.7)"
+             refuse context ~what:"`step_by:` is 0, so the range never ends" s.span
+               "a baked value that breaks a check is refused when compiling (D8, D9, standard 7.1)"
          | _ -> ());
         (match known from, known ending, (match step_by with None -> Some Z.one | Some s -> known s) with
          | Some f, Some e, Some s ->
@@ -1144,7 +1145,7 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
       let l, r = check_pair None in
       if not (Types.same l.type_ r.type_) then
         refuse context
-          ~what:(Printf.sprintf "%s compares %s with %s" (quote operator_text) (type_text l.type_) (type_text r.type_))
+          ~what:(Printf.sprintf "%s and %s are different types, so they can't be compared" (type_text l.type_) (type_text r.type_))
           operator.operator_span "both sides of a comparison have the same type (D27, D61, standard 4.1)";
       let ordered = operator.word <> "==" && operator.word <> "!=" in
       (match underlying l.type_ with
@@ -1712,7 +1713,9 @@ and instantiate fctx span (f : function_info) (expected : Types.t option) ~(rece
             (fun (requirement : name) ->
               if not (meets context t requirement.text) then
                 refuse context
-                  ~what:(Printf.sprintf "`?%s` is %s here, which doesn't meet %s" p.text (type_text t) (quote requirement.text))
+                  ~what:(if Hashtbl.mem context.type_sets requirement.text
+                         then Printf.sprintf "%s isn't in %s, which `?%s` needs" (type_text t) (quote requirement.text) p.text
+                         else Printf.sprintf "%s hasn't said it satisfies %s" (type_text t) (quote requirement.text))
                   span
                   "a type fits an interface only through a written `satisfies` line, and a type set only by being in it (D105, standard 5.8)")
             r.requirement_names)
@@ -2258,7 +2261,7 @@ and check_statement fctx (s : statement) : C.statement list =
       match find_variable fctx variable.text with
       | None ->
           error context ~what:(Printf.sprintf "there's no variable called `$%s` here" variable.text) variable.span
-            "`assign` gives a `decl` its first value (D34, standard 3.3)";
+            "`assign` gives a `decl` its first value, exactly once on each path (D34, standard 3.3)";
           []
       | Some info ->
           if info.assigned then begin
@@ -2512,7 +2515,7 @@ and check_change fctx span target value =
             refuse context
               ~what:(Printf.sprintf "`$%s` can't change: it isn't `mut`" name) name_span why;
           if not info.assigned then
-            refuse context ~fix:(quote "assign") (keyword_span span "change") "`assign` gives a `decl` its first value (D34, standard 3.3)";
+            refuse context ~fix:(quote "assign") (keyword_span span "change") "`assign` gives a `decl` its first value, exactly once on each path (D34, standard 3.3)";
           match target.expression_kind with
           | Syntax.Variable _ ->
               let declared =
@@ -3366,7 +3369,10 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
                     (Diagnostic.grapheme_column value.span) ]
           in
           report context
-            { d with kind = (if d.kind = Diagnostic.Runtime_error then Diagnostic.Compile_time_error else d.kind); because }
+            (if d.kind = Diagnostic.Runtime_error then
+               { d with kind = Diagnostic.Compile_time_error; because;
+                        why = "a baked value that breaks a check is refused when compiling (D8, D9, standard 7.1)" }
+             else { d with because })
       | exception Std_library.Exit_program _ -> ()
       | exception Not_found ->
           (* it calls a function that was refused, so it's unknown, and nothing more is said (D13) *)
@@ -3379,7 +3385,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
           (* trace: D5, D53 — running out of memory is a check, here while compiling *)
           report context
             (Diagnostic.make ~span:value.span ~what:(Printf.sprintf "working out `$%s` ran out of memory" variable.variable_name)
-               Diagnostic.Compile_time_error "running out of memory is a check, and a baked value is worked out when compiling (D5, D53, standard 7.2)"))
+               Diagnostic.Compile_time_error "a baked value that breaks a check is refused when compiling (D8, D9, standard 7.1)"))
     context.baked_values;
   let diagnostics = diagnostics @ List.rev (List.filter (fun d -> not (List.memq d diagnostics)) context.diagnostics) in
   (Some program, diagnostics)

@@ -1,6 +1,6 @@
 RuntimeError: d53_position_zero_is_a_check.jern:3:19, line 3 column 19
  3 |     let $x: Int = $xs[pos: 0]
    |                   ^^^^^^^^^^^
- what: position 0 is outside the list
+ what: `pos: 0` is outside the list
  why:  a position outside the list is a check (D53, standard 7.2)
  when: the list has 3 items

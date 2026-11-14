@@ -15,8 +15,8 @@ let offset_of span ~length (counting : Syntax.counting) (position : Value.t) : i
   let offset = match counting with Syntax.Pos -> Z.pred n | Syntax.Offset -> n in
   if Z.lt offset Z.zero || Z.geq offset (Z.of_int length) then
     runtime_error
-      ~what:(Printf.sprintf "%s %s is outside the list"
-               (match counting with Syntax.Pos -> "position" | Syntax.Offset -> "offset") (Z.to_string n))
+      ~what:(Printf.sprintf "`%s: %s` is outside the list"
+               (match counting with Syntax.Pos -> "pos" | Syntax.Offset -> "offset") (Z.to_string n))
       ~when_:(Printf.sprintf "the list has %d item%s" length (if length = 1 then "" else "s"))
       span "a position outside the list is a check (D53, standard 7.2)";
   Z.to_int offset
@@ -117,8 +117,15 @@ let compare_keys (a : Value.t) (b : Value.t) : int =
   | Value.Decimal x, Value.Decimal y -> Option.value (Decimal.compare_values x y) ~default:0
   | _ -> 0
 
-let missing_key span =
-  runtime_error ~what:"the map has no such key" span "a missing key is a check (D138, standard 13.3)"
+(* A key as it would be written: "Zoe", 3 *)
+let key_text (key : Value.t) =
+  match key with
+  | Value.String s -> "\"" ^ s ^ "\""
+  | Value.Int64_integer _ | Value.Wide_integer _ -> Z.to_string (Value.integer_to_z key)
+  | _ -> Fits.shown key
+
+let missing_key span key =
+  runtime_error ~what:(Printf.sprintf "the map has no key `%s`" (key_text key)) span "a missing key is a check (D138, standard 13.3)"
 
 (* Adds or replaces; a Map.sorted keeps its entries sorted by key. *)
 let set_key (m : Value.map_value) key value =
@@ -135,7 +142,7 @@ let set_key (m : Value.map_value) key value =
 
 let map_index span (map : Value.t) key =
   let m = entries map in
-  match find_key m key with Some i -> snd (Dynarray.get m.entries i) | None -> missing_key span
+  match find_key m key with Some i -> snd (Dynarray.get m.entries i) | None -> missing_key span key
 
 let map_get span = function
   | map :: [ key ] -> (
@@ -161,7 +168,7 @@ let map_remove span = function
           Dynarray.clear m.entries;
           List.iteri (fun j e -> if j <> i then Dynarray.add_last m.entries e) before;
           removed
-      | None -> missing_key span)
+      | None -> missing_key span key)
   | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let map_keys_sorted _span = function

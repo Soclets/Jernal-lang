@@ -2,4 +2,4 @@ CompileTimeError: d5_a_baked_value_that_never_finishes_its_recursion.jern:5:21, 
  5 | let baked $x: Int = forever(1)
    |                     ^^^^^^^^^^
  what: working out `$x` ran out of memory
- why:  running out of memory is a check, and a baked value is worked out when compiling (D5, D53, standard 7.2)
+ why:  a baked value that breaks a check is refused when compiling (D8, D9, standard 7.1)

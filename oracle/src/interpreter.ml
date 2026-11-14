@@ -407,7 +407,7 @@ and list_offset span counting (l : Value.list_value) (p : Value.t) : int =
   (* trace: D17, D53 *)
   if Z.lt offset Z.zero || Z.geq offset (Z.of_int length) then
     runtime_error
-      ~what:(Printf.sprintf "%s %s is outside the list" (match counting with Syntax.Pos -> "position" | Syntax.Offset -> "offset") (Z.to_string n))
+      ~what:(Printf.sprintf "`%s: %s` is outside the list" (match counting with Syntax.Pos -> "pos" | Syntax.Offset -> "offset") (Z.to_string n))
       ~when_:(Printf.sprintf "the list has %d item%s" length (if length = 1 then "" else "s"))
       span "a position outside the list is a check (D53, standard 7.2)";
   Z.to_int offset
@@ -442,6 +442,12 @@ and compare_values operator l r =
           | "at_most" -> c <= 0
           | _ -> false))
 
+(* `$d` is 0, when the divisor is a name (7.3's `when:`). *)
+and divisor_is_a_name (e : C.expression) : string option =
+  match e.kind with
+  | C.Arithmetic { right = { kind = C.Read v; _ }; _ } -> Some (Printf.sprintf "`$%s` is 0" v.variable_name)
+  | _ -> None
+
 and arithmetic (e : C.expression) operator narrowings l r : Value.t =
   let span = e.span in
   match l, r with
@@ -450,8 +456,8 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
       let a = Value.integer_to_z l and b = Value.integer_to_z r in
       let check_zero () =
         if Z.equal b Z.zero then
-          runtime_error ~what:(Printf.sprintf "`%s` divides by zero" (source_text span)) span
-            "dividing by zero is a check (D53, standard 7.2)"
+          runtime_error ~what:(Printf.sprintf "`%s` divides by zero" (source_text span))
+            ?when_:(divisor_is_a_name e) span "dividing by zero is a check (D53, standard 7.2)"
       in
       let fits result =
         (* trace: D54 *)
@@ -509,7 +515,7 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
       | "x" -> Value.Rational (Q.mul a b)
       | "div" ->
           if Q.equal b Q.zero then
-            runtime_error ~what:(Printf.sprintf "`%s` divides by zero" (source_text span)) span
+            runtime_error ~what:(Printf.sprintf "`%s` divides by zero" (source_text span)) ?when_:(divisor_is_a_name e) span
               "dividing by zero is a check (D53, standard 7.2)";
           Value.Rational (Q.div a b)
       | _ -> C.impossible ("a Rational operator the checker refuses: " ^ operator))
@@ -639,9 +645,14 @@ and call_function (program : C.program) span function_id (arguments : Value.t li
       | Value.Bool true -> ()
       | _ ->
           flush stdout;
-          runtime_error ~what:(Printf.sprintf "`requires %s` is false" text) span
-            ~when_:(Printf.sprintf "calling `%s`" f.function_name)
-            "contracts are checked at runtime (D42, D8, standard 7.1)")
+          ignore text;
+          (* the place is the promise that broke; the call that broke it is the step before (7.3's `because:`) *)
+          raise
+            (C.Runtime_stop
+               (Diagnostic.make ~span:condition.span ~what:"this `requires` is false"
+                  ~because:[ Printf.sprintf "`%s` was called at line %d column %d" f.function_name span.Span.line
+                               (Diagnostic.grapheme_column span) ]
+                  Diagnostic.Runtime_error "contracts are checked at runtime (D8, D42, standard 7.1)")))
     f.requires;
   try
     execute_block context f.body;

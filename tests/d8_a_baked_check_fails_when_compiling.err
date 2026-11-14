@@ -2,6 +2,6 @@ CompileTimeError: d8_a_baked_check_fails_when_compiling.jern:2:12, line 2 column
  2 |     return $n x 1000000000000
    |            ^^^^^^^^^^^^^^^^^^
  what: `$n x 1000000000000` doesn't fit in `Int`
- why:  a number too big for its type is a check (D54, standard 7.2)
+ why:  a baked value that breaks a check is refused when compiling (D8, D9, standard 7.1)
  when: it would be 10000000000000000000000
  because: working out `$big` at line 7 column 27, when compiling
