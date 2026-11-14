@@ -22,6 +22,5 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.4 Quills and units
 
-- The quills' actual interface and how it's versioned, what "verified" means, and whether quills must keep builds
-  reproducible (D77).
+- The quills' actual interface and how it's versioned, and what "verified" means (D77).
 - Units' placeholder words: `offset`, `with`, `fam.prefix`, `decibels of` (D58).

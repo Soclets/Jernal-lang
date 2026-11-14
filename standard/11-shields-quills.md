@@ -54,6 +54,11 @@ A quill can:
 
 A quill can never change what code that isn't its own means.
 
+A quill must be deterministic: the same program and inputs give the same output (D123). JernComp is the only source of
+its inputs: the checked program, the manifest, and files the manifest names. `jern test` compiles with each quill twice
+and compares, and a difference is an error naming the quill. A quill that needs something that isn't reproducible
+declares it in its own manifest, and the build report lists it.
+
 Quills have no marker (D78). Their names are ordinary names, and a clash is an error. Their syntax uses only shapes
 Jernal already has: names (calls, types, narrowings), blocks in the `word ...:` / `end word` shape, and raw code in
 another language inside an `inline.something:` block, which tools leave alone.

@@ -2008,3 +2008,11 @@ jern test --Working
 ```
 
 Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D123. Quills must keep builds reproducible.** A quill must be deterministic: the same program and inputs give the
+same output. JernComp is the only source of a quill's inputs: the checked program, the manifest, and files the manifest
+names. `jern test` compiles with each quill twice and compares; a difference is an error naming the quill. A quill that
+truly needs something that isn't reproducible, such as embedding the build time, declares it in its own manifest, and
+the build report lists it, as it lists shields (D79). Quills are pinned in `Journey.lock` by version and content hash,
+as every package is (D116). Cyborg leaves this to the limb's author (its D334), as Cyborg's design session described on
+2026-11-14. The owner said "Ask Cyborg"; Claude proposed this; the owner chose: "yea". (Owner, 2026-11-14)
