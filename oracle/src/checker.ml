@@ -781,13 +781,19 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
               refuse context ~fix:(quote ("copy $" ^ name)) span
                 "a function sees a parameter frozen for the call, and keeping it after returning needs `copy` (D139, standard 3.6)";
             (* trace: D51 *)
-            if info.must_give && List.length fctx.loops > info.loop_depth then begin
+            if List.length fctx.loops > info.loop_depth then begin
+              (* trace: D7, D51 — the loop could run the give again, on a name already given *)
               (* the give still counts, so nothing else is refused because of it (D13) *)
               info.given <- true;
               info.surely_given <- true;
-              refuse context
-                ~what:(Printf.sprintf "this `give` is inside a loop, so it could give `$%s` more than once" name) span
-                "a `must_give` value is given away exactly once on every path (D51, standard 8.3)"
+              if info.must_give then
+                refuse context
+                  ~what:(Printf.sprintf "this `give` is inside a loop, so it could give `$%s` more than once" name) span
+                  "a `must_give` value is given away exactly once on every path (D51, standard 8.3)"
+              else
+                refuse context
+                  ~what:(Printf.sprintf "this `give` is inside a loop, so `$%s` might already be given when it runs again" name) span
+                  "a name that might have been given, such as inside a loop, counts as given (D7, standard 3.6)"
             end;
             info.given <- true;
             info.surely_given <- true;

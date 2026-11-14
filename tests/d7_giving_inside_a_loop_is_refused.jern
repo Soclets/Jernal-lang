@@ -1,0 +1,6 @@
+fn.main[]:
+    let mut $xs: List<Int> = [1]
+    for $i in range[from: 1, to: 2]:
+        let $taken: List<Int> = give $xs
+    end for
+end fn.main

@@ -1,0 +1,5 @@
+CompileTimeError: d7_giving_inside_a_loop_is_refused.jern:4:33, line 4 column 33
+ 4 |         let $taken: List<Int> = give $xs
+   |                                 ^^^^^^^^
+ what: this `give` is inside a loop, so `$xs` might already be given when it runs again
+ why:  a name that might have been given, such as inside a loop, counts as given (D7, standard 3.6)
