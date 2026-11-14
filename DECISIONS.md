@@ -1810,3 +1810,21 @@ end struct Reading
 Cyborg's levels (its D200, D413) are bare, `pub.pkg` and `pub`, and much of the rest is open there, as Cyborg's design
 session described on 2026-11-14. The owner asked "Is `pub` vis to every is a sensible defau?", then "or just say it? I
 mean, it's three letters", and chose: "yea". (Owner, 2026-11-14)
+
+**D107. One `std`, organized by path, with `io` for the outside world.** Jernal has one standard package, `std`, with no
+separate `os` package, since Jernal is never freestanding (D79). Its parts are organized by path, not by families:
+`std::io` holds everything that talks to the outside world (`std::io::stdio` for standard input, output and error,
+`std::io::file`, `std::io::net`), beside `std::env` for the program's surroundings, `std::time` and `std::math`. Code
+writes short names (D59), so a path appears only in a clash or a `use`.
+
+```
+println("hi")                       // std::io::stdio::println
+let $f: File = open($path)?         // std::io::file::open
+let $args: List<String> = args()    // std::env::args
+```
+
+Cyborg splits `std` and `os`, and organizes by path. The owner asked "Which is where? Like, who owns io? And do we
+really need to separate std and os? Jernal would never be freestanding", said "I don't know about using `io.`, instead
+of making that in the path. Cyborg doesn't do that", asked "Doesn't `io` stand for input/output?" and "Define
+`console`", pointed out that `inline.llvm_ir` is jargon too, and said: "You don't even write the path, bro". (Owner,
+2026-11-14)

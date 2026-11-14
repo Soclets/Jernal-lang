@@ -57,6 +57,12 @@ end struct Reading
 Using something that isn't visible is refused with no `fix:`, since making it visible is the other author's choice. A
 `pub.…` signature that mentions a less visible type is refused. `pub.…` on `fn.main` is refused.
 
+## 9.2b The standard package
+
+Jernal has one standard package, `std`, organized by path (D107): `std::io` for everything that talks to the outside
+world (`std::io::stdio`, `std::io::file`, `std::io::net`), `std::env` for the program's surroundings, `std::time` and
+`std::math`. Code writes short names: `println` is `std::io::stdio::println`.
+
 ## 9.3 `use`
 
 `use path as name` gives something a short name in that file (D60). The path is written short. One name per `use`, with
