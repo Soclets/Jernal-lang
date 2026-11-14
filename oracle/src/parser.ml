@@ -1571,9 +1571,6 @@ let parse_declaration state : declaration option =
         | _ when (match (peek_at state 1).kind with Word "satisfies" -> true | _ -> false) ->
             unfinished_declaration state ~what:"`satisfies` isn't built in the oracle yet"
               ~why:"a type fits an interface only through a written `satisfies` line (D105, standard 5.8)" ~designed:true
-        | Word "let" when is_word_at state 1 "baked" ->
-            unfinished_declaration state ~what:"`let baked` isn't built in the oracle yet"
-              ~why:"`let baked` declares a value known when compiling (D5, standard 3.1)" ~designed:true
         | Word "let" ->
             (* trace: D139 *)
             if is_word_at state 1 "mut" then begin

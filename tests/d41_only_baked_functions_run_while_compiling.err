@@ -1,0 +1,5 @@
+CompileTimeError: d41_only_baked_functions_run_while_compiling.jern:6:25, line 6 column 25
+ 6 |     let baked $x: Int = double(4)
+   |                         ^^^^^^^^^
+ what: `double` isn't `fn.pure.baked`, so it can't run while compiling
+ why:  only a `fn.pure.baked` function can run while compiling (D41, standard 5.2)

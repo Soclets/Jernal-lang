@@ -1,0 +1,8 @@
+fn.pure.baked grow[$n: Int] -> Int:
+    return $n x 1000000000000
+end fn.pure.baked grow
+
+fn.main[]:
+    println("never")
+    let baked $big: Int = grow(10000000000)
+end fn.main

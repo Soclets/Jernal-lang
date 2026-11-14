@@ -639,6 +639,9 @@ and call_function (program : C.program) span function_id (arguments : Value.t li
     Value.Nothing
   with Return_signal v -> v
 
+(* Works out one value with the given variables, as `let baked` needs when compiling (D5). *)
+let evaluate_with (program : C.program) (frame : frame) (e : C.expression) : Value.t = evaluate { program; frame } e
+
 let run (program : C.program) : unit =
   execute_block { program; frame = globals } program.globals;
   ignore (call_function program Span.none program.main [])

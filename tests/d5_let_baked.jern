@@ -1,0 +1,12 @@
+fn.pure.baked seconds_in[$days: Int] -> Int:
+    return $days x 86400
+end fn.pure.baked seconds_in
+
+let baked $week: Int = seconds_in(7)
+
+fn.main[]:
+    let baked $fortnight: Int = $week x 2
+    println($week as String)
+    println($fortnight as String)
+    println(seconds_in(1) as String)
+end fn.main

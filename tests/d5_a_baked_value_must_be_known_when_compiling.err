@@ -1,0 +1,5 @@
+CompileTimeError: d5_a_baked_value_must_be_known_when_compiling.jern:3:28, line 3 column 28
+ 3 |     let baked $week: Int = $days x 86400
+   |                            ^^^^^
+ what: `$days` isn't known when compiling
+ why:  `let baked` declares a value known when compiling (D5, standard 3.1)

@@ -31,6 +31,7 @@ type function_info = {
   mutable result_type : Types.t;
   pure : bool;                      (* fn.pure, or a member of fam.fn.pure (D41, D45) *)
   mutable failures : (string * (string * Types.t) list) list;   (* what it lists after `fails` (D48) *)
+  baked : bool;                     (* fn.pure.baked: can run while compiling (D41) *)
 }
 
 type struct_info = {
@@ -62,6 +63,8 @@ type context = {
   failure_families : (string, failure_shape list) Hashtbl.t;
   handler_families : (string, handler_set list) Hashtbl.t;
   mutable globals : C.statement list;
+  baked_variables : (int, unit) Hashtbl.t;                       (* the ids of `let baked` variables *)
+  mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
 }
 
 type function_context = {
@@ -1294,6 +1297,10 @@ and check_user_call fctx span (f : function_info) (settings : (name * expression
   let context = fctx.context in
   let declaration = f.declaration in
   (* trace: D41 *)
+  if fctx.info.baked && not f.baked then
+    refuse context
+      ~what:(Printf.sprintf "%s isn't `fn.pure.baked`, so a baked function can't call it" (quote f.full_name)) span
+      "a `fn.pure.baked` function can run while compiling, so it calls only others that can (D41, standard 5.2)";
   if fctx.info.pure && not f.pure then
     refuse context
       ~what:(Printf.sprintf "%s isn't `fn.pure`, so a pure function can't call it" (quote f.full_name)) span
@@ -1546,9 +1553,9 @@ and check_statement fctx (s : statement) : C.statement list =
   let make kind = [ { C.statement_kind = kind; statement_span = span } ] in
   match s.statement_kind with
   | Let { is_mutable; baked; variable; declared_type; value } -> (
-      if baked then begin
-        report context (Diagnostic.make ~span ~what:"`let baked` isn't built in the oracle yet" Diagnostic.Not_built_yet
-                          "`let baked` declares a value known when compiling (D5, standard 3.1)");
+      if baked && is_mutable then begin
+        report context (Diagnostic.make ~span ~what:"a `let mut baked` isn't decided yet" Diagnostic.Not_designed_yet
+                          "not decided yet (D5, standard 3.1)");
         []
       end
       else
@@ -1556,6 +1563,12 @@ and check_statement fctx (s : statement) : C.statement list =
         let existing = find_variable fctx variable.text in
         (* the variable exists from here on, even if its value has an error (D13) *)
         let checked_value = try Some (check_value fctx declared value) with Skip -> None in
+        (* trace: D5 — a baked value is made only of what's known when compiling *)
+        let checked_value =
+          match checked_value with
+          | Some v when baked -> (try require_baked fctx v; Some v with Skip -> None)
+          | other -> other
+        in
         (match existing with
          | Some _ ->
              (* trace: D36 *)
@@ -1564,6 +1577,10 @@ and check_statement fctx (s : statement) : C.statement list =
          | None -> ());
         let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
         if not is_mutable then info.is_parameter <- names_a_parameter fctx value declared;
+        if baked then begin
+          Hashtbl.replace context.baked_variables info.variable.variable_id ();
+          Option.iter (fun v -> context.baked_values <- context.baked_values @ [ (info.variable, v) ]) checked_value
+        end;
         match checked_value with
         | Some v -> make (C.Define (info.variable, if is_mutable then stored v else v))
         | None -> [])
@@ -1742,6 +1759,45 @@ and declare_recovered fctx (declares : recovered list) =
       in
       ignore (add_variable fctx ~name:r.recovered_name ~variable_type:t ~is_mutable:r.recovered_mutable ~assigned:true ()))
     declares
+
+(* What `let baked` may be made of: literals, baked values, and `fn.pure.baked` calls (D5, D41). *)
+and require_baked fctx (value : C.expression) =
+  let context = fctx.context in
+  let why = "`let baked` declares a value known when compiling (D5, standard 3.1)" in
+  let pure_methods = [ "len"; "len.bytes"; "len.code_points"; "contains"; "first"; "last"; "sum"; "keys.sorted"; "get" ] in
+  let rec walk (x : C.expression) =
+    match x.kind with
+    | C.Constant _ -> ()
+    | C.Read v ->
+        if not (Hashtbl.mem context.baked_variables v.variable_id) then
+          refuse context ~what:(Printf.sprintf "`$%s` isn't known when compiling" v.variable_name) x.span why
+    | C.Call_function { function_id; arguments } ->
+        (match Hashtbl.find_opt context.function_by_id function_id with
+         | Some f when f.baked -> ()
+         | Some f ->
+             refuse context ~what:(Printf.sprintf "%s isn't `fn.pure.baked`, so it can't run while compiling" (quote f.full_name))
+               x.span "only a `fn.pure.baked` function can run while compiling (D41, standard 5.2)"
+         | None -> ());
+        List.iter walk arguments
+    | C.Call_builtin { builtin; arguments } ->
+        if not (List.mem builtin.builtin_name pure_methods) then
+          refuse context ~what:(Printf.sprintf "%s can't run while compiling" (quote builtin.builtin_name)) x.span
+            "only a `fn.pure.baked` function can run while compiling (D41, standard 5.2)";
+        List.iter walk arguments
+    | C.Join xs | C.List_literal xs -> List.iter walk xs
+    | C.Chain { operands; _ } -> List.iter walk operands
+    | C.Map_literal (_, entries) -> List.iter (fun (k, v) -> walk k; walk v) entries
+    | C.Build_struct { fields; _ } | C.Build_union { fields; _ } -> List.iter (fun (_, v) -> walk v) fields
+    | C.Arithmetic { left; right; _ } | C.Compare { left; right; _ } | C.Logic { left; right; _ } -> walk left; walk right
+    | C.Convert { value; _ } | C.Negate value | C.Not value | C.Field (value, _) | C.Copy value | C.Ignore value
+    | C.Pass_up value | C.Check_fits { value; _ } | C.Fits_test { value; _ } | C.Is_case { value; _ } -> walk value
+    | C.Index { target; position; _ } -> walk target; walk position
+    | C.Key_index { target; key } -> walk target; walk key
+    | C.Range { from; ending; step_by; _ } -> walk from; walk ending; Option.iter walk step_by
+    | C.Fallback { value; instead } -> walk value; walk instead
+    | C.Otherwise { value; _ } -> walk value
+  in
+  walk value
 
 (* A value landing in a place of a known type. *)
 and check_value ?(escapes = false) fctx (declared : Types.t) (value : expression) : C.expression =
@@ -2142,7 +2198,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   let context =
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
-      presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = [];
+      presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = [];
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
@@ -2162,7 +2218,8 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
       let id = fresh_id context in
       let info =
         { function_id = id; declaration; full_name; file; parameter_types = []; result_type = Types.Nothing;
-          pure = family_pure || List.exists (fun n -> n.text = "pure") declaration.narrowings; failures = [] }
+          pure = family_pure || List.exists (fun n -> n.text = "pure") declaration.narrowings; failures = [];
+          baked = List.exists (fun n -> n.text = "baked") declaration.narrowings }
       in
       Hashtbl.replace context.functions full_name info;
       Hashtbl.replace context.function_by_id id info
@@ -2278,7 +2335,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   List.iter
     (fun (file, statement) ->
       let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file; parameter_types = [];
-                   result_type = Types.Nothing; pure = false; failures = [] } in
+                   result_type = Types.Nothing; pure = false; failures = []; baked = false } in
       let fctx = { context; info = fake; scopes = [ file_scope context file ]; loops = []; arm_values = [] } in
       context.globals <- context.globals @ check_statement fctx statement)
     (List.rev !globals);
@@ -2296,7 +2353,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
         | Some t -> error context ~what:"`fn.main` returns nothing" t.type_span why
         | None -> ());
        let info =
-         { function_id = main_id; declaration; full_name = "fn.main"; file; parameter_types = []; result_type = Types.Nothing; pure = false; failures = [] }
+         { function_id = main_id; declaration; full_name = "fn.main"; file; parameter_types = []; result_type = Types.Nothing; pure = false; failures = []; baked = false }
        in
        info.parameter_types <- List.map (fun _ -> Types.Unknown) declaration.parameters;
        check_function context info
@@ -2312,7 +2369,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   Hashtbl.iter
     (fun name info ->
       let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file = "";
-                   parameter_types = []; result_type = Types.Nothing; pure = false; failures = [] } in
+                   parameter_types = []; result_type = Types.Nothing; pure = false; failures = []; baked = false } in
       let fctx = { context; info = fake; scopes = [ Hashtbl.create 1 ]; loops = []; arm_values = [] } in
       let defaults =
         List.map
@@ -2322,5 +2379,23 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
       in
       Hashtbl.replace program.struct_defaults name defaults)
     context.structs;
+  (* Baked values are worked out now; a check that fails here fails when compiling (D5, D8). *)
+  let frame = Hashtbl.create 16 in
+  List.iter
+    (fun ((variable : C.variable), (value : C.expression)) ->
+      match Interpreter.evaluate_with program frame value with
+      | v -> Hashtbl.replace frame variable.variable_id (ref v)
+      | exception Interpreter.Runtime_stop d ->
+          let because =
+            if d.span = Some value.span then d.because
+            else
+              d.because
+              @ [ Printf.sprintf "working out `$%s` at line %d column %d, when compiling" variable.variable_name value.span.line
+                    (Diagnostic.grapheme_column value.span) ]
+          in
+          report context
+            { d with kind = (if d.kind = Diagnostic.Runtime_error then Diagnostic.Compile_time_error else d.kind); because }
+      | exception Std_library.Exit_program _ -> ())
+    context.baked_values;
   let diagnostics = diagnostics @ List.rev (List.filter (fun d -> not (List.memq d diagnostics)) context.diagnostics) in
   (Some program, diagnostics)

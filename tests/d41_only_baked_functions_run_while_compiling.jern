@@ -1,0 +1,7 @@
+fn.pure double[$n: Int] -> Int:
+    return $n x 2
+end fn.pure double
+
+fn.main[]:
+    let baked $x: Int = double(4)
+end fn.main
