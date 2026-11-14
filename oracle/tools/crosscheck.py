@@ -7,10 +7,11 @@
 - Integers (D85, D88): div.trunc, div.floor, mod.trunc and mod.floor against Python's integers.
 - Rational (D83, D139): +, -, x and div against fractions.Fraction, printed reduced.
 - f32 and f16 (D93): sums rounded to the format must equal Python's struct rounding ('f' and 'e').
+- sum (D38): `$xs.sum()` on a List<Float> must equal math.fsum, which D38 names as the model.
 
 Usage, from the repository root:  python3 -I oracle/tools/crosscheck.py <scratch folder>
 """
-import decimal, fractions, os, random, struct, subprocess, sys
+import decimal, fractions, math, os, random, struct, subprocess, sys
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 exe = os.path.join(root, "oracle", "_build", "default", "bin", "jernorac.exe")
@@ -120,4 +121,13 @@ for i in range(300):
               "    let $c%d: %s = $a%d + $b%d" % (i, kind, i, i), "    println($c%d as.stored String)" % i]
     expected.append(plain(decimal.Decimal(rounded)))
 small_floats_ok = run("small_floats", lines, expected)
-sys.exit(0 if floats_ok and decimals_ok and integers_ok and rationals_ok and small_floats_ok else 1)
+random.seed(38)
+lines, expected = [], []
+for i in range(100):
+    xs = [random.uniform(-1, 1) * 10 ** random.randint(-20, 20) for _ in range(random.randint(0, 12))]
+    items = ", ".join(plain(decimal.Decimal(x)) + ("" if "." in plain(decimal.Decimal(x)) else ".0") for x in xs)
+    lines += ["    let $xs%d: List<Float> = [%s]" % (i, items), "    let $s%d: Float = $xs%d.sum()" % (i, i),
+              "    println($s%d as.stored String)" % i]
+    expected.append(plain(decimal.Decimal(math.fsum(xs))))
+sums_ok = run("sums", lines, expected)
+sys.exit(0 if floats_ok and decimals_ok and integers_ok and rationals_ok and small_floats_ok and sums_ok else 1)
