@@ -1391,3 +1391,9 @@ it's used (a function's parameters, result and `fails`, D48); the top of the bod
 promises (`labels`, `defaults`, `requires`, `ensures`, D42, and a shield's `reason`). From Cyborg's shield, as Cyborg's
 design session described it on 2026-11-14. The owner said "Why the fuck is `:` there, and not behind `"`?" and "Idk,
 failures are in a function's header"; Claude proposed that rule; the owner chose: "fair, yea". (Owner, 2026-11-14)
+
+**D81. A standard, kept with every decision.** `standard/` says what Jernal is, by topic, without the history, with
+one file per chapter and a last chapter listing every open question. `DECISIONS.md` stays the log of how each part was
+chosen. Every decision updates both, in the same commit. JernComp and JernOrac are built from the standard, and
+anything in its "Not decided yet" chapter gives `NotDesignedYet`. The owner asked "Should we have a standard?"; Claude
+proposed this; the owner chose: "yes". (Owner, 2026-11-14)

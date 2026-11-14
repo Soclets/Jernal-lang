@@ -2,6 +2,8 @@
 
 Straight to the fucking point.
 
+The language is described in [`standard/`](standard/), and every decision behind it is in [`DECISIONS.md`](DECISIONS.md).
+
 ## Cool features
 
 - **Families.** One name, many kinds. `fam.fn show` holds `show`, its narrowings like `show.stored` and `show.hex`,
