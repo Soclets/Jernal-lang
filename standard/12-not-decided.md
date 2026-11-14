@@ -19,7 +19,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 ## 12.3 Tools and packages
 
 - How a file or package is named on the command line, and whether `jern comp --Interp` is refused (D74).
-- The manifest: nesting, features, the lockfile, and the real word for `same` (D76).
+- The manifest: nesting, features, and the lockfile (D76).
 - Debug information per build mode.
 - Threads, and whether changing shared data needs a shield (D79).
 

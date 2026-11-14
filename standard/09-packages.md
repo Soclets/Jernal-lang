@@ -8,7 +8,7 @@ a package. A package can have a book, its library half, a quill, its compiler ha
 ```
 // Journey.siml
 name hello
-ver 2026y-11m-14d same
+ver 2026y-11m-14d not_broken
 
 need std 2026y-11m-14d
 need http 2026y-11m-14d
@@ -16,8 +16,9 @@ need http 2026y-11m-14d
 rule mut.never_changed refuse
 ```
 
-- `name` and `ver`: a version is a labelled date, biggest first, plus whether it breaks anything: `breaks`, or the
-  placeholder word `same`.
+- `name` and `ver`: a version is a labelled date, biggest first, plus `breaks` if it changed or removed something
+  `pub.all`, or `not_broken` otherwise (D110). Journey checks the word against what changed, and a `need` moves to later
+  `not_broken` releases on its own, never to a `breaks` one.
 - `need <package> <date>`: one per package, with the version always written.
 - `rule`: the compiler's and linter's rules, so configuration stays out of the code.
 

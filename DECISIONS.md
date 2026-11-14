@@ -1849,3 +1849,15 @@ The owner asked "how do you get CLI args"; Claude proposed this; the owner chose
 
 **D109. `value.type`, not `val.type`.** Replaces D102's label: a map is `Map<key.type: String, value.type: Int>`. The
 owner said: "change `val` to `value`". (Owner, 2026-11-14)
+
+**D110. A version says `breaks` or `not_broken`.** Replaces D76's placeholder `same`. A release says `breaks` when it
+changed or removed something `pub.all` (D106), and `not_broken` otherwise; Journey checks the word against what
+actually changed, and refuses a release that claims `not_broken` but changed a `pub.all` item. A `need` may move to a
+later `not_broken` release on its own, never to a `breaks` one.
+
+```
+ver 2026y-11m-14d not_broken
+ver 2026y-11m-20d breaks
+```
+
+Claude proposed `breaks` / `adds` / `fixes`; the owner chose: "`breaks`, and `not_broken`". (Owner, 2026-11-14)
