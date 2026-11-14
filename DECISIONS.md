@@ -1106,3 +1106,19 @@ end fam.type.new Ids                    // Ids.User, Ids.Order
 
 `type.new` is for things units (D58) don't fit, such as ids. This is Cyborg's (its D134, D141), as Cyborg's design
 session described on 2026-11-14. Claude proposed it in Jernal's style; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D62. `fn.main` is where a program starts.** The entry point is a narrowing, `fn.main`, not a function with a special
+name. Replaces D41's "`fn main` stays plain". It takes no parameters (command-line arguments will come from a package
+later) and returns nothing, ending at `end fn.main` or with `return early`; its exit code follows D11. A program has
+exactly one: none is refused, and so are two. A plain `fn main` is refused, with `fix: fn.main`.
+
+```
+fn.main[]:
+    println("Hello, World!")
+end fn.main
+```
+
+This is Cyborg's `fn.main` (its D11, D214), as Cyborg's design session described on 2026-11-14. The owner asked "As
+for `fn main`, should it be `fn.main`?", and said "Actually, you can make your own `fn main`, `fn my::main`. Ask Cyborg
+for more details"; Claude proposed this; the owner chose: "yea". How a name that clashes with the language is written
+is not decided yet. (Owner, 2026-11-14)

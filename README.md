@@ -18,9 +18,9 @@ Straight to the fucking point.
 ## Hello, World!
 
 ```
-fn main[]:
+fn.main[]:
     println("Hello, World!")
-end fn main
+end fn.main
 ```
 
 ## Licences
