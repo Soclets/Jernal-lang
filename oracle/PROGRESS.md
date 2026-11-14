@@ -87,6 +87,8 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - A map literal that gives one key twice keeps the last value.
 - Arguments, operands and fields are worked out left to right.
 - `-0.0` as text is `-0`.
+- Graphemes (for `len()` and the people's column) follow Unicode 18.0.0 (uuseg/uucp 18.0.0), until D130's
+  "which Unicode version each std date follows" is decided.
 - An item or entry (`$xs[pos: 1]`, `$m[key: $k]`) may stand in a join like a field, as D138's example does.
 - A literal `Status.ok[]` builds a case with no data; `Status.ok` alone isn't a value.
 - A value stored where it can change (`let mut`, `change`, `add`) is copied, so nothing frozen changes through it.

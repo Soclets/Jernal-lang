@@ -1,7 +1,7 @@
 """Rule 13: a bad program never crashes the oracle.
 
 Runs JernOrac on every test program changed in small ways (cut short after each line, each line
-removed, repeated or swapped with the next, each word removed or shortened) and reports any CompilerBug (exit 118). Runs 3 at a time
+removed, repeated or swapped with the next, each word removed or shortened, and random tokens put in) and reports any CompilerBug (exit 118). Runs 3 at a time
 (rule 11). Usage, from the repository root:
 
     python3 -I oracle/tools/robustness.py <scratch folder>
@@ -35,6 +35,21 @@ for path in sorted(glob.glob(tests + "/*.jern")):
             if len(w) > 1:
                 shorter = " ".join(words[:j] + [w[:-1]] + words[j + 1:])
                 variants.append((path, "\n".join(lines[:i] + [shorter] + lines[i + 1:])))
+
+# Random tokens inserted at word boundaries, with a fixed seed so any finding can be repeated.
+import random
+random.seed(13)
+tokens = [":", "(", ")", "[", "]", "<", ">", "$", '"', "end", "fn", "if", "?", "??", "otherwise", "give", "copy",
+          ".", ",", "=", "~", "match", "case", "for", "while", "struct", "-", "x", "div", "as", "my::", "*", "\\"]
+originals = sorted(glob.glob(tests + "/*.jern"))
+for _ in range(20000):
+    path = random.choice(originals)
+    lines = open(path, encoding="utf-8", errors="replace").read().split("\n")
+    i = random.randrange(len(lines))
+    words = lines[i].split(" ")
+    j = random.randrange(len(words) + 1)
+    words.insert(j, random.choice(tokens))
+    variants.append((path, "\n".join(lines[:i] + [" ".join(words)] + lines[i + 1:])))
 
 def run(k):
     path, text = variants[k]
