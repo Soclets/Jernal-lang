@@ -539,6 +539,13 @@ let parameter_gives context (p : string) (operator : string) =
 (* Whether [t] meets a requirement: Any, a type set it's in, or an interface it satisfies (D105). *)
 let rec meets context (t : Types.t) (requirement : string) =
   requirement = "Any"
+  || (match t with
+      | Types.Parameter p ->
+          (* inside a generic body, a type parameter meets what its own requirements promise (D103) *)
+          List.exists
+            (fun (r : name) -> r.text = requirement || includes context r.text requirement)
+            (Option.value (List.assoc_opt p context.type_parameters) ~default:[])
+      | _ -> false)
   || (match Hashtbl.find_opt context.type_sets requirement with
       | Some members -> List.exists (fun m -> try Types.same (resolve_type context m) t with Skip -> false) members
       | None -> false)

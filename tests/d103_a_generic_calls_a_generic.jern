@@ -1,0 +1,22 @@
+interface Ordered<?Self>:
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+Int satisfies Ordered
+
+fn largest<?Item: Ordered>[$a: ?Item, $b: ?Item] -> ?Item:
+    if $a > $b:
+        return $a
+    end if
+    return $b
+end fn largest
+
+fn largest_of_three<?Item: Ordered>[$a: ?Item, $b: ?Item, $c: ?Item] -> ?Item:
+    let $first: ?Item = largest($a, $b)
+    return largest($first, $c)
+end fn largest_of_three
+
+fn.main[]:
+    let $big: Int = largest_of_three(4, 9, 2)
+    println($big as String)
+end fn.main
