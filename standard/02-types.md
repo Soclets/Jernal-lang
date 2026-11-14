@@ -69,6 +69,9 @@ A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals n
 ## 2.2 Strings
 
 A string is written in double quotes. Inside a string, `$` is just a character, so `"Price: $5"` needs no escape (D20).
+`\` is always special: `\"` is a quote and `\\` is a backslash, and any other `\` followed by a character is refused
+(D95). Plain strings hold no layout characters, such as a newline or a tab; those come with the formatting tool. Several
+lines means several `println`s, since `println` ends its line.
 Strings are joined by writing them side by side (chapter 4). `String.utf8` is the spelled-out form of `String` (D64).
 
 ## 2.3 Lists and maps

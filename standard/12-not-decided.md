@@ -6,9 +6,8 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 - **`Bool`:** its name and its values (`true`, `false`).
 - **Comments:** `//` is used in every example, but isn't decided.
-- **String escapes**, such as a newline or a quote inside a string.
 - **Text:** what a `Bool`, a `Float` or a struct looks like as text, and the formatting tool for things like decimal
-  places (D21).
+  places, newlines and tabs (D21, D95).
 - **Tagged unions, enums and `match`.**
 - **Generics and interfaces:** how user code declares them.
 - **`pub`:** what a package or file shows, on functions, families, their members and struct fields.

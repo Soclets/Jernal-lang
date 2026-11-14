@@ -1573,3 +1573,18 @@ fucking int?", "where the uck is u8000000", suggested gating odd widths ("`let x
 it fails, and can be handled, in `Interp`, `Working`, `FinalSafe` and `FinalPerf` alike (D71). In `UB++`, where anything
 wrong is undefined behaviour (D70), a remainder is undefined behaviour too. Settles D85's open question. Claude proposed
 the same behaviour in every mode; the owner said: "Nope, because `UB++`". (Owner, 2026-11-14)
+
+**D95. Strings escape only `\"` and `\\`, and hold no layout characters.** Inside a string, `\` is always special: `\"`
+is a quote and `\\` is a backslash, and any other `\` followed by a character is refused. There are no layout
+characters in plain strings, such as a newline or a tab: they come with the formatting tool, which isn't designed yet
+(D21). `println` already ends its line, so several lines means several `println`s.
+
+```
+println("She said \"hi\"")
+println("C:\\Users\\tankun")
+println("a\nb")                       // refused: layout comes with the formatting tool
+```
+
+The owner said "So, `\"` escapes a char, while `\n` adds format? Diabolical" and "We don't have a fucking format print
+yet, why are you putting format into a non format print, my ass", asked "What is `\\` for?", turned down a backslash
+that's only special before `"` ("Fuck no"), and chose: "A". (Owner, 2026-11-14)
