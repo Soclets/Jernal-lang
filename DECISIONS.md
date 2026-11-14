@@ -1741,3 +1741,19 @@ let $p: Pair<left.type: Int, right.type: String> = Pair[first = 1, second = "a"]
 Not decided yet: interfaces and how a type fits one, value parameters, and naming a type at a call. This is Cyborg's
 (its D85, D89, D234, D239, D241), as Cyborg's design session described on 2026-11-14, with capitalized names. Claude
 proposed it; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D104. No laws in interfaces, for now.** An interface lists operations only. What a type promises beyond them, such as
+an order being transitive, goes in `///` documentation (D96). Laws can be added later, once there's a test tool or a
+prover quill to check them; adding them won't change existing code.
+
+```
+/// Must be a total order: if a < b and b < c, then a < c.
+interface Ordered<?Self>:
+    includes Equatable
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+```
+
+Cyborg's interfaces have laws (its D235). The owner asked "The fuck is proving laws?", "So, it's a runtime check?",
+"Wait, why isn't it a runtime check?" and "Should we even have laws?"; Claude recommended none in v1; the owner chose:
+"yea". (Owner, 2026-11-14)
