@@ -949,3 +949,14 @@ advised writing this list first. Claude proposed it; the owner chose: "yea". (Ow
 
 **D54. `Int` is `i64`.** Settles D25's open question: `Int` is a 64-bit signed integer. It never wraps: going past its
 range is a check (D53). The owner said: "(`Int` is `i64`)". (Owner, 2026-11-14)
+
+**D55. `?? ignore` drops a failure on purpose.** Settles D48's open question. After a call whose failure doesn't
+matter, `?? ignore` drops it, so searching for `ignore` finds every failure dropped on purpose. A call with a result uses
+`??` with a value instead (D48).
+
+```
+save_backup($data) ?? ignore
+```
+
+Cyborg writes `?? void`, but Jernal has no `void` word (D26). Claude proposed `?? ignore`; the owner chose: "yea".
+(Owner, 2026-11-14)
