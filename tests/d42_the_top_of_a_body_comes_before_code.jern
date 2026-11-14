@@ -1,0 +1,9 @@
+fn f[$a: Int] -> Int:
+    println("code first")
+    requires $a at_least 1
+    return $a
+end fn f
+
+fn.main[]:
+    println(f(1) as String)
+end fn.main

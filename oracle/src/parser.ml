@@ -907,6 +907,10 @@ and parse_statement_line state : statement =
         else []
       in
       finish (Fail { failure; fields })
+  | Word (("labels" | "defaults" | "requires" | "ensures") as word) ->
+      (* trace: D42 *)
+      fail_line ~what:(Printf.sprintf "`%s` goes at the top of a body, before any code" word) start.span
+        "the top of a body says `labels`, `defaults`, `requires` and `ensures`, before any code (D42, standard 5.3)"
   | Word "if" -> parse_if state
   | Word "while" -> parse_while state
   | Word "for" -> parse_for state
@@ -1484,6 +1488,14 @@ let check_built_in_type_name state ~my (n : name) =
 let parse_struct state : declaration_kind =
   let start = expect_word state "struct" in
   let struct_narrowings = dotted_words state in
+  (* trace: D51, D56 — a struct's narrowings are its properties; `must_give` is the one decided *)
+  List.iter
+    (fun (n : name) ->
+      if n.text <> "must_give" then
+        report state
+          (error_diagnostic ~what:(Printf.sprintf "`struct.%s` isn't a property a struct can have" n.text) n.span
+             "properties of a type are narrowings on `struct` (D56, standard 2.4)"))
+    struct_narrowings;
   let struct_my = if is_word state "my" && (peek_at state 1).kind = Double_colon then (ignore (advance state); ignore (advance state); true) else false in
   let struct_name = expect_name state "the struct's name" in
   check_built_in_type_name state ~my:struct_my struct_name;
