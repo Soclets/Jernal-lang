@@ -1972,3 +1972,16 @@ isn't expected, tbh", asked "How does CyborgPL handle its store prints?" and "Is
 `100000000000000000000000`, until exponent literals are designed, since printed text is a valid literal (D119). A
 float literal outside its type's range, such as `let $x: f16 = 70000.0`, is a `CompileTimeError`, as an integer literal
 that doesn't fit is (D84). Claude proposed all three; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D121. The command line finds the package by its manifest, and `--` passes arguments.** `jern` works on the package
+whose `Journey.siml` is in the current folder, or the nearest one above it; every `.jern` file in that package is part
+of it, and no file or package is named on the command line. Everything after `--` goes to the program's `args()`
+(D108) untouched. `jern comp --Interp` is refused, with `fix: jern run --Interp`, since `Interp` never compiles.
+
+```
+jern run --Working -- Tankun
+jern run --Interp -- Tankun
+jern comp --FinalSafe
+```
+
+Settles D74's open question. Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)

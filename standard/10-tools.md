@@ -18,7 +18,13 @@ jern run --FinalSafe        // compiles, then runs
 jern run --Interp           // runs on the oracle
 ```
 
-Every command names its build mode; there is no default (D72).
+Every command names its build mode; there is no default (D72). `jern` works on the package whose `Journey.siml` is in
+the current folder or the nearest one above it, and no file is named (D121). Everything after `--` goes to the
+program's `args()`. `jern comp --Interp` is refused, with `fix: jern run --Interp`.
+
+```
+jern run --Working -- Tankun
+```
 
 ## 10.2 The oracle
 
