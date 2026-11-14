@@ -2088,7 +2088,7 @@ so each `need std <date>` (D128) fixes the Unicode version std follows. Methods 
 
 ```
 $xs.length()                     // 3
-$s.length.bytes()                // "héllo👋🏽": 12
+$s.length.bytes()                // "héllo👋🏽": 14 (corrected from 12)
 $s.length.code_points()          // 7
 $s.length.graphemes()            // 6
 $s.length()                      // refused: say which

@@ -101,7 +101,7 @@ $s.len.graphemes() -> Int         // a String: its grapheme clusters
 ```
 
 A string's bare `len()` counts graphemes, what a person sees as characters (D131); the narrowings give bytes, which
-is also fast, and code points (D130). For `"héllo👋🏽"`, bytes, code points and graphemes are 12, 7 and 6. Which code
+is also fast, and code points (D130). For `"héllo👋🏽"`, bytes, code points and graphemes are 14, 7 and 6. Which code
 points form one grapheme follows the Unicode version that the `need std <date>` fixes; which version each date means
 isn't decided yet.
 
