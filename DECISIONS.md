@@ -1783,3 +1783,30 @@ fn smallest<?Item: Whole and Ordered>[$xs: List<?Item>] -> ?Item:
 
 This is Cyborg's (its D87, D235 to D237, D240), as Cyborg's design session described on 2026-11-14, without laws
 (D104). Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D106. `pub`: always say how far.** A declaration without `pub` is seen only in its own file. `pub.pkg` shows it to its
+package, and `pub.all` to everyone. A bare `pub` is refused, listing both, since there's a real choice and no hidden
+default; searching for `pub.all` lists a package's whole public API. `pub.…` goes in front of the whole declaration;
+`fn.pub` is refused, since visibility isn't what kind of function it is. Fields and family members each take their own
+`pub.pkg` or `pub.all`. Closers don't repeat it.
+
+```
+fn helper[...]:                     // this file only
+pub.pkg fn parse[...]:              // the package
+pub.all fn get[...]:                // everyone
+pub fn get[...]:                    // refused: say pub.pkg or pub.all
+
+pub.all struct Reading:
+    pub.all celsius: Int
+    place: String
+end struct Reading
+```
+
+- Using something that isn't visible is a `CompileTimeError` with `what:` and `why:` but no `fix:`, since making it
+  visible is the other author's choice.
+- A `pub.…` signature that mentions a less visible type is refused at the declaration.
+- `pub.…` on `fn.main` is refused, with `fix: fn.main`, since nothing calls it.
+
+Cyborg's levels (its D200, D413) are bare, `pub.pkg` and `pub`, and much of the rest is open there, as Cyborg's design
+session described on 2026-11-14. The owner asked "Is `pub` vis to every is a sensible defau?", then "or just say it? I
+mean, it's three letters", and chose: "yea". (Owner, 2026-11-14)

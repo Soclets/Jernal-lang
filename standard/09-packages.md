@@ -37,6 +37,26 @@ fn.main[]:
 end fn.main
 ```
 
+## 9.2a `pub`
+
+A declaration without `pub` is seen only in its own file. `pub.pkg` shows it to its package, and `pub.all` to everyone;
+a bare `pub` is refused (D106). `pub.…` goes in front of the whole declaration, and closers don't repeat it. Fields and
+family members each take their own.
+
+```
+fn helper[...]:                     // this file only
+pub.pkg fn parse[...]:              // the package
+pub.all fn get[...]:                // everyone
+
+pub.all struct Reading:
+    pub.all celsius: Int
+    place: String
+end struct Reading
+```
+
+Using something that isn't visible is refused with no `fix:`, since making it visible is the other author's choice. A
+`pub.…` signature that mentions a less visible type is refused. `pub.…` on `fn.main` is refused.
+
 ## 9.3 `use`
 
 `use path as name` gives something a short name in that file (D60). The path is written short. One name per `use`, with
