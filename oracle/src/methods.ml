@@ -137,10 +137,8 @@ let map_get span = function
       match find_key m key with
       | Some i -> snd (Dynarray.get m.entries i)
       | None ->
-          raise
-            (C.Runtime_stop
-               (Diagnostic.make ~span ~what:"the name of the failure `get` raises isn't decided yet"
-                  Diagnostic.Not_designed_yet "not decided yet (D138, standard 12.1)")))
+          (* the failure's name isn't decided yet (D138): it can be handled, but not named *)
+          raise (C.Failure_raised ({ C.failure_name = ""; failure_fields = [] }, span)))
   | _ -> Value.Nothing
 
 let map_contains _span = function

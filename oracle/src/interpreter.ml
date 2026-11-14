@@ -144,6 +144,9 @@ let rec evaluate context (e : C.expression) : Value.t =
           | _ -> ""
         in
         flush stdout;
+        if failure.failure_name = "" then
+          runtime_not_designed ~what:(Printf.sprintf "the name of the failure `%s` raises isn't decided yet" name) e.span
+            "not decided yet (D138, standard 12.1)";
         runtime_error
           ~what:(Printf.sprintf "`%s` failed with `%s`, and nothing handled it" name failure.failure_name)
           e.span "a failure nobody handles crashes (D48, standard 6.3)")
