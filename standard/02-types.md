@@ -52,9 +52,11 @@ A float becomes text as its shortest digits that read back exactly, with `~` in 
 so the text is a valid literal for the same float; `as.stored String` gives every stored digit (D119).
 
 ```
-println(~0.1 as String)              // ~0.1
-println(0.5 as String)               // 0.5
-println(~0.1 as.stored String)       // 0.1000000000000000055511151231257827021181583404541015625
+let $a: Float = 0.5
+let $b: Float = ~0.1
+println($a as String)                // 0.5
+println($b as String)                // ~0.1
+println($b as.stored String)         // 0.1000000000000000055511151231257827021181583404541015625
 ```
 
 Converting between number types uses `as` (D91):
