@@ -1,0 +1,6 @@
+// The oracle's tests: each .jern file is its own program (D122).
+name tests
+ver 2026y-11m-14d not_broken
+kind tests
+
+need std 2026y-11m-14d

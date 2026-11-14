@@ -1,0 +1,1361 @@
+(* Checks a package and turns it into a checked program (standard chapters 2 to 7).
+
+   Every error is collected, not just the first (D10, D13). A statement with an error is skipped
+   and checking carries on; a skipped `let` or `decl` still creates its variable, with the type
+   it wrote. Whatever is broken counts as unknown, and an error that only happens because
+   something is unknown isn't shown. *)
+
+open Syntax
+module C = Checked
+
+(* ---------- What the checker knows ---------- *)
+
+type variable_info = {
+  variable : C.variable;
+  variable_type : Types.t;
+  is_mutable : bool;
+  mutable assigned : bool;          (* a `decl` gets its value later (D34) *)
+  mutable given : bool;             (* retired by `give` (D7) *)
+  is_loop_variable : bool;
+  declared_at : Span.t;
+}
+
+type function_info = {
+  function_id : int;
+  declaration : function_declaration;
+  full_name : string;
+  file : string;
+  mutable parameter_types : Types.t list;
+  mutable result_type : Types.t;
+}
+
+type struct_info = {
+  struct_declaration : struct_declaration;
+  mutable resolved_fields : (string * Types.t * expression option) list;
+  struct_file : string;
+}
+
+type union_info = {
+  union_declaration : union_declaration;
+  mutable resolved_cases : (string * (string * Types.t) list) list;
+}
+
+type context = {
+  mutable diagnostics : Diagnostic.t list;
+  functions : (string, function_info) Hashtbl.t;     (* by full name *)
+  structs : (string, struct_info) Hashtbl.t;
+  unions : (string, union_info) Hashtbl.t;
+  aliases : (string, Types.t) Hashtbl.t;
+  new_types : (string, Types.t) Hashtbl.t;
+  std_visible : bool;
+  mutable next_id : int;
+  checked : (int, C.function_) Hashtbl.t;
+}
+
+type function_context = {
+  context : context;
+  info : function_info;
+  mutable scopes : (string, variable_info) Hashtbl.t list;
+  mutable loops : (string option * int) list;
+}
+
+exception Skip   (* the statement has an error that was already reported *)
+
+let fresh_id context =
+  context.next_id <- context.next_id + 1;
+  context.next_id
+
+let report context d = context.diagnostics <- d :: context.diagnostics
+
+let error context ?what ?fix ?when_ span why =
+  report context (Diagnostic.make ~span ?what ?fix ?when_ Diagnostic.Compile_time_error why)
+
+let refuse context ?what ?fix ?when_ span why =
+  error context ?what ?fix ?when_ span why;
+  raise Skip
+
+let not_built context ~what span why =
+  report context (Diagnostic.make ~span ~what Diagnostic.Not_built_yet why);
+  raise Skip
+
+let not_designed context ~what span why =
+  report context (Diagnostic.make ~span ~what Diagnostic.Not_designed_yet why);
+  raise Skip
+
+let quote text = "`" ^ text ^ "`"
+let type_text t = quote (Types.name t)
+
+(* ---------- Types ---------- *)
+
+let sized_integer word =
+  let n = String.length word in
+  if n >= 2 && (word.[0] = 'i' || word.[0] = 'u')
+     && String.for_all (fun c -> c >= '0' && c <= '9') (String.sub word 1 (n - 1))
+     && word.[1] <> '0'
+  then Some { Types.signed = word.[0] = 'i'; width = int_of_string (String.sub word 1 (n - 1)) }
+  else None
+
+let is_power_of_two n = n > 0 && n land (n - 1) = 0
+
+let rec resolve_type context (t : type_expression) : Types.t =
+  match t.type_kind with
+  | Parameter_type p ->
+      not_built context ~what:(Printf.sprintf "the type parameter `?%s` isn't built in the oracle yet" p) t.type_span
+        "functions and types can take type parameters (D103, standard 5.8)"
+  | Named_type { details = _ :: _; _ } ->
+      not_built context ~what:"bounds on a type aren't built in the oracle yet" t.type_span
+        "a type's details go in `[ ]` after the type (D135, standard 2.3a)"
+  | Named_type { words; arguments; my; _ } -> (
+      let no_arguments result =
+        if arguments <> [] then
+          refuse context ~what:(Printf.sprintf "%s takes no types in `< >`" (quote (String.concat "." words))) t.type_span
+            "`< >` fills in a type's type parameters (D18, standard 1.4)"
+        else result
+      in
+      let one_argument make =
+        match arguments with
+        | [ { argument_label = None; argument_type } ] -> make (resolve_type context argument_type)
+        | _ ->
+            refuse context ~what:(Printf.sprintf "%s takes one type in `< >`, written bare" (quote (String.concat "." words)))
+              t.type_span "a type with one type parameter writes it bare (D102, D132, standard 2.3)"
+      in
+      match my, words with
+      | false, [ ("Int" | "i64") ] -> no_arguments Types.int
+      | false, [ "Float" ] | false, [ "f64" ] -> no_arguments (Types.Float Types.F64)
+      | false, [ "f32" ] -> no_arguments (Types.Float Types.F32)
+      | false, [ "f16" ] -> no_arguments (Types.Float Types.F16)
+      | false, [ "bf16" ] -> no_arguments (Types.Float Types.Bf16)
+      | false, [ "Decimal" ] ->
+          not_built context ~what:"`Decimal` isn't built in the oracle yet" t.type_span
+            "`Decimal` is IEEE 754 decimal128 (D82, D83, standard 2.1a)"
+      | false, [ "Rational" ] -> no_arguments Types.Rational
+      | false, [ "Bool" ] -> no_arguments Types.Bool
+      | false, ([ "String" ] | [ "String"; "utf8" ]) -> no_arguments Types.String
+      | false, [ "List" ] -> one_argument (fun item -> Types.List item)
+      | false, [ "Array" ] ->
+          not_built context ~what:"`Array` isn't built in the oracle yet" t.type_span
+            "an `Array` is a fixed-size list that lives inline (D135, standard 2.3a)"
+      | false, ("Map" :: rest) -> (
+          let kind =
+            match rest with
+            | [] | [ "insertion" ] -> Types.Map_insertion
+            | [ "sorted" ] -> Types.Map_sorted
+            | [ "hash" ] -> Types.Map_hash
+            | _ ->
+                refuse context ~what:(Printf.sprintf "%s isn't a kind of map" (quote (String.concat "." words)))
+                  t.type_span "maps come in kinds: `Map.hash`, `Map.sorted` and `Map.insertion` (D64, standard 2.3)"
+          in
+          match arguments with
+          | [ { argument_label = Some { text = "key"; _ }; argument_type = key };
+              { argument_label = Some { text = "val"; _ }; argument_type = value } ] ->
+              Types.Map (kind, resolve_type context key, resolve_type context value)
+          | _ ->
+              refuse context ~what:"a map's types are written `<key: ..., val: ...>`" t.type_span
+                "two or more type parameters are each labelled with their name (D102, D132, standard 2.3)")
+      | false, [ word ] when sized_integer word <> None ->
+          let integer = Option.get (sized_integer word) in
+          (* trace: D93 *)
+          if not (is_power_of_two integer.width) then
+            refuse context ~fix:(quote ("not_two_pow." ^ word)) t.type_span
+              "an integer width that isn't a power of two needs the `not_two_pow.` gate (D93, standard 2.1)"
+          else if integer.width > 8_388_607 then
+            refuse context ~what:(Printf.sprintf "%s is wider than 8,388,607 bits" (quote word)) t.type_span
+              "integers come in any width from 1 to 8,388,607 bits (D93, standard 2.1)"
+          else no_arguments (Types.Integer integer)
+      | false, [ "not_two_pow"; word ] when sized_integer word <> None ->
+          let integer = Option.get (sized_integer word) in
+          if is_power_of_two integer.width then
+            refuse context ~fix:(quote word) t.type_span
+              "only a width that isn't a power of two takes the `not_two_pow.` gate (D93, standard 2.1)"
+          else if integer.width > 8_388_607 then
+            refuse context ~what:(Printf.sprintf "%s is wider than 8,388,607 bits" (quote word)) t.type_span
+              "integers come in any width from 1 to 8,388,607 bits (D93, standard 2.1)"
+          else no_arguments (Types.Integer integer)
+      | _, [ word ] when Hashtbl.mem context.structs word -> no_arguments (Types.Struct word)
+      | _, [ word ] when Hashtbl.mem context.unions word -> no_arguments (Types.Union word)
+      | _, [ word ] when Hashtbl.mem context.aliases word -> no_arguments (Hashtbl.find context.aliases word)
+      | _, [ word ] when Hashtbl.mem context.new_types word ->
+          no_arguments (Types.New (word, Hashtbl.find context.new_types word))
+      | _ ->
+          refuse context ~what:(Printf.sprintf "there's no type called %s" (quote (String.concat "." words))) t.type_span
+            "a type is a built-in type or one the program declares (D56, standard 2)")
+
+(* What a type.new is made of (D61). *)
+let rec underlying = function Types.New (_, t) -> underlying t | t -> t
+
+(* ---------- Variables ---------- *)
+
+let find_variable fctx name =
+  let rec go = function
+    | [] -> None
+    | scope :: rest -> (match Hashtbl.find_opt scope name with Some v -> Some v | None -> go rest)
+  in
+  go fctx.scopes
+
+let push_scope fctx = fctx.scopes <- Hashtbl.create 8 :: fctx.scopes
+let pop_scope fctx = fctx.scopes <- List.tl fctx.scopes
+
+let in_scope fctx f =
+  push_scope fctx;
+  match f () with
+  | result -> pop_scope fctx; result
+  | exception e -> pop_scope fctx; raise e
+
+let add_variable fctx ?(is_loop_variable = false) ~(name : name) ~variable_type ~is_mutable ~assigned () =
+  let variable = { C.variable_id = fresh_id fctx.context; variable_name = name.text } in
+  let info =
+    { variable; variable_type; is_mutable; assigned; given = false; is_loop_variable; declared_at = name.span }
+  in
+  Hashtbl.replace (List.hd fctx.scopes) name.text info;
+  info
+
+(* ---------- Literals (D84) ---------- *)
+
+let integer_literal_value ~negative digits = let z = Z.of_string digits in if negative then Z.neg z else z
+
+let decimal_literal_value ~negative digits =
+  (* digits.digits as an exact fraction *)
+  let dot = String.index digits '.' in
+  let whole = String.sub digits 0 dot and fraction = String.sub digits (dot + 1) (String.length digits - dot - 1) in
+  let numerator = Z.of_string (whole ^ fraction) in
+  let denominator = Z.pow (Z.of_int 10) (String.length fraction) in
+  let q = Q.make numerator denominator in
+  if negative then Q.neg q else q
+
+(* The float nearest an exact fraction, rounding to nearest, ties to even. *)
+let float_of_rational (q : Q.t) : float = Q.to_float q
+
+let float_exactly (q : Q.t) : bool =
+  let f = float_of_rational q in
+  Float.is_finite f && Q.equal (Q.of_float f) q
+
+(* ---------- Expressions ---------- *)
+
+let constant ?(span = Span.none) value type_ = { C.kind = C.Constant value; type_; span }
+
+let literal_text = function
+  | Syntax.Integer_literal { digits; negative; tilde } | Syntax.Decimal_literal { digits; negative; tilde } ->
+      (if tilde then "~" else "") ^ (if negative then "-" else "") ^ digits
+  | _ -> ""
+
+let is_literal (e : expression) =
+  match e.expression_kind with Syntax.Integer_literal _ | Syntax.Decimal_literal _ -> true | _ -> false
+
+let tilde_why = "a number literal its type can't hold exactly is written with `~`, and one it can is written without (D84, standard 2.1a)"
+
+let rec check_number_literal fctx ~(expected : Types.t option) (e : expression) : C.expression =
+  let context = fctx.context in
+  let span = e.expression_span in
+  let text = literal_text e.expression_kind in
+  match e.expression_kind, Option.map underlying expected with
+  | Syntax.Integer_literal { digits; negative; tilde }, (None | Some (Types.Integer _ | Types.Unknown)) ->
+      let integer_type = match expected with Some t -> (match underlying t with Types.Integer i -> i | _ -> { signed = true; width = 64 }) | None -> { signed = true; width = 64 } in
+      let value = integer_literal_value ~negative digits in
+      if tilde then
+        refuse context ~fix:(quote (if negative then "-" ^ digits else digits)) span tilde_why;
+      if not (Types.integer_fits integer_type value) then
+        refuse context
+          ~what:(Printf.sprintf "%s doesn't fit in %s" (quote text) (type_text (Types.Integer integer_type)))
+          ~when_:(Printf.sprintf "%s holds %s to %s" (type_text (Types.Integer integer_type))
+                    (Z.to_string (Types.integer_minimum integer_type)) (Z.to_string (Types.integer_maximum integer_type)))
+          span "an integer literal that doesn't fit its type is refused (D84, standard 2.1a)";
+      let type_ = match expected with Some (Types.New _ as t) -> t | _ -> Types.Integer integer_type in
+      constant ~span (Value.integer_of_z integer_type value) type_
+  | (Syntax.Integer_literal { digits; negative; tilde } | Syntax.Decimal_literal { digits; negative; tilde }),
+    Some (Types.Float kind) ->
+      let q =
+        match e.expression_kind with
+        | Syntax.Integer_literal _ -> Q.of_bigint (integer_literal_value ~negative digits)
+        | _ -> decimal_literal_value ~negative digits
+      in
+      if kind <> Types.F64 then
+        not_built context ~what:(Printf.sprintf "%s isn't built in the oracle yet" (quote (Types.float_name kind))) span
+          "floats are `f16`, `bf16`, `f32` and `f64` (D93, standard 2.1a)";
+      let f = float_of_rational q in
+      (* trace: D120 *)
+      if not (Float.is_finite f) then
+        refuse context ~what:(Printf.sprintf "%s is outside the range of %s" (quote text) (type_text (Types.Float kind)))
+          span "a float literal outside its type's range is refused (D120, standard 2.1a)";
+      let exact = float_exactly q in
+      (* trace: D84 *)
+      if exact && tilde then refuse context ~fix:(quote (if negative then "-" ^ digits else digits)) span tilde_why;
+      if (not exact) && not tilde then refuse context ~fix:(quote ("~" ^ (if negative then "-" else "") ^ digits)) span tilde_why;
+      constant ~span (Value.Float (f, kind)) (Option.get expected)
+  | (Syntax.Integer_literal { digits; negative; tilde } | Syntax.Decimal_literal { digits; negative; tilde }),
+    Some Types.Rational ->
+      let q =
+        match e.expression_kind with
+        | Syntax.Integer_literal _ -> Q.of_bigint (integer_literal_value ~negative digits)
+        | _ -> decimal_literal_value ~negative digits
+      in
+      if tilde then refuse context ~fix:(quote ((if negative then "-" else "") ^ digits)) span tilde_why;
+      constant ~span (Value.Rational q) Types.Rational
+  | Syntax.Decimal_literal _, None ->
+      refuse context ~what:(Printf.sprintf "%s needs a type to land in" (quote text)) span
+        "a number literal takes the type of where it lands (D84, standard 2.1a)"
+  | _, Some t ->
+      refuse context ~what:(Printf.sprintf "%s is a number, and %s is expected here" (quote text) (type_text t)) span
+        "a value has the type its place expects (D56, standard 2)"
+  | _, None -> raise Skip
+
+and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expression =
+  let context = fctx.context in
+  let span = e.expression_span in
+  let result =
+    match e.expression_kind with
+    | Syntax.Integer_literal _ | Syntax.Decimal_literal _ -> check_number_literal fctx ~expected e
+    | Syntax.String_literal s -> constant ~span (Value.String s) Types.String
+    | Syntax.Bool_literal b -> constant ~span (Value.Bool b) Types.Bool
+    | Syntax.Variable name -> (
+        match find_variable fctx name with
+        | None ->
+            refuse context ~what:(Printf.sprintf "there's no variable called `$%s` here" name) span
+              "every new name says how it's made (D5, D34, standard 3.1)"
+        | Some info ->
+            (* trace: D7 *)
+            if info.given then
+              refuse context ~what:(Printf.sprintf "`$%s` was given away, so it can't be used here" name) span
+                "`give` retires the name it gives (D7, standard 3.6)";
+            (* trace: D34 *)
+            if not info.assigned then
+              refuse context
+                ~what:(Printf.sprintf "`$%s` has no value yet on every path to here" name) span
+                "a `decl` is read only after `assign` on every path (D34, standard 3.3)";
+            { C.kind = C.Read info.variable; type_ = info.variable_type; span })
+    | Syntax.Grouped inner -> check_expression fctx ~expected inner
+    | Syntax.Join items -> check_join fctx e items
+    | Syntax.Convert { value; narrowings; target } -> check_convert fctx e value narrowings target
+    | Syntax.Binary { operator; left; right } -> check_binary fctx ~expected e operator left right
+    | Syntax.Not inner ->
+        let inner = check_expression fctx ~expected:(Some Types.Bool) inner in
+        expect_type context Types.Bool inner;
+        { C.kind = C.Not inner; type_ = Types.Bool; span }
+    | Syntax.Negate inner ->
+        let inner = check_expression fctx ~expected inner in
+        if not (Types.is_number (underlying inner.type_)) && inner.type_ <> Types.Unknown then
+          refuse context ~what:(Printf.sprintf "`-` needs a number, and this is %s" (type_text inner.type_)) span
+            "unary `-` works on numbers (D90, standard 2.1a)";
+        { C.kind = C.Negate inner; type_ = inner.type_; span }
+    | Syntax.Call { callee; arguments } -> check_call fctx ~expected e callee arguments
+    | Syntax.Name { word; _ } ->
+        refuse context ~what:(Printf.sprintf "`%s` names a function or type, not a value; a call takes `( )`" word) span
+          "`( )` runs something (D15, standard 1.4)"
+    | Syntax.List_literal items -> check_list_literal fctx ~expected e items
+    | Syntax.Map_literal entries -> check_map_literal fctx ~expected e entries
+    | Syntax.Range { from; ending; step_by } ->
+        let check_int x = let c = check_expression fctx ~expected:(Some Types.int) x in expect_type context Types.int c; c in
+        let from = check_int from in
+        let inclusive, ending = match ending with To x -> (true, check_int x) | Before x -> (false, check_int x) in
+        let step_by = Option.map check_int step_by in
+        { C.kind = C.Range { from; ending; inclusive; step_by }; type_ = Types.Range; span }
+    | Syntax.Index { target; counting; position } ->
+        let target = check_expression fctx ~expected:None target in
+        let position = check_expression fctx ~expected:(Some Types.int) position in
+        expect_type context Types.int position;
+        let item_type =
+          match underlying target.type_ with
+          | Types.List item -> item
+          | Types.Unknown -> Types.Unknown
+          | t ->
+              refuse context ~what:(Printf.sprintf "%s can't be indexed" (type_text t)) span
+                "indexing works on lists (D17, standard 4.4)"
+        in
+        { C.kind = C.Index { target; counting; position }; type_ = item_type; span }
+    | Syntax.Bare_index _ ->
+        (* trace: D17 *)
+        refuse context ~what:"an index says how it counts: `pos:` from 1, or `offset:` from 0" span
+          "an index always says how it counts (D17, standard 4.4)"
+    | Syntax.Member (target, field) -> check_member fctx e target field
+    | Syntax.Build { built; fields } -> check_build fctx e built fields
+    | Syntax.Copy inner ->
+        let inner = check_expression fctx ~expected inner in
+        { C.kind = C.Copy inner; type_ = inner.type_; span }
+    | Syntax.Give inner -> (
+        let checked = check_expression fctx ~expected inner in
+        match inner.expression_kind with
+        | Syntax.Variable name ->
+            let info = Option.get (find_variable fctx name) in
+            if not info.is_mutable then
+              () (* giving a frozen value is allowed and changes nothing *);
+            info.given <- true;
+            checked
+        | _ ->
+            refuse context ~what:"`give` hands off a whole variable, such as `give $list`" span
+              "`give $a` moves it to the new name and retires `$a` (D7, standard 3.6)")
+    | Syntax.Fallback { value; instead } ->
+        let value = check_expression fctx ~expected value in
+        require_can_fail context value;
+        let instead = check_expression fctx ~expected:(Some value.type_) instead in
+        expect_type context value.type_ instead;
+        { C.kind = C.Fallback { value; instead }; type_ = value.type_; span }
+    | Syntax.Ignore value ->
+        let value = check_expression fctx ~expected:None value in
+        require_can_fail context value;
+        { C.kind = C.Ignore value; type_ = Types.Nothing; span }
+    | Syntax.Pass_up _ | Syntax.Otherwise _ ->
+        not_built context ~what:"this way of handling a failure isn't built in the oracle yet" span
+          "a caller has these tools to handle a failure (D48, D55, standard 6.3)"
+    | Syntax.Narrowed_member _ ->
+        not_built context ~what:"this isn't built in the oracle yet" span "handlers that jump are marked `*` (D100, standard 6.4)"
+  in
+  result
+
+and require_can_fail context (value : C.expression) =
+  let fails =
+    match value.kind with
+    | C.Call_builtin { builtin; _ } -> (
+        match Std_library.find builtin.builtin_name with Some s -> s.fails <> [] | None -> false)
+    | C.Call_function _ -> true
+    | _ -> false
+  in
+  if not fails && value.type_ <> Types.Unknown then
+    refuse context ~what:"nothing here can fail, so there's nothing to handle" value.span
+      "a caller handles the failures a call can raise (D48, standard 6.3)"
+
+and expect_type context (expected : Types.t) (actual : C.expression) =
+  if not (Types.same expected actual.type_) then
+    refuse context
+      ~what:(Printf.sprintf "this is %s, and %s is expected here" (type_text actual.type_) (type_text expected))
+      actual.span "a value has the type its place expects (D56, standard 2)"
+
+(* A join holds only strings, variables, fields and `as` (D20, D23). *)
+and check_join fctx (e : expression) items =
+  let context = fctx.context in
+  let checked =
+    List.map
+      (fun (item : expression) ->
+        let rec allowed (x : expression) =
+          match x.expression_kind with
+          | Syntax.String_literal _ | Syntax.Variable _ -> true
+          | Syntax.Member (inner, _) -> allowed inner
+          | Syntax.Convert { value; _ } -> allowed value
+          | _ -> false
+        in
+        if not (allowed item) then
+          refuse context ~what:"a join holds only strings, variables, fields and `as`; a value worked out here needs a named step first"
+            item.expression_span "values side by side are joined, and a join holds only plain values (D20, D23, standard 4.3)";
+        let c = check_expression fctx ~expected:(Some Types.String) item in
+        if c.type_ <> Types.String && c.type_ <> Types.Unknown then begin
+          (* trace: D21 *)
+          let source = Option.value (Diagnostic.source_line item.expression_span.file item.expression_span.line) ~default:"" in
+          let text =
+            if item.expression_span.end_line = item.expression_span.line then
+              String.sub source (item.expression_span.column - 1) (item.expression_span.end_column - item.expression_span.column)
+            else ""
+          in
+          refuse context ~fix:(quote (text ^ " as String")) item.expression_span
+            "anything that isn't a `String` is converted explicitly with `as String` (D21, standard 4.3)"
+        end;
+        c)
+      items
+  in
+  { C.kind = C.Join checked; type_ = Types.String; span = e.expression_span }
+
+and check_convert fctx (e : expression) value narrowings target =
+  let context = fctx.context in
+  let target_type = resolve_type context target in
+  let value = check_expression fctx ~expected:None value in
+  let narrowing_words = List.map (fun n -> n.text) narrowings in
+  let span = e.expression_span in
+  let from = underlying value.type_ in
+  (match underlying target_type, from, narrowing_words with
+   | _, Types.Unknown, _ -> ()
+   | Types.String, (Types.Integer _ | Types.Bool | Types.String), [] -> ()
+   | Types.String, Types.Float Types.F64, ([] | [ "stored" ]) -> ()
+   | Types.String, (Types.Struct _ | Types.Union _), _ ->
+       not_designed context ~what:"what a struct looks like as text isn't decided yet" span
+         "not decided yet (D120, standard 12.1)"
+   | Types.String, (Types.Rational | Types.Decimal | Types.List _ | Types.Map _), _ ->
+       not_designed context ~what:(Printf.sprintf "what %s looks like as text isn't decided yet" (type_text from)) span
+         "not decided yet (D120, standard 12.1)"
+   | _ ->
+       not_built context
+         ~what:(Printf.sprintf "converting %s to %s isn't built in the oracle yet" (type_text value.type_) (type_text target_type))
+         span "converting between number types uses `as` (D91, standard 2.1a)");
+  { C.kind = C.Convert { value; narrowings = narrowing_words; target = target_type }; type_ = target_type; span }
+
+and check_binary fctx ~expected (e : expression) (operator : operator) left right =
+  let context = fctx.context in
+  let span = e.expression_span in
+  let is_join (x : expression) = match x.expression_kind with Syntax.Join _ -> true | _ -> false in
+  if (is_join left || is_join right) && operator.word <> "==" && operator.word <> "!=" then
+    refuse context
+      ~what:(Printf.sprintf "%s can't be used inside a join; the value it works out needs a named step first" (quote operator.word))
+      operator.operator_span "a join holds only strings, variables, fields and `as` (D23, standard 4.3)";
+  (* A literal takes the type of the other side. *)
+  let check_pair expected_for_both =
+    if is_literal left && not (is_literal right) then
+      let r = check_expression fctx ~expected:expected_for_both right in
+      let l = check_expression fctx ~expected:(Some r.type_) left in
+      (l, r)
+    else
+      let l = check_expression fctx ~expected:expected_for_both left in
+      let r = check_expression fctx ~expected:(Some l.type_) right in
+      (l, r)
+  in
+  let operator_text = String.concat "." (operator.word :: operator.narrowings) in
+  match operator.word with
+  | "and" | "or" ->
+      let both =
+        match operator.narrowings with
+        | [] -> false
+        | [ "both" ] -> true
+        | _ -> refuse context ~what:(Printf.sprintf "%s isn't a kind of %s" (quote operator_text) (quote operator.word))
+                 operator.operator_span "`and.both` and `or.both` always run both sides (D28, standard 4.2)"
+      in
+      let l = check_expression fctx ~expected:(Some Types.Bool) left in
+      let r = check_expression fctx ~expected:(Some Types.Bool) right in
+      expect_type context Types.Bool l;
+      expect_type context Types.Bool r;
+      { C.kind = C.Logic { operator = operator.word; both; left = l; right = r }; type_ = Types.Bool; span }
+  | "==" | "!=" | "<" | ">" | "at_least" | "at_most" ->
+      let l, r = check_pair None in
+      if not (Types.same l.type_ r.type_) then
+        refuse context
+          ~what:(Printf.sprintf "%s compares %s with %s" (quote operator_text) (type_text l.type_) (type_text r.type_))
+          operator.operator_span "both sides of a comparison have the same type (D27, D61, standard 4.1)";
+      let ordered = operator.word <> "==" && operator.word <> "!=" in
+      (match underlying l.type_ with
+       | Types.Integer _ | Types.Float _ | Types.Rational | Types.Unknown -> ()
+       | Types.String | Types.Bool when not ordered -> ()
+       | Types.Struct _ | Types.Union _ | Types.List _ | Types.Map _ when not ordered ->
+           not_built context ~what:(Printf.sprintf "comparing %s values isn't built in the oracle yet" (type_text l.type_))
+             operator.operator_span "a type defines `==` and `<` (D105, standard 5.8)"
+       | t when ordered ->
+           not_designed context ~what:(Printf.sprintf "ordering %s values isn't decided yet" (type_text t))
+             operator.operator_span "not decided yet (D105, standard 12.1)"
+       | t ->
+           refuse context ~what:(Printf.sprintf "%s values can't be compared with %s" (type_text t) (quote operator_text))
+             operator.operator_span "comparisons work on values of the same type (D27, standard 4.1)");
+      { C.kind = C.Compare { operator = operator.word; left = l; right = r }; type_ = Types.Bool; span }
+  | _ ->
+      let l, r = check_pair expected in
+      if not (Types.same l.type_ r.type_) then
+        refuse context
+          ~what:(Printf.sprintf "%s works on two values of the same type, and these are %s and %s" (quote operator_text)
+                   (type_text l.type_) (type_text r.type_))
+          operator.operator_span "maths works on values of one type, converted with `as` (D91, standard 2.1a)";
+      let t = underlying l.type_ in
+      let is_integer = match t with Types.Integer _ -> true | _ -> false in
+      if not (Types.is_number t) && t <> Types.Unknown then
+        refuse context ~what:(Printf.sprintf "%s works on numbers, and this is %s" (quote operator_text) (type_text l.type_))
+          operator.operator_span "maths works on numbers (D90, standard 2.1a)";
+      let result_type = ref l.type_ in
+      (match operator.word, operator.narrowings with
+       | ("+" | "-" | "x"), [] -> ()
+       | ("plus" | "minus" | "times"), [ ("wrap" | "saturate") as how ] ->
+           (* trace: D92 *)
+           if (not is_integer) && t <> Types.Unknown then begin
+             if how = "wrap" then
+               refuse context ~what:(Printf.sprintf "%s works on integers, not %s" (quote operator_text) (type_text l.type_))
+                 operator.operator_span "on `Float`, `.wrap` is refused (D92, standard 2.1a)"
+             else
+               not_designed context ~what:(Printf.sprintf "%s on %s isn't decided yet" (quote operator_text) (type_text l.type_))
+                 operator.operator_span "not decided yet (D92, standard 12.1)"
+           end
+       | ("plus" | "minus" | "times"), _ ->
+           refuse context ~what:(Printf.sprintf "%s isn't an operator: overflow on purpose is `%s.wrap` or `%s.saturate`"
+                                   (quote operator_text) operator.word operator.word)
+             operator.operator_span "overflow on purpose is a narrowing of the operation's word (D92, standard 2.1a)"
+       | "div", [] ->
+           (* trace: D88 *)
+           if is_integer then
+             refuse context ~what:"dividing integers says which kind: `div.trunc`, `div.floor`, `div.exact` or `div.rational`"
+               operator.operator_span "on integers, `div` says which kind (D88, standard 2.1a)"
+       | "div", [ ("trunc" | "floor") ] when is_integer -> ()
+       | "div", [ "exact" ] when is_integer -> ()
+       | "div", [ "rational" ] when is_integer -> result_type := Types.Rational
+       | "mod", ([ "trunc" ] | [ "floor" ]) when is_integer -> ()
+       | "mod", [] when is_integer ->
+           refuse context ~what:"the remainder says which kind: `mod.trunc` or `mod.floor`" operator.operator_span
+             "the remainder matches its division (D85, standard 2.1a)"
+       | ("div" | "mod"), _ when not is_integer && t <> Types.Unknown ->
+           not_designed context ~what:(Printf.sprintf "%s on %s isn't decided yet" (quote operator_text) (type_text l.type_))
+             operator.operator_span "not decided yet (D88, standard 12.1)"
+       | _ ->
+           refuse context ~what:(Printf.sprintf "%s isn't an operator" (quote operator_text)) operator.operator_span
+             "dividing is `div`, and on integers it says which kind (D88, standard 2.1a)");
+      (match t, operator.word, operator.narrowings with
+       | Types.Float k, _, _ when k <> Types.F64 ->
+           not_built context ~what:(Printf.sprintf "maths on %s isn't built in the oracle yet" (type_text l.type_))
+             operator.operator_span "floats are `f16`, `bf16`, `f32` and `f64` (D93, standard 2.1a)"
+       | Types.Rational, ("x" | "+" | "-" | "div"), [] -> ()
+       | Types.Rational, _, _ ->
+           not_designed context ~what:(Printf.sprintf "%s on `Rational` isn't decided yet" (quote operator_text))
+             operator.operator_span "not decided yet (D92, standard 12.1)"
+       | _ -> ());
+      { C.kind = C.Arithmetic { operator = operator.word; narrowings = operator.narrowings; left = l; right = r };
+        type_ = !result_type; span }
+
+and check_list_literal fctx ~expected (e : expression) items =
+  let context = fctx.context in
+  let span = e.expression_span in
+  match Option.map underlying expected with
+  | Some (Types.List item_type) ->
+      let checked = List.map (fun x -> let c = check_expression fctx ~expected:(Some item_type) x in expect_type context item_type c; c) items in
+      { C.kind = C.List_literal checked; type_ = Option.get expected; span }
+  | Some (Types.Map (kind, _, _)) when items = [] ->
+      { C.kind = C.Map_literal (kind, []); type_ = Option.get expected; span }
+  | Some Types.Unknown -> { C.kind = C.List_literal []; type_ = Types.Unknown; span }
+  | Some t ->
+      refuse context ~what:(Printf.sprintf "a list is written here, and %s is expected" (type_text t)) span
+        "the declared type decides what a literal is (D64, standard 2.3)"
+  | None ->
+      refuse context ~what:"a list literal needs a declared type to land in" span
+        "the declared type decides what a literal is (D64, standard 2.3)"
+
+and check_map_literal fctx ~expected (e : expression) entries =
+  let context = fctx.context in
+  let span = e.expression_span in
+  match Option.map underlying expected with
+  | Some (Types.Map (kind, key_type, value_type)) ->
+      let checked =
+        List.map
+          (fun (k, v) ->
+            let k = check_expression fctx ~expected:(Some key_type) k in
+            expect_type context key_type k;
+            let v = check_expression fctx ~expected:(Some value_type) v in
+            expect_type context value_type v;
+            (k, v))
+          entries
+      in
+      { C.kind = C.Map_literal (kind, checked); type_ = Option.get expected; span }
+  | Some t ->
+      refuse context ~what:(Printf.sprintf "a map is written here, and %s is expected" (type_text t)) span
+        "the declared type decides what a literal is (D64, standard 2.3)"
+  | None ->
+      refuse context ~what:"a map literal needs a declared type to land in" span
+        "the declared type decides what a literal is (D64, standard 2.3)"
+
+and check_member fctx (e : expression) target field =
+  let context = fctx.context in
+  let span = e.expression_span in
+  let target = check_expression fctx ~expected:None target in
+  match underlying target.type_ with
+  | Types.Struct struct_name -> (
+      let info = Hashtbl.find context.structs struct_name in
+      match List.find_opt (fun (n, _, _) -> n = field.text) info.resolved_fields with
+      | Some (_, t, _) -> { C.kind = C.Field (target, field.text); type_ = t; span }
+      | None ->
+          refuse context ~what:(Printf.sprintf "%s has no field called %s" (quote struct_name) (quote field.text)) field.span
+            "fields are read with `.` (D56, standard 2.4)")
+  | Types.Unknown -> { C.kind = C.Field (target, field.text); type_ = Types.Unknown; span }
+  | t ->
+      refuse context ~what:(Printf.sprintf "%s has no field called %s; a method call takes `( )`" (type_text t) (quote field.text))
+        field.span "fields are read with `.`, and methods always take `( )` (D40, standard 13.3)"
+
+and check_build fctx (e : expression) built fields =
+  let context = fctx.context in
+  let span = e.expression_span in
+  match built.expression_kind with
+  | Syntax.Name { word; _ } when Hashtbl.mem context.structs word ->
+      let info = Hashtbl.find context.structs word in
+      let seen = Hashtbl.create 8 in
+      let given =
+        List.map
+          (fun { field; field_value } ->
+            match List.find_opt (fun (n, _, _) -> n = field.text) info.resolved_fields with
+            | None ->
+                refuse context ~what:(Printf.sprintf "%s has no field called %s" (quote word) (quote field.text)) field.span
+                  "a struct is built with its own fields (D56, standard 2.4)"
+            | Some (_, t, _) ->
+                if Hashtbl.mem seen field.text then
+                  refuse context ~what:(Printf.sprintf "%s is given twice" (quote field.text)) field.span
+                    "a struct is built with each field once (D56, standard 2.4)";
+                Hashtbl.add seen field.text ();
+                let v = check_expression fctx ~expected:(Some t) field_value in
+                expect_type context t v;
+                check_hand_off fctx v field_value;
+                (field.text, v))
+          fields
+      in
+      List.iter
+        (fun (n, _, default) ->
+          if default = None && not (Hashtbl.mem seen n) then
+            refuse context ~what:(Printf.sprintf "%s has no default, so it must be given" (quote n)) span
+              "a field without a default must be given (D57, standard 2.4)")
+        info.resolved_fields;
+      { C.kind = C.Build_struct { struct_name = word; fields = given }; type_ = Types.Struct word; span }
+  | Syntax.Member ({ expression_kind = Syntax.Name { word; _ }; _ }, case) when Hashtbl.mem context.unions word -> (
+      let info = Hashtbl.find context.unions word in
+      match List.assoc_opt case.text info.resolved_cases with
+      | None ->
+          refuse context ~what:(Printf.sprintf "%s has no case called %s" (quote word) (quote case.text)) case.span
+            "a union's cases are its narrowings (D97, standard 2.4a)"
+      | Some case_fields ->
+          let seen = Hashtbl.create 8 in
+          let given =
+            List.map
+              (fun { field; field_value } ->
+                match List.assoc_opt field.text case_fields with
+                | None ->
+                    refuse context ~what:(Printf.sprintf "%s has no field called %s" (quote (word ^ "." ^ case.text)) (quote field.text))
+                      field.span "a case's data goes in `[ ]` with labelled fields (D97, standard 2.4a)"
+                | Some t ->
+                    Hashtbl.add seen field.text ();
+                    let v = check_expression fctx ~expected:(Some t) field_value in
+                    expect_type context t v;
+                    (field.text, v))
+              fields
+          in
+          List.iter
+            (fun (n, _) ->
+              if not (Hashtbl.mem seen n) then
+                refuse context ~what:(Printf.sprintf "%s must be given" (quote n)) span
+                  "a case's fields are all given (D97, standard 2.4a)")
+            case_fields;
+          { C.kind = C.Build_union { union_name = word; case_name = case.text; fields = given }; type_ = Types.Union word; span })
+  | _ ->
+      refuse context ~what:"only a struct or a union's case is built with `[ ... = ... ]`" span
+        "a struct is built with `[ ]` and `=` (D56, standard 2.4)"
+
+(* Handing off something whose inside can change says `give` or `copy` (D7). *)
+and check_hand_off fctx (value : C.expression) (source : expression) =
+  let context = fctx.context in
+  let rec root (x : expression) =
+    match x.expression_kind with
+    | Syntax.Variable name -> Some name
+    | Syntax.Member (inner, _) -> root inner
+    | Syntax.Index { target; _ } -> root target
+    | Syntax.Grouped inner -> root inner
+    | _ -> None
+  in
+  match root source with
+  | Some name when Types.has_inside_that_changes value.type_ -> (
+      match find_variable fctx name with
+      | Some info when info.is_mutable ->
+          (* trace: D7 *)
+          refuse context
+            ~what:(Printf.sprintf "%s can change inside, so handing it off needs `give` or `copy`" (quote ("$" ^ name)))
+            source.expression_span "a hand-off says what it does (D7, standard 3.6)"
+      | _ -> ())
+  | _ -> ()
+
+and check_call fctx ~expected (e : expression) callee arguments =
+  let context = fctx.context in
+  let span = e.expression_span in
+  ignore expected;
+  match callee.expression_kind with
+  | Syntax.Name { my; path; word } -> (
+      let user = if path = [] || path = [ "pkg" ] then Hashtbl.find_opt context.functions word else None in
+      let std =
+        if (path = [] && not my) || (match path with "std" :: _ -> true | _ -> false) then
+          match Std_library.find word with
+          | Some s when path = [] || String.concat "::" path = s.path -> Some s
+          | _ -> None
+        else None
+      in
+      let std = if context.std_visible then std else None in
+      (* trace: D63 *)
+      let user = match user with Some f when f.declaration.function_my <> my -> (if my then Some f else None) | u -> u in
+      match user, std with
+      | Some f, Some s when path = [] ->
+          (* trace: D59 *)
+          refuse context
+            ~what:(Printf.sprintf "%s is both `pkg::%s` and `%s::%s`" (quote word) word s.path word) callee.expression_span
+            "a short name that clashes is always refused (D59, standard 9.2)"
+          |> fun _ -> ignore f; assert false
+      | Some f, _ -> check_user_call fctx span f arguments
+      | None, Some s -> check_std_call fctx span s arguments
+      | None, None ->
+          if word = "main" && not my then
+            refuse context ~fix:"`my::main`" callee.expression_span
+              "a name of the program's own that is also a built-in word is written with `my::` (D63, standard 9.4)"
+          else if (not context.std_visible) && Std_library.find word <> None then
+            refuse context
+              ~what:(Printf.sprintf "%s is in std, and the manifest has no `need std` line" (quote word)) callee.expression_span
+              "without a `need std` line, std's names aren't visible (D59, D128, standard 13)"
+          else
+            refuse context ~what:(Printf.sprintf "there's no function called %s" (quote word)) callee.expression_span
+              "a name is visible when it's declared or comes from a package the manifest lists (D59, standard 9.2)")
+  | Syntax.Member (receiver, method_name) -> check_method_call fctx span receiver method_name arguments
+  | _ ->
+      refuse context ~what:"this can't be called" callee.expression_span "`( )` runs a function (D15, standard 1.4)"
+
+and check_arguments fctx span ~(function_name : string) ~(parameters : (string * Types.t) list)
+    ~(labels : (string * string) list) ~(defaults : (string * expression) list) (arguments : argument list) =
+  let context = fctx.context in
+  let why = "unlabelled arguments come first, in order, then labelled ones (D42, standard 5.3)" in
+  let unlabelled_parameters = List.filter (fun (p, _) -> not (List.mem_assoc p labels)) parameters in
+  let rec split acc = function
+    | ({ label = None; _ } as a) :: rest -> split (a :: acc) rest
+    | rest -> (List.rev acc, rest)
+  in
+  let positional, labelled = split [] arguments in
+  List.iter
+    (fun (a : argument) ->
+      if a.label = None then
+        refuse context ~what:"an unlabelled argument comes after a labelled one" a.value.expression_span why)
+    labelled;
+  if List.length positional > List.length unlabelled_parameters then begin
+    let extra = List.nth positional (List.length unlabelled_parameters) in
+    refuse context
+      ~what:(Printf.sprintf "%s takes %d unlabelled argument%s" (quote function_name) (List.length unlabelled_parameters)
+               (if List.length unlabelled_parameters = 1 then "" else "s"))
+      extra.value.expression_span why
+  end;
+  let given = Hashtbl.create 8 in
+  List.iteri (fun i (a : argument) -> Hashtbl.replace given (fst (List.nth unlabelled_parameters i)) a.value) positional;
+  List.iter
+    (fun (a : argument) ->
+      let label = Option.get a.label in
+      match List.find_opt (fun (_, l) -> l = label.text) labels with
+      | None ->
+          refuse context ~what:(Printf.sprintf "%s has no label %s" (quote function_name) (quote (label.text ^ ":"))) label.span why
+      | Some (parameter, _) ->
+          if Hashtbl.mem given parameter then
+            refuse context ~what:(Printf.sprintf "%s is given twice" (quote (label.text ^ ":"))) label.span why;
+          Hashtbl.replace given parameter a.value)
+    labelled;
+  List.map
+    (fun (parameter, parameter_type) ->
+      match Hashtbl.find_opt given parameter with
+      | Some value ->
+          let c = check_expression fctx ~expected:(Some parameter_type) value in
+          expect_type context parameter_type c;
+          `Given c
+      | None -> (
+          match List.assoc_opt parameter defaults with
+          | Some default -> `Default (parameter, default, parameter_type)
+          | None ->
+              let what =
+                match List.assoc_opt parameter labels with
+                | Some l -> Printf.sprintf "%s needs %s" (quote function_name) (quote (l ^ ":"))
+                | None -> Printf.sprintf "%s needs `$%s`" (quote function_name) parameter
+              in
+              refuse context ~what span "every parameter without a default is given (D42, standard 5.3)"))
+    parameters
+
+and check_user_call fctx span (f : function_info) arguments =
+  let declaration = f.declaration in
+  let parameters =
+    List.map2 (fun p t -> (p.parameter.text, t)) declaration.parameters f.parameter_types
+  in
+  let labels = List.map (fun (v, l) -> (v.text, l.text)) declaration.labels in
+  let defaults = List.map (fun (v, e) -> (v.text, e)) declaration.defaults in
+  let checked = check_arguments fctx span ~function_name:f.full_name ~parameters ~labels ~defaults arguments in
+  let arguments =
+    List.map
+      (function
+        | `Given c -> c
+        | `Default (_, default, parameter_type) ->
+            (* A default is a value written in the declaration; it's checked there, with no variables. *)
+            let empty = { fctx with scopes = [ Hashtbl.create 1 ] } in
+            let c = check_expression empty ~expected:(Some parameter_type) default in
+            c)
+      checked
+  in
+  { C.kind = C.Call_function { function_id = f.function_id; arguments }; type_ = f.result_type; span }
+
+and check_std_call fctx span (s : Std_library.signature) arguments =
+  let context = fctx.context in
+  let parameters = List.mapi (fun i t -> ("p" ^ string_of_int i, t)) s.parameter_types in
+  let checked = check_arguments fctx span ~function_name:s.std_name ~parameters ~labels:[] ~defaults:[] arguments in
+  let arguments = List.map (function `Given c -> c | `Default _ -> assert false) checked in
+  (* trace: D11 *)
+  (if s.std_name = "exit" then
+     match arguments with
+     | [ { C.kind = C.Constant code; span = code_span; _ } ] ->
+         let n = Value.integer_to_z code in
+         if Z.geq n (Z.of_int 118) && Z.leq n (Z.of_int 122) then
+           refuse context ~what:(Printf.sprintf "`exit` refuses %s: codes 118 to 122 belong to Jernal's own errors" (Z.to_string n))
+             code_span "programs use 1 to 117 for their own reasons (D11, standard 7.6)"
+     | _ -> ());
+  { C.kind = C.Call_builtin { builtin = { C.builtin_name = s.std_name; run = s.run }; arguments }; type_ = s.result; span }
+
+and check_method_call fctx span receiver (method_name : name) arguments =
+  let context = fctx.context in
+  let target = check_expression fctx ~expected:None receiver in
+  let builtin name run result arguments =
+    { C.kind = C.Call_builtin { builtin = { C.builtin_name = name; run }; arguments = target :: arguments }; type_ = result; span }
+  in
+  let no_arguments () =
+    if arguments <> [] then
+      refuse context ~what:(Printf.sprintf "%s takes no arguments" (quote method_name.text)) span
+        "each built-in method's arguments are set out in std (D136, standard 13.3)"
+  in
+  match underlying target.type_, method_name.text with
+  | Types.Unknown, _ -> raise Skip
+  | Types.String, "len" ->
+      (* trace: D131 *)
+      no_arguments ();
+      builtin "len" (fun _ -> function Value.String s :: _ -> Value.int_of_int64 (Int64.of_int (Text.grapheme_count s)) | _ -> Value.Nothing) Types.int []
+  | (Types.List _ | Types.Map _), "len" ->
+      no_arguments ();
+      builtin "len" (fun _ -> function
+          | Value.List l :: _ -> Value.int_of_int64 (Int64.of_int (Dynarray.length l.items))
+          | Value.Map m :: _ -> Value.int_of_int64 (Int64.of_int (Dynarray.length m.entries))
+          | _ -> Value.Nothing) Types.int []
+  | t, name ->
+      not_built context ~what:(Printf.sprintf "the method %s on %s isn't built in the oracle yet" (quote name) (type_text t))
+        method_name.span "values have methods, called with a dot (D40, standard 13.3)"
+
+(* ---------- Statements ---------- *)
+
+let rec check_block fctx (statements : statement list) : C.statement list =
+  in_scope fctx (fun () -> check_statements fctx statements)
+
+and check_statements fctx statements = List.concat_map (check_statement fctx) statements
+
+and check_statement fctx (s : statement) : C.statement list =
+  let context = fctx.context in
+  let span = s.statement_span in
+  let make kind = [ { C.statement_kind = kind; statement_span = span } ] in
+  match s.statement_kind with
+  | Let { is_mutable; baked; variable; declared_type; value } -> (
+      if baked then begin
+        report context (Diagnostic.make ~span ~what:"`let baked` isn't built in the oracle yet" Diagnostic.Not_built_yet
+                          "`let baked` declares a value known when compiling (D5, standard 3.1)");
+        []
+      end
+      else
+        let declared = try resolve_type context declared_type with Skip -> Types.Unknown in
+        let existing = find_variable fctx variable.text in
+        (* the variable exists from here on, even if its value has an error (D13) *)
+        let checked_value = try Some (check_value fctx declared value) with Skip -> None in
+        (match existing with
+         | Some _ ->
+             (* trace: D36 *)
+             error context ~fix:"`shadow`" (Span.join span variable.span)
+               "declaring an existing name is refused; `shadow` gives it a new value (D36, standard 3.4)"
+         | None -> ());
+        let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
+        match checked_value with
+        | Some v -> make (C.Define (info.variable, v))
+        | None -> [])
+  | Decl { is_mutable; variable; declared_type } ->
+      let declared = try resolve_type context declared_type with Skip -> Types.Unknown in
+      (match find_variable fctx variable.text with
+       | Some _ ->
+           error context ~fix:"`shadow`" (Span.join span variable.span)
+             "declaring an existing name is refused; `shadow` gives it a new value (D36, standard 3.4)"
+       | None -> ());
+      ignore (add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:false ());
+      []
+  | Assign { variable; value } -> (
+      match find_variable fctx variable.text with
+      | None ->
+          error context ~what:(Printf.sprintf "there's no variable called `$%s` here" variable.text) variable.span
+            "`assign` gives a `decl` its first value (D34, standard 3.3)";
+          []
+      | Some info ->
+          if info.assigned then begin
+            (* trace: D34 *)
+            error context ~fix:(quote "change") span
+              "`assign` gives a `decl` its first value, exactly once on each path (D34, standard 3.3)";
+            []
+          end
+          else
+            match check_value fctx info.variable_type value with
+            | v -> info.assigned <- true; make (C.Set (info.variable, v))
+            | exception Skip -> info.assigned <- true; [])
+  | Shadow { is_mutable; variable; declared_type; value } -> (
+      let declared = try resolve_type context declared_type with Skip -> Types.Unknown in
+      let checked_value = try Some (check_value fctx declared value) with Skip -> None in
+      (match find_variable fctx variable.text with
+       | None ->
+           (* trace: D36 *)
+           error context ~fix:"`let`" (Span.join span variable.span)
+             "`shadow` gives an existing name a new value (D36, standard 3.4)"
+       | Some _ -> ());
+      let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
+      match checked_value with Some v -> make (C.Define (info.variable, v)) | None -> [])
+  | Change { target; value } -> (
+      try check_change fctx span target value with Skip -> [])
+  | Expression_statement e -> (
+      try
+        let c = check_expression fctx ~expected:None e in
+        (match c.type_ with
+         | Types.Nothing | Types.Unknown -> ()
+         | t -> (
+             match c.kind with
+             | C.Call_function _ | C.Call_builtin _ ->
+                 error context ~what:(Printf.sprintf "this call gives %s, and nothing uses it" (type_text t)) e.expression_span
+                   "a value nobody uses is a mistake; `?? ignore` is only for failures (D48, standard 6.3)"
+             | _ ->
+                 error context ~what:"this value isn't used" e.expression_span
+                   "a line does something: a call, a declaration or an update (D19, standard 1.1)"));
+        make (C.Evaluate c)
+      with Skip -> [])
+  | Return_early -> (
+      match fctx.info.result_type with
+      | Types.Nothing -> make (C.Return None)
+      | t ->
+          error context ~what:(Printf.sprintf "this function returns %s, so it says `return` and a value" (type_text t)) span
+            "a function with a result always uses `return $value` (D26, standard 5.1)";
+          [])
+  | Return value -> (
+      match fctx.info.result_type with
+      | Types.Nothing ->
+          error context ~fix:"`return early`" span
+            "a function that returns nothing leaves early with `return early` (D26, standard 5.1)";
+          []
+      | t -> (
+          try
+            let v = check_value fctx t value in
+            make (C.Return (Some v))
+          with Skip -> []))
+  | If { branches; else_body } -> check_if fctx span branches else_body
+  | While { loop_name; condition; body } ->
+      let condition = try Some (check_expression fctx ~expected:(Some Types.Bool) condition) with Skip -> None in
+      Option.iter (fun c -> try expect_type context Types.Bool c with Skip -> ()) condition;
+      let loop_id = fresh_id context in
+      fctx.loops <- (Option.map (fun n -> n.text) loop_name, loop_id) :: fctx.loops;
+      let body = check_block fctx body in
+      fctx.loops <- List.tl fctx.loops;
+      (match condition with Some condition -> make (C.While { loop_id; condition; body }) | None -> [])
+  | For { loop_name; variable; iterable; at; handling; body } -> check_for fctx span loop_name variable iterable at handling body
+  | Break name -> (
+      match name, fctx.loops with
+      | None, (_, id) :: _ -> make (C.Break id)
+      | None, [] ->
+          error context ~what:"`break` is outside any loop" span "`break` leaves the innermost loop (D30, standard 4.6)";
+          []
+      | Some n, loops -> (
+          match List.find_opt (fun (name, _) -> name = Some n.text) loops with
+          | Some (_, id) -> make (C.Break id)
+          | None ->
+              error context ~what:(Printf.sprintf "no loop around this is called %s" (quote n.text)) n.span
+                "`break name` leaves that loop and every loop inside it (D31, standard 4.6)";
+              []))
+  | Broken_block body ->
+      ignore (check_block fctx body);
+      []
+  | Unfinished { what; why; designed } ->
+      report context
+        (Diagnostic.make ~span ~what (if designed then Diagnostic.Not_built_yet else Diagnostic.Not_designed_yet) why);
+      []
+  | Match _ | Fail _ | Instead _ ->
+      report context
+        (Diagnostic.make ~span ~what:"this statement isn't built in the oracle yet" Diagnostic.Not_built_yet
+           (match s.statement_kind with
+            | Match _ -> "`match` covers every case of a tagged union (D97, standard 4.5a)"
+            | Fail _ -> "a function raises a failure with `fail` (D48, standard 6.2)"
+            | _ -> "`instead` gives the value used in place of a failed call (D48, standard 6.3)"));
+      []
+
+(* A value landing in a place of a known type. *)
+and check_value fctx (declared : Types.t) (value : expression) : C.expression =
+  let v = check_expression fctx ~expected:(Some declared) value in
+  expect_type fctx.context declared v;
+  check_hand_off fctx v value;
+  v
+
+and check_change fctx span target value =
+  let context = fctx.context in
+  let why = "`change` works on what can change (D33, D43, standard 3.5)" in
+  let rec root (x : expression) =
+    match x.expression_kind with
+    | Syntax.Variable name -> Some (name, x.expression_span)
+    | Syntax.Member (inner, _) | Syntax.Index { target = inner; _ } -> root inner
+    | _ -> None
+  in
+  match root target with
+  | None -> refuse context ~what:"`change` updates a variable, one of its fields or one of its items" target.expression_span why
+  | Some (name, name_span) -> (
+      match find_variable fctx name with
+      | None ->
+          refuse context ~what:(Printf.sprintf "there's no variable called `$%s` here" name) name_span
+            "every new name says how it's made (D5, D34, standard 3.1)"
+      | Some info ->
+          if info.is_loop_variable then
+            refuse context ~what:(Printf.sprintf "`$%s` is the loop's own variable, which can't be changed inside the loop" name)
+              name_span "the loop's own variable can't be changed inside the loop (D37, standard 4.7)";
+          if not info.is_mutable then
+            refuse context
+              ~what:(Printf.sprintf "`$%s` can't change: it isn't `mut`" name) name_span why;
+          if not info.assigned then
+            refuse context ~fix:(quote "assign") span "`assign` gives a `decl` its first value (D34, standard 3.3)";
+          match target.expression_kind with
+          | Syntax.Variable _ ->
+              let v = check_value fctx info.variable_type value in
+              [ { C.statement_kind = C.Set (info.variable, v); statement_span = span } ]
+          | Syntax.Member (inner, field) ->
+              let t = check_expression fctx ~expected:None target in
+              let inner = check_expression fctx ~expected:None inner in
+              let v = check_value fctx t.type_ value in
+              [ { C.statement_kind = C.Set_field { target = inner; field = field.text; value = v }; statement_span = span } ]
+          | Syntax.Index { target = inner; counting; position } ->
+              let t = check_expression fctx ~expected:None target in
+              let inner = check_expression fctx ~expected:None inner in
+              let position = check_expression fctx ~expected:(Some Types.int) position in
+              let v = check_value fctx t.type_ value in
+              [ { C.statement_kind = C.Set_index { target = inner; counting; position; value = v }; statement_span = span } ]
+          | _ -> refuse context ~what:"`change` updates a variable, one of its fields or one of its items" target.expression_span why)
+
+and check_if fctx span branches else_body =
+  let context = fctx.context in
+  (* Which `decl`s get assigned on every path (D34). *)
+  let unassigned () =
+    List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> if info.assigned then acc else info :: acc) scope []) fctx.scopes
+  in
+  let before = unassigned () in
+  let assigned_in_all = ref None in
+  let record () =
+    let now = List.filter (fun info -> info.assigned) before in
+    (match !assigned_in_all with
+     | None -> assigned_in_all := Some now
+     | Some previous -> assigned_in_all := Some (List.filter (fun i -> List.memq i now) previous));
+    List.iter (fun info -> info.assigned <- false) before
+  in
+  let checked_branches =
+    List.filter_map
+      (fun { condition; branch_body } ->
+        match condition with
+        | Plain c ->
+            let c = try Some (check_expression fctx ~expected:(Some Types.Bool) c) with Skip -> None in
+            Option.iter (fun c -> try expect_type context Types.Bool c with Skip -> ()) c;
+            let body = check_block fctx branch_body in
+            record ();
+            Option.map (fun c -> (c, body)) c
+        | Case_test (_, t) ->
+            report context
+              (Diagnostic.make ~span:t.type_span ~what:"the case test isn't built in the oracle yet" Diagnostic.Not_built_yet
+                 "`if <value>: <type>.<case>:` tests which case a value is (D97, standard 4.5a)");
+            ignore (check_block fctx branch_body);
+            record ();
+            None)
+      branches
+  in
+  let else_checked = Option.map (fun body -> let b = check_block fctx body in record (); b) else_body in
+  (* Without an `else`, the path that skips every branch assigns nothing. *)
+  if else_body = None then assigned_in_all := Some [];
+  List.iter (fun info -> info.assigned <- List.memq info (Option.value !assigned_in_all ~default:[])) before;
+  if List.length checked_branches <> List.length branches then []
+  else [ { C.statement_kind = C.If (checked_branches, else_checked); statement_span = span } ]
+
+and check_for fctx span loop_name (variable : name) iterable at handling body =
+  let context = fctx.context in
+  let iterable_checked = try Some (check_expression fctx ~expected:None iterable) with Skip -> None in
+  let item_type =
+    match Option.map (fun (c : C.expression) -> underlying c.type_) iterable_checked with
+    | Some Types.Range -> Types.int
+    | Some (Types.List item) -> item
+    | Some Types.Lines -> Types.String
+    | Some Types.Unknown | None -> Types.Unknown
+    | Some t ->
+        error context ~what:(Printf.sprintf "%s can't be gone through with `for`" (type_text t)) iterable.expression_span
+          "`for ... in` goes through something (D30, standard 4.6)";
+        Types.Unknown
+  in
+  let can_fail = match iterable_checked with Some { C.type_ = Types.Lines; _ } -> true | _ -> false in
+  let checked_handling =
+    match handling with
+    | None -> Some C.Loop_crash
+    | Some h when not can_fail ->
+        ignore h;
+        error context ~what:"getting this loop's next item can't fail, so there's nothing to handle" iterable.expression_span
+          "a failure while a `for` gets its next item is handled on the `for` line (D134, standard 4.6)";
+        None
+    | Some (Loop_fallback e) -> (
+        try
+          let c = check_expression fctx ~expected:(Some item_type) e in
+          expect_type context item_type c;
+          Some (C.Loop_fallback c)
+        with Skip -> None)
+    | Some _ ->
+        report context
+          (Diagnostic.make ~span:iterable.expression_span ~what:"this way of handling a failure isn't built in the oracle yet"
+             Diagnostic.Not_built_yet "a failure while a `for` gets its next item is handled on the `for` line (D134, standard 4.6)");
+        None
+  in
+  let loop_id = fresh_id context in
+  fctx.loops <- (Option.map (fun n -> n.text) loop_name, loop_id) :: fctx.loops;
+  let result =
+    in_scope fctx (fun () ->
+        if find_variable fctx variable.text <> None then
+          error context ~what:(Printf.sprintf "`$%s` already exists here" variable.text) variable.span
+            "declaring an existing name is refused (D36, standard 3.4)";
+        let v = add_variable fctx ~is_loop_variable:true ~name:variable ~variable_type:item_type ~is_mutable:false ~assigned:true () in
+        let position =
+          Option.map
+            (fun (counting, (n : name)) ->
+              let p = add_variable fctx ~is_loop_variable:true ~name:n ~variable_type:Types.int ~is_mutable:false ~assigned:true () in
+              (counting, p.variable))
+            at
+        in
+        let body = check_block fctx body in
+        (v, position, body))
+  in
+  fctx.loops <- List.tl fctx.loops;
+  match iterable_checked, checked_handling, result with
+  | Some iterable, Some handling, (v, position, body) ->
+      [ { C.statement_kind = C.For { loop_id; variable = v.variable; position; iterable; handling; body }; statement_span = span } ]
+  | _ -> []
+
+(* ---------- Declarations ---------- *)
+
+let dummy_declaration =
+  { narrowings = []; function_name = { text = ""; span = Span.none }; function_my = false; type_parameters = [];
+    parameters = []; result = None; fails = []; labels = []; defaults = []; requires = []; ensures = []; body = [];
+    function_span = Span.none }
+
+let check_function context (info : function_info) =
+  let declaration = info.declaration in
+  let fctx = { context; info; scopes = [ Hashtbl.create 8 ]; loops = [] } in
+  let parameters =
+    List.map2
+      (fun p t -> (add_variable fctx ~name:p.parameter ~variable_type:t ~is_mutable:p.self_mutable ~assigned:true ()).variable)
+      declaration.parameters info.parameter_types
+  in
+  let requires =
+    List.filter_map
+      (fun (r : expression) ->
+        try
+          let c = check_expression fctx ~expected:(Some Types.Bool) r in
+          expect_type context Types.Bool c;
+          let text =
+            match Diagnostic.source_line r.expression_span.file r.expression_span.line with
+            | Some line when r.expression_span.end_line = r.expression_span.line ->
+                String.sub line (r.expression_span.column - 1) (r.expression_span.end_column - r.expression_span.column)
+            | _ -> ""
+          in
+          Some (c, text)
+        with Skip -> None)
+      declaration.requires
+  in
+  if declaration.ensures <> [] then
+    report context
+      (Diagnostic.make ~span:(List.hd declaration.ensures).expression_span ~what:"how `ensures` names the result isn't decided yet"
+         Diagnostic.Not_designed_yet "not decided yet (D42, standard 12.2)");
+  let body = check_statements fctx declaration.body in
+  (* A function with a result returns on every path (D26). *)
+  let rec always_returns (statements : statement list) =
+    List.exists
+      (fun (s : statement) ->
+        match s.statement_kind with
+        | Return _ -> true
+        | If { branches; else_body = Some e } ->
+            List.for_all (fun b -> always_returns b.branch_body) branches && always_returns e
+        | _ -> false)
+      statements
+  in
+  if info.result_type <> Types.Nothing && info.result_type <> Types.Unknown && not (always_returns declaration.body) then
+    error context
+      ~what:(Printf.sprintf "%s can reach its `end` without returning %s" (quote info.full_name) (type_text info.result_type))
+      declaration.function_span "a function with a result always uses `return $value` (D26, standard 5.1)";
+  Hashtbl.replace context.checked info.function_id
+    { C.function_id = info.function_id; function_name = info.full_name; parameters; requires; body;
+      returns_value = info.result_type <> Types.Nothing }
+
+let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program option * Diagnostic.t list) =
+  let context =
+    { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
+      aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32 }
+  in
+  let mains = ref [] in
+  let declare_function file (declaration : function_declaration) full_name =
+    let is_main = List.map (fun n -> n.text) declaration.narrowings = [ "main" ] in
+    if is_main then mains := (declaration, file) :: !mains
+    else if Hashtbl.mem context.functions full_name then
+      error context ~what:(Printf.sprintf "%s is declared twice" (quote full_name)) declaration.function_name.span
+        "one name means one thing; several parameter lists go in a `versions` block (D46, standard 5.7)"
+    else begin
+      (* trace: D63 *)
+      if (not declaration.function_my) && (List.mem full_name Parser.keywords || full_name = "main") then
+        error context ~fix:(quote ("my::" ^ full_name)) declaration.function_name.span
+          "a name of the program's own that is also a built-in word is written with `my::` (D63, standard 9.4)";
+      let id = fresh_id context in
+      Hashtbl.replace context.functions full_name
+        { function_id = id; declaration; full_name; file; parameter_types = []; result_type = Types.Nothing }
+    end
+  in
+  (* First the names, so declarations can mention each other in any order. *)
+  List.iter
+    (fun (file : Syntax.file) ->
+      List.iter
+        (fun d ->
+          match d.declaration_kind with
+          | Function f -> declare_function file.file_name f f.function_name.text
+          | Struct s ->
+              if Hashtbl.mem context.structs s.struct_name.text then
+                error context ~what:(Printf.sprintf "%s is declared twice" (quote s.struct_name.text)) s.struct_name.span
+                  "one name means one thing (D47, standard 5.5)"
+              else Hashtbl.replace context.structs s.struct_name.text { struct_declaration = s; resolved_fields = []; struct_file = file.file_name }
+          | Union u -> Hashtbl.replace context.unions u.union_name.text { union_declaration = u; resolved_cases = [] }
+          | Type_alias _ | Type_new _ | Family_function _ | Family_failure _ | Family_handler _ ->
+              report context
+                (Diagnostic.make ~span:d.declaration_span ~what:"this declaration isn't built in the oracle yet" Diagnostic.Not_built_yet
+                   (match d.declaration_kind with
+                    | Type_alias _ | Type_new _ -> "`type.alias` and `type.new` name a type (D61, standard 2.5)"
+                    | Family_function _ -> "a `fam.fn` block holds things that belong under one name (D45, standard 5.5)"
+                    | Family_failure _ -> "a named set of failures is a family (D49, standard 6.2)"
+                    | _ -> "a `fam.handler` holds named, reusable sets of arms (D48, standard 6.4)"))
+          | Unfinished_declaration { what; why; designed } ->
+              report context
+                (Diagnostic.make ~span:d.declaration_span ~what
+                   (if designed then Diagnostic.Not_built_yet else Diagnostic.Not_designed_yet) why))
+        file.declarations)
+    files;
+  (* Then each struct's fields, union's cases and function's signature. *)
+  Hashtbl.iter
+    (fun _ info ->
+      info.resolved_fields <-
+        List.map
+          (fun f -> (f.field_name.text, (try resolve_type context f.field_type with Skip -> Types.Unknown), f.field_default))
+          info.struct_declaration.fields)
+    context.structs;
+  Hashtbl.iter
+    (fun _ info ->
+      info.resolved_cases <-
+        List.map
+          (fun c ->
+            (c.union_case.text, List.map (fun (n, t) -> (n.text, try resolve_type context t with Skip -> Types.Unknown)) c.case_fields))
+          info.union_declaration.cases)
+    context.unions;
+  let resolve_signature info =
+    let d = info.declaration in
+    if d.type_parameters <> [] then
+      report context
+        (Diagnostic.make ~span:(fst (List.hd d.type_parameters)).span ~what:"generic functions aren't built in the oracle yet"
+           Diagnostic.Not_built_yet "functions and types can take type parameters (D103, standard 5.8)");
+    if d.fails <> [] then
+      report context
+        (Diagnostic.make ~span:(List.hd d.fails).failure_name.span ~what:"declaring failures isn't built in the oracle yet"
+           Diagnostic.Not_built_yet "a function lists the failures it can raise on its opening line (D48, standard 6.2)");
+    info.parameter_types <- List.map (fun p -> try resolve_type context p.parameter_type with Skip -> Types.Unknown) d.parameters;
+    info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown)
+  in
+  Hashtbl.iter (fun _ info -> resolve_signature info) context.functions;
+  (* trace: D62 *)
+  let main_id = fresh_id context in
+  (match List.rev !mains with
+   | [] ->
+       report context (Diagnostic.make ~what:"the program has no `fn.main`" Diagnostic.Compile_time_error
+                         "a program starts at its one `fn.main` (D62, standard 5.9)")
+   | [ (declaration, file) ] ->
+       let why = "`fn.main` takes no parameters and returns nothing (D62, standard 5.9)" in
+       if declaration.parameters <> [] then
+         error context ~what:"`fn.main` takes no parameters" (List.hd declaration.parameters).parameter.span why;
+       (match declaration.result with
+        | Some t -> error context ~what:"`fn.main` returns nothing" t.type_span why
+        | None -> ());
+       let info =
+         { function_id = main_id; declaration; full_name = "fn.main"; file; parameter_types = []; result_type = Types.Nothing }
+       in
+       info.parameter_types <- List.map (fun _ -> Types.Unknown) declaration.parameters;
+       check_function context info
+   | _ :: (second, _) :: _ ->
+       error context ~what:"the program has more than one `fn.main`" second.function_name.span
+         "a program starts at its one `fn.main` (D62, standard 5.9)");
+  Hashtbl.iter (fun _ info -> check_function context info) context.functions;
+  let diagnostics = List.rev context.diagnostics in
+  let program =
+    { C.functions = context.checked; main = main_id; struct_defaults = Hashtbl.create 1 }
+  in
+  (* Struct defaults, checked once, with no variables. *)
+  Hashtbl.iter
+    (fun name info ->
+      let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file = "";
+                   parameter_types = []; result_type = Types.Nothing } in
+      let fctx = { context; info = fake; scopes = [ Hashtbl.create 1 ]; loops = [] } in
+      let defaults =
+        List.map
+          (fun (n, t, default) ->
+            (n, Option.bind default (fun e -> try Some (check_value fctx t e) with Skip -> None)))
+          info.resolved_fields
+      in
+      Hashtbl.replace program.struct_defaults name defaults)
+    context.structs;
+  let diagnostics = diagnostics @ List.rev (List.filter (fun d -> not (List.memq d diagnostics)) context.diagnostics) in
+  (Some program, diagnostics)

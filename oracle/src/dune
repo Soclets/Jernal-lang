@@ -1,0 +1,3 @@
+(library
+ (name jernorac)
+ (libraries zarith uuseg unix))
