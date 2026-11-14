@@ -1180,3 +1180,11 @@ written in Rust. It drives LLVM through `inkwell`, and through `llvm-sys` where 
 neither can reach, such as parts of LLVM's C++ API, goes in small C++ pieces. This differs from Cyborg, which goes
 through Lyftar and allows no C++. Claude proposed Rust with LLVM IR as text; the owner said "That's not fun, lol", and
 chose: "Rust + Inkwell + llvm-sys + LLVM + C++ for Rust can't do?". (Owner, 2026-11-14)
+
+**D66. The GC finds pointers with stack maps, from the start.** The compiler uses LLVM's `gc.statepoint` and
+`gc.relocate`: at every safepoint (calls and allocations), a table says exactly where live pointers are, emitted into
+`.llvm_stackmaps` by `RewriteStatepointsForGC`. Nothing is guessed and nothing is tracked while running, and objects can
+move, since `gc.relocate` updates every pointer, which leaves room for a compacting or generational collector. What
+`inkwell` can't reach goes in D65's C++ pieces. Long loops will need safepoint polls once there are threads. Claude
+compared a shadow stack, stack maps and mostly-precise scanning; the owner asked "I heard there's an option that uses
+both." and "Stack maps?", and chose: "stack maps from the start". (Owner, 2026-11-14)
