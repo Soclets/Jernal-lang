@@ -751,7 +751,9 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         | Syntax.Variable name ->
             let info = Option.get (find_variable fctx name) in
             (* trace: D139 — a parameter is the caller's: keeping it needs `copy` *)
-            if info.is_parameter && Types.has_inside_that_changes info.variable_type then
+            if info.is_parameter && Types.has_inside_that_changes info.variable_type
+               && not (is_must_give context info.variable_type) (* a must_give value is handed on with `give` (D51) *)
+            then
               refuse context ~fix:(quote ("copy $" ^ name)) span
                 "a function sees a parameter frozen for the call, and keeping it after returning needs `copy` (D139, standard 3.6)";
             (* trace: D51 *)
