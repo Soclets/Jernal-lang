@@ -1,0 +1,8 @@
+fn.main[]:
+    println("before")
+    inline.llvm_ir:
+        %sum = add i64 %a, %b
+        "unclosed ( [ <
+    end inline.llvm_ir
+    println("after")
+end fn.main

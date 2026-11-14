@@ -914,6 +914,9 @@ and parse_statement_line state : statement =
   | Word "shield" ->
       let s = unfinished_block state ~what:"shields aren't built in the oracle yet" ~why:"shields hold unchecked code (D79, D80, standard 11.2)" ~designed:true in
       s
+  | Word "inline" when (peek_at state 1).kind = Dot ->
+      unfinished_block state ~what:"inline foreign code needs a quill, and quills aren't built in the oracle"
+        ~why:"raw code in another language goes inside an `inline.something:` block (D78, standard 11.3)" ~designed:true
   | Token.Variable _ when (
       (* $x = ... with no `change` (D33) *)
       let rec find i depth =

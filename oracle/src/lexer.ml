@@ -54,6 +54,15 @@ let comment_block_name (line : string) : string option =
       if String.for_all is_word_char name then Some name else None
   | _ -> None
 
+(* "inline.<name>:" alone on a line opens raw foreign code, which tools leave alone (D78). *)
+let inline_block_name (line : string) : string option =
+  let trimmed = String.trim line in
+  let n = String.length trimmed in
+  if n > 8 && String.sub trimmed 0 7 = "inline." && trimmed.[n - 1] = ':' then
+    let name = String.sub trimmed 7 (n - 8) in
+    if name <> "" && String.for_all is_word_char name then Some ("inline." ^ name) else None
+  else None
+
 (* The run of characters with no space in it, ending just before [index] / starting at [index]. *)
 let stuck_run_before (line : string) (index : int) : string =
   let stops c = is_space c || c = '(' || c = '[' || c = ',' in
@@ -376,6 +385,20 @@ let lex ~(file : string) (text : string) : Token.t array * Diagnostic.t list =
     else
       let line = lines.(index) in
       let line_number = index + 1 in
+      match (if state.bracket_depth = 0 then inline_block_name line else None) with
+      | Some block ->
+          (* trace: D78 — the opening and closing lines are Jernal; the raw code between is skipped *)
+          lex_line state line line_number;
+          push_newline line_number (String.length line + 1);
+          let closer = "end " ^ block in
+          let rec find j = if j >= count then None else if String.trim lines.(j) = closer then Some j else find (j + 1) in
+          (match find (index + 1) with
+           | Some j ->
+               lex_line state lines.(j) (j + 1);
+               push_newline (j + 1) (String.length lines.(j) + 1);
+               go (j + 1)
+           | None -> go count)
+      | None ->
       match (if state.bracket_depth = 0 then comment_block_name line else None) with
       | Some name ->
           (* trace: D96 *)
