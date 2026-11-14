@@ -2271,3 +2271,29 @@ hashmap's stuff?", and chose: "yes". The name of the failure from `get` is not d
 11. D95 refuses every control character inside a string, and the line and paragraph separators U+2028 and U+2029.
 
 Claude proposed all of them; the owner chose: "tes", taken as yes. (Owner, 2026-11-14)
+
+**D140. A family's failures are always written in full.** Asked by Jernal Oracle Claude. A function lists a whole
+`fam.failure` with its name, `fails [file_failed]`, or one member with its full name, `fails [file_failed.not_found]`,
+mixed freely with inline failures. Everywhere a family's failure is written, it's written in full: in `fails [...]`,
+in `fail`, in arms at a call, and in handler arms. `use` shortens it, as any name (D60, D114). Inline failures, written
+directly in `fails [...]` with no family, are just names and stay short. Union arms in `match` stay short (D97).
+
+```
+fn open[$path: String] -> File fails [file_failed]:
+    ...
+    fail file_failed.not_found
+end fn open
+
+let $f: File = open($path) otherwise:
+    case file_failed.not_found:
+        ...
+    case file_failed.denied:
+        ...
+    case file_failed.disk_full $d:
+        ...
+end otherwise
+```
+
+The owner asked "Why doesn't it say `file_failed.not_found` when singlar?", "Where's `use` for that?", "Why are arms
+short?" and "But why don't handlers use that too, thne?", said "But failures are written elsewhere", and chose: "yes".
+(Owner, 2026-11-14)

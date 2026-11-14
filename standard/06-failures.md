@@ -31,6 +31,26 @@ fam.failure file_failed:
 end fam.failure file_failed
 ```
 
+A function lists a whole family, `fails [file_failed]`, or one member, `fails [file_failed.not_found]`, mixed freely
+with inline failures. A family's failure is always written in full, in `fails [...]`, in `fail` and in arms; `use`
+shortens it. Inline failures, with no family, are just names and stay short (D140).
+
+```
+fn open[$path: String] -> File fails [file_failed]:
+    ...
+    fail file_failed.not_found
+end fn open
+
+let $f: File = open($path) otherwise:
+    case file_failed.not_found:
+        ...
+    case file_failed.denied:
+        ...
+    case file_failed.disk_full $d:
+        ...
+end otherwise
+```
+
 ## 6.3 Handling
 
 A caller has these tools (D48, D55):
