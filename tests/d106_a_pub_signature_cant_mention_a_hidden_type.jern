@@ -1,0 +1,11 @@
+struct Secret:
+    code: Int
+end struct Secret
+
+pub.pkg fn leak[] -> Secret:
+    return Secret[code = 1]
+end fn leak
+
+fn.main[]:
+    println("never")
+end fn.main

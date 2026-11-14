@@ -1,0 +1,5 @@
+CompileTimeError: d106_a_pub_signature_cant_mention_a_hidden_type.jern:5:12, line 5 column 12
+ 5 | pub.pkg fn leak[] -> Secret:
+   |            ^^^^
+ what: this signature is seen further than `Secret`, which it mentions
+ why:  a `pub.…` signature that mentions a less visible type is refused (D106, standard 9.2a)
