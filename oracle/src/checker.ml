@@ -38,11 +38,14 @@ type struct_info = {
   struct_declaration : struct_declaration;
   mutable resolved_fields : (string * Types.t * expression option) list;
   struct_file : string;
+  struct_visibility : visibility;
 }
 
 type union_info = {
   union_declaration : union_declaration;
   mutable resolved_cases : (string * (string * Types.t) list) list;
+  union_file : string;
+  union_visibility : visibility;
 }
 
 type context = {
@@ -71,6 +74,7 @@ type context = {
   mutable satisfied : (string * string) list;                    (* (type, interface) from `satisfies` lines *)
   mutable type_parameters : (string * name list) list;           (* the generic function being checked (D103) *)
   short_names : Manifest.short_name list;                        (* `use` lines from the manifest (D60, D114) *)
+  mutable current_file : string;                                 (* the file being checked, for `pub` (D106) *)
   mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
 }
 
@@ -166,6 +170,13 @@ let sized_integer word =
 
 let is_power_of_two n = n > 0 && n land (n - 1) = 0
 
+(* Something without `pub` is seen only in its own file (D106); using it elsewhere is refused with no fix. *)
+let seen_from context ~name ~file ~(visibility : visibility) (span : Span.t) =
+  (* trace: D106 *)
+  if visibility = File_only && context.current_file <> "" && context.current_file <> file then
+    refuse context ~what:(Printf.sprintf "%s is seen only in %s, since it has no `pub`" (quote name) (quote file)) span
+      "a declaration without `pub` is seen only in its own file (D106, standard 9.2a)"
+
 let rec resolve_type context (t : type_expression) : Types.t =
   match t.type_kind with
   | Parameter_type p ->
@@ -243,7 +254,9 @@ let rec resolve_type context (t : type_expression) : Types.t =
               "integers come in any width from 1 to 8,388,607 bits (D93, standard 2.1)"
           else no_arguments (Types.Integer integer)
       | _, [ word ] when Hashtbl.mem context.structs word -> (
-          match (Hashtbl.find context.structs word).struct_declaration.struct_type_parameters with
+          let info = Hashtbl.find context.structs word in
+          seen_from context ~name:word ~file:info.struct_file ~visibility:info.struct_visibility t.type_span;
+          match info.struct_declaration.struct_type_parameters with
           | [] -> no_arguments (Types.Struct word)
           | parameters ->
               (* trace: D103, D132 — one type parameter is written bare; two or more are labelled by their names *)
@@ -261,7 +274,10 @@ let rec resolve_type context (t : type_expression) : Types.t =
                            (match labels with [ _ ] -> "one type, written bare" | _ -> String.concat " and " (List.map (fun l -> quote (l ^ ":")) labels)))
                   t.type_span "a type with one type parameter writes it bare; with two or more, each is labelled (D102, D132, standard 2.3)";
               Types.Instance (word, List.map (fun l -> (l, resolve_type context (List.assoc l given))) labels))
-      | _, [ word ] when Hashtbl.mem context.unions word -> no_arguments (Types.Union word)
+      | _, [ word ] when Hashtbl.mem context.unions word ->
+          let info = Hashtbl.find context.unions word in
+          seen_from context ~name:word ~file:info.union_file ~visibility:info.union_visibility t.type_span;
+          no_arguments (Types.Union word)
       | _, [ word ] when Hashtbl.mem context.aliases word || Hashtbl.mem context.new_types word ->
           if List.mem word context.resolving then
             refuse context ~what:(Printf.sprintf "%s is defined in terms of itself" (quote word)) t.type_span
@@ -1124,6 +1140,9 @@ and check_member fctx (e : expression) target field =
             List.map2 (fun ((p : name), _) (_, t) -> (p.text, t)) info.struct_declaration.struct_type_parameters arguments
         | _ -> []
       in
+      (match List.find_opt (fun (f : struct_field) -> f.field_name.text = field.text) info.struct_declaration.fields with
+       | Some f -> seen_from context ~name:(struct_name ^ "." ^ field.text) ~file:info.struct_file ~visibility:f.field_visibility field.span
+       | None -> ());
       match List.find_opt (fun (n, _, _) -> n = field.text) info.resolved_fields with
       | Some (_, t, _) -> { C.kind = C.Field (target, field.text); type_ = substitute_parameters bindings t; span }
       | None ->
@@ -1171,6 +1190,7 @@ and check_build fctx ~expected (e : expression) built fields =
   match built.expression_kind with
   | Syntax.Name { word; _ } when Hashtbl.mem context.structs word ->
       let info = Hashtbl.find context.structs word in
+      seen_from context ~name:word ~file:info.struct_file ~visibility:info.struct_visibility built.expression_span;
       let parameters = info.struct_declaration.struct_type_parameters in
       (* a generic struct's types come from where it goes, or from its fields (D103) *)
       let bindings =
@@ -2474,6 +2494,7 @@ let file_scope context file =
 
 let check_function context (info : function_info) =
   let declaration = info.declaration in
+  context.current_file <- info.file;
   context.type_parameters <- List.map (fun ((n : name), (r : requirement)) -> (n.text, r.requirement_names)) declaration.type_parameters;
   let fctx = { context; info; scopes = [ Hashtbl.create 8; file_scope context info.file ]; loops = []; arm_values = [] } in
   let parameters =
@@ -2531,7 +2552,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
       presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = []; versions = Hashtbl.create 8; overlapping_versions = Hashtbl.create 4;
       interfaces = Hashtbl.create 4; type_sets = Hashtbl.create 4; satisfied = []; type_parameters = [];
-      short_names = uses;
+      short_names = uses; current_file = "";
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
@@ -2574,8 +2595,12 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
               if Hashtbl.mem context.structs s.struct_name.text then
                 error context ~what:(Printf.sprintf "%s is declared twice" (quote s.struct_name.text)) s.struct_name.span
                   "one name means one thing (D47, standard 5.5)"
-              else Hashtbl.replace context.structs s.struct_name.text { struct_declaration = s; resolved_fields = []; struct_file = file.file_name }
-          | Union u -> Hashtbl.replace context.unions u.union_name.text { union_declaration = u; resolved_cases = [] }
+              else
+                Hashtbl.replace context.structs s.struct_name.text
+                  { struct_declaration = s; resolved_fields = []; struct_file = file.file_name; struct_visibility = d.visibility }
+          | Union u ->
+              Hashtbl.replace context.unions u.union_name.text
+                { union_declaration = u; resolved_cases = []; union_file = file.file_name; union_visibility = d.visibility }
           | Family_function { family_narrowings; family_name; members } ->
               (* trace: D45, D47 *)
               if Hashtbl.mem context.families family_name.text then
@@ -2644,6 +2669,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
        | _ :: _ ->
            context.type_parameters <- List.map (fun ((n : name), (r : requirement)) -> (n.text, r.requirement_names)) info.struct_declaration.struct_type_parameters
        | [] -> ());
+      context.current_file <- info.struct_file;
       info.resolved_fields <-
         List.map
           (fun f -> (f.field_name.text, (try resolve_type context f.field_type with Skip -> Types.Unknown), f.field_default))
@@ -2652,6 +2678,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
     context.structs;
   Hashtbl.iter
     (fun _ info ->
+      context.current_file <- info.union_file;
       info.resolved_cases <-
         List.map
           (fun c ->
@@ -2660,6 +2687,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
     context.unions;
   let resolve_signature info =
     let d = info.declaration in
+    context.current_file <- info.file;
     context.type_parameters <- type_parameters_of context d;
     (* trace: D140 — a family listed whole or by member, written in full; inline failures stay short *)
     let fields_of (shape : failure_shape) =
@@ -2690,6 +2718,31 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
         d.fails;
     info.parameter_types <- List.map (fun p -> try resolve_type context p.parameter_type with Skip -> Types.Unknown) d.parameters;
     info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown);
+    (* trace: D106 — a `pub.…` signature can't mention a less visible type *)
+    if d.function_visibility <> File_only then begin
+      let rec less_visible (t : Types.t) =
+        match t with
+        | Types.Struct n | Types.Instance (n, _) -> (
+            match Hashtbl.find_opt context.structs n with
+            | Some s when s.struct_visibility = File_only -> Some n
+            | Some s when s.struct_visibility = Package && d.function_visibility = Everyone -> Some n
+            | _ -> (match t with Types.Instance (_, xs) -> List.find_map (fun (_, x) -> less_visible x) xs | _ -> None))
+        | Types.Union n -> (
+            match Hashtbl.find_opt context.unions n with
+            | Some u when u.union_visibility = File_only -> Some n
+            | Some u when u.union_visibility = Package && d.function_visibility = Everyone -> Some n
+            | _ -> None)
+        | Types.List x | Types.Array (x, _) | Types.Bounded (x, _) | Types.New (_, x) -> less_visible x
+        | Types.Map (_, a, b) -> (match less_visible a with Some n -> Some n | None -> less_visible b)
+        | _ -> None
+      in
+      match List.find_map less_visible (info.result_type :: info.parameter_types) with
+      | Some n ->
+          error context
+            ~what:(Printf.sprintf "this signature is seen further than %s, which it mentions" (quote n))
+            d.function_name.span "a `pub.…` signature that mentions a less visible type is refused (D106, standard 9.2a)"
+      | None -> ()
+    end;
     context.type_parameters <- []
   in
   (* `Type satisfies Interface` lines (D105) *)
@@ -2769,6 +2822,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
     (fun (file, statement) ->
       let fake = { function_id = 0; declaration = dummy_declaration; full_name = ""; file; parameter_types = [];
                    result_type = Types.Nothing; pure = false; failures = []; baked = false } in
+      context.current_file <- file;
       let fctx = { context; info = fake; scopes = [ file_scope context file ]; loops = []; arm_values = [] } in
       context.globals <- context.globals @ check_statement fctx statement)
     (List.rev !globals);
