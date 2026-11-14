@@ -1299,3 +1299,26 @@ without its `dialect` line, since Jernal has one compiler. siml is the owner's o
 separated by spaces, no sections, `=` or `;`, blank lines to group, quotes only when needed, `//` comments, and lists as
 repeated lines. Nesting isn't designed yet. The owner said: "Could be `Journey` for package man."; Claude said it would
 record `Journey.siml` with Cyborg's contents unless told otherwise. (Owner, 2026-11-14)
+
+**D77. Modding: books, quills and Dialects.** A package (managed by Journey, D76) can have a **book**, its library
+half, a **quill**, its compiler half, or both, under one name and version. These are Cyborg's kit and limb.
+
+- **A quill** is a compiler extension: a native library (`.dylib`, `.so`, `.dll`) that JernComp loads while compiling.
+  It's trusted when the manifest lists it, with no sandbox. None is privileged: Jernal's own extensions plug in the same
+  way.
+- **A quill's syntax is always marked**, in a fixed set of places (a type, a call, a prefix, a statement, a block, a
+  raw block in another language, a manifest rule), so a quill never takes a plain word and two quills never clash. The
+  marker is not decided yet; Cyborg uses `＠`.
+- **What a quill can do:** read the whole checked program; add errors and warnings, which only make programs stricter;
+  define what its own marked items mean; produce Jernal code, which is checked like hand-written code, or LLVM IR,
+  which is unchecked and listed in the build report; and prove checks can't fail, so they're dropped (except in
+  `Working`).
+- **What a quill can never do:** change what unmarked code means.
+- **A Dialect** is a compiler forked from JernComp, for changing what plain code means. It doesn't have to follow any
+  rules. Every manifest says which one it uses, and plain Jernal can't use a package written in a Dialect.
+
+Not decided yet, as Cyborg's design session advised deciding early: the quills' actual interface and how it's
+versioned, what "verified" means, and whether quills must keep builds reproducible. This is Cyborg's (its D186, D309 to
+D311, D334 to D338), as Cyborg's design session described on 2026-11-14. The owner said "Let's decide modding" and "Ask
+Cyborg", chose "yea" to both levels, asked "What should a kit and limb be called in Jernal?", and chose "Tes" to book
+and quill. (Owner, 2026-11-14)
