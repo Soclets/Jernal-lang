@@ -1917,3 +1917,19 @@ end main.jern
 ```
 
 Claude proposed `all`; the owner chose: "B, Journey won't compile if you clash with specific". (Owner, 2026-11-14)
+
+**D116. A text `Journey.lock`, and a local compiled cache.** `Journey.lock` is plain siml, written by Journey and
+committed: the exact version and content hash of every package in the build, dependencies of dependencies included, so
+every machine builds the same code and a dependency change shows in review. Builds always use it, and versions move
+only on `jern update`, never onto a `breaks` release (D110). D113's compiled form is a local cache instead: the
+manifest, the lock, every file's resolved `use`, the rules and scopes, in the fastest machine-specific form. It isn't
+committed, and it rebuilds itself whenever `Journey.siml` or `Journey.lock` changes, or JernComp updates.
+
+```
+// Journey.lock
+locked std 2026y-11m-14d hash 9f3a…
+locked http 2026y-11m-16d.2 hash 41c7…
+```
+
+The owner asked "Isn't `.lock` supposed to be the compiled version? Where's `use`?" and "Oh shit, it's not portable,
+right?"; Claude proposed splitting the two; the owner chose: "Yes". (Owner, 2026-11-14)
