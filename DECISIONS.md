@@ -2045,3 +2045,11 @@ api.emit_llvm_ir(text)
 The full list of functions grows as quills need it. Cyborg's design session advised designing around what a quill
 receives, through functions rather than structs, on 2026-11-14. Claude proposed it; the owner chose: "yea". (Owner,
 2026-11-14)
+
+**D126. Setting up for JernOrac.** `RULES.md` adds Jernal Oracle Claude, which builds JernOrac in OCaml in `oracle/`
+and the tests in `tests/`, working in its own clone at `/Users/ts/Jernal oracle`. Jernal Compiler Claude and Jernal
+Journey Claude come later, once the oracle has tests to compare against. The repository holds everything:
+`standard/`, `oracle/`, `compiler/`, `journey/`, `tests/`. Cores: design 1, oracle 3 (rule 11). New rules: the oracle is
+written from `standard/` only, and the oracle and compiler never read each other's source (rule 18, from D69); the
+oracle's integers are `Int64` (rule 19, from D73). Claude proposed these; the owner asked "Wouldn't that be a fucking
+popup?" about a session card, so the session is started in chat instead, and chose: "yupppp". (Owner, 2026-11-14)

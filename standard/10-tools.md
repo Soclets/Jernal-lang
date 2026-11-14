@@ -40,7 +40,8 @@ even one the compiler proves always passes, so it's the safest way to run a prog
 byte-for-byte the same output as JernOrac on every test and generated program; where they differ, this standard decides
 which is wrong. Neither is written from the other's source.
 
-JernOrac uses OCaml's own garbage collector, not JernGC, and holds Jernal's integers as `Int64`, never OCaml's 63-bit
+JernOrac is built by Jernal Oracle Claude, in `oracle/`, with the tests in `tests/` (D126). JernOrac uses OCaml's own
+garbage collector, not JernGC, and holds Jernal's integers as `Int64`, never OCaml's 63-bit
 `int` (D73). Comparing compiled programs against it also tests JernGC, together with `Working`'s torture option.
 
 ## 10.3 Build modes

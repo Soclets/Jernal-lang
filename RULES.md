@@ -6,10 +6,14 @@ entry and this file is updated to match. Keep it short: every session pays for i
 
 ## Sessions
 
-- **Jernal Design Claude**: the decisions, `DECISIONS.md`, `RULES.md`, and the spec. Works in `/Users/ts/Jernal - Design 1`.
-- Other Jernal sessions (implementation, tests, etc.) get added here when they exist.
+- **Jernal Design Claude**: the decisions, `DECISIONS.md`, `RULES.md`, and the standard (`standard/`). Works in
+  `/Users/ts/Jernal - Design 1`.
+- **Jernal Oracle Claude**: JernOrac, in OCaml, in `oracle/`, and the tests, in `tests/`. Works in `/Users/ts/Jernal oracle`.
+- Later: Jernal Compiler Claude (JernComp, `compiler/`) and Jernal Journey Claude (Journey, `journey/`), once the oracle
+  has tests to compare against.
 
-Each implementation session works in its own clone, on `main` with no branch, and runs `git pull --rebase` before pushing.
+The repository holds everything: `standard/`, `oracle/`, `compiler/`, `journey/`, `tests/`. Each implementation session
+works in its own clone, on `main` with no branch, and runs `git pull --rebase` before pushing. (D126)
 
 ## Rules
 
@@ -34,8 +38,8 @@ Each implementation session works in its own clone, on `main` with no branch, an
    Placeholders are allowed, and are marked as placeholders. (D2)
 10. **No design in code.** Code follows the spec. Anything undecided gives a `NotDesignedYet` error, and the question goes
     to Tankun through Jernal Design Claude. Anything decided but not built yet gives `NotBuiltYet`.
-11. **Cores.** On Tankun's 10-core Mac: Jernal Design Claude 1. Other sessions get theirs when they exist, and builds and
-    tests stay within that count.
+11. **Cores.** On Tankun's 10-core Mac: Jernal Design Claude 1, Jernal Oracle Claude 3. Other sessions get theirs when
+    they exist, and builds and tests stay within that count. (D126)
 12. **Where.** Only Jernal Design Claude edits `DECISIONS.md`, `RULES.md` and the spec.
 13. **A bad program never crashes the compiler.** No crash or panic on a path real programs take. If the compiler itself
     fails, it says so and how to report it.
@@ -50,6 +54,10 @@ Each implementation session works in its own clone, on `main` with no branch, an
     it. A big one, build after finishing what you're doing, and ask Jernal Design Claude if it's unclear. Design messages
     other sessions only for what's urgent, needs explaining, or to wake an idle session. A message to a busy session waits
     until its turn ends, so for something urgent, design queues it and asks Tankun to stop that session.
+18. **The oracle stays apart.** JernOrac is written from `standard/` only. The oracle never reads `compiler/`, and the
+    compiler never reads `oracle/`, so their bugs can't agree. Where they differ, the standard decides which is wrong;
+    if it's silent, that's a question for Tankun. (D69, D126)
+19. **Integers in the oracle are `Int64`**, never OCaml's 63-bit `int`, since Jernal's `Int` is `i64`. (D73)
 
 ## Tracing
 
