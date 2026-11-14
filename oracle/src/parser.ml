@@ -109,6 +109,22 @@ let expect state kind expected =
 let expect_word state word =
   if is_word state word then advance state else unexpected state ("`" ^ word ^ "`")
 
+(* The `:` that ends an opening line. Missing at the end of the line, it has one fix, and reading carries on
+   as if it were there, so the block's body and its `end` aren't refused because of it (D13). *)
+let expect_opener_colon state =
+  match peek_kind state with
+  | Colon -> ignore (advance state)
+  | Newline | End_of_file ->
+      let previous = state.tokens.(max 0 (state.position - 1)) in
+      let rec line_start i = if i > 0 && state.tokens.(i - 1).kind <> Newline then line_start (i - 1) else i in
+      let first = line_start (state.position - 1) in
+      let at = { previous.span with column = previous.span.end_column; end_line = previous.span.line } in
+      report state
+        (Diagnostic.make ~span:(Span.join state.tokens.(first).span previous.span)
+           ~fix:(Printf.sprintf "`%s:`" (render_tokens state first)) ~edit:(at, ":")
+           Diagnostic.Compile_time_error "a line that opens a block ends with `:` (D24, standard 1.2)")
+  | _ -> ignore (expect state Colon "`:`")
+
 let end_of_line state =
   if peek_kind state = Newline then ignore (advance state)
   else if peek_kind state = End_of_file then ()
@@ -739,7 +755,7 @@ and parse_arms state : arm list =
         ignore (advance state);
         let case_name = expect_dotted_name state "a case name" in
         let binding = match peek_kind state with Token.Variable _ -> Some (expect_variable state) | _ -> None in
-        ignore (expect state Colon "`:`");
+        expect_opener_colon state;
         end_of_line state;
         (case_name, binding)
       in
@@ -1047,7 +1063,7 @@ and parse_if state : statement =
   let start = advance state in
   let opener = start.span in
   let condition = parse_condition state in
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   let body = with_block state "if" (fun () -> parse_statements state) in
   let branches = ref [ { condition; branch_body = body } ] in
@@ -1061,7 +1077,7 @@ and parse_if state : statement =
         ignore (advance state);
         match
           let c = parse_condition state in
-          ignore (expect state Colon "`:`");
+          expect_opener_colon state;
           end_of_line state;
           c
         with
@@ -1076,7 +1092,7 @@ and parse_if state : statement =
       end
       else begin
         (match
-           ignore (expect state Colon "`:`");
+           expect_opener_colon state;
            end_of_line state
          with
          | () -> ()
@@ -1104,7 +1120,7 @@ and parse_while state : statement =
   let start = advance state in
   let loop_name = loop_name state in
   let condition = parse_expression state in
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   let closer = match loop_name with Some n -> "while " ^ n.text | None -> "while" in
   let body = with_block state closer (fun () -> parse_statements state) in
@@ -1149,7 +1165,7 @@ and parse_for state : statement =
         Some (Loop_handler { family; handler; jumps })
     | _ -> None
   in
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   let closer = match loop_name with Some n -> "for " ^ n.text | None -> "for" in
   let body = with_block state closer (fun () -> parse_statements state) in
@@ -1178,7 +1194,7 @@ and parse_match state : statement =
       end_of_line state;
       s
   | None ->
-      ignore (expect state Colon "`:`");
+      expect_opener_colon state;
       end_of_line state;
       let match_arms = Match_arms (with_block state "match" (fun () -> parse_arms state)) in
       expect_closer state ~opener:start.span ~expected:"match";
@@ -1382,7 +1398,7 @@ let parse_function state ~(keyword : string) : function_declaration =
       parameters := parse_parameters state;
       result := (if peek_kind state = Arrow then (ignore (advance state); Some (parse_type state)) else None);
       fails := parse_fails state;
-      ignore (expect state Colon "`:`");
+      expect_opener_colon state;
       end_of_line state
     with
     | () -> false
@@ -1441,7 +1457,7 @@ let skip_block state =
 let parse_versions state : family_member =
   let start = expect_word state "versions" in
   let versions_name = expect_name state "the name the versions share" in
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   let closer = "versions " ^ versions_name.text in
   let versions =
@@ -1455,7 +1471,7 @@ let parse_versions state : family_member =
               let parameters = parse_parameters state in
               let result = if peek_kind state = Arrow then (ignore (advance state); Some (parse_type state)) else None in
               let fails = parse_fails state in
-              ignore (expect state Colon "`:`");
+              expect_opener_colon state;
               end_of_line state;
               let labels, defaults, requires, ensures, body =
                 with_block state "version" (fun () ->
@@ -1482,7 +1498,7 @@ let parse_interface state : declaration_kind =
   let start = expect_word state "interface" in
   let interface_name = expect_name state "the interface's name" in
   ignore (parse_type_parameters ~requirement_optional:true state);
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   let closer = "interface " ^ interface_name.text in
   let includes = ref [] and operations = ref [] in
@@ -1526,7 +1542,7 @@ let parse_interface state : declaration_kind =
 let parse_type_set state : declaration_kind =
   let start = expect_word state "type_set" in
   let set_name = expect_name state "the type set's name" in
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   let closer = "type_set " ^ set_name.text in
   let members =
@@ -1575,7 +1591,7 @@ let parse_struct state : declaration_kind =
   let struct_name = expect_name state "the struct's name" in
   check_built_in_type_name state ~my:struct_my struct_name;
   let struct_type_parameters = parse_type_parameters state in
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   let closer =
     String.concat "." ("struct" :: List.map (fun n -> n.text) struct_narrowings) ^ " " ^ (if struct_my then "my::" else "")
@@ -1619,7 +1635,7 @@ let parse_union state : declaration_kind =
   let union_name = expect_name state "the union's name" in
   check_built_in_type_name state ~my:union_my union_name;
   let union_type_parameters = parse_type_parameters state in
-  ignore (expect state Colon "`:`");
+  expect_opener_colon state;
   end_of_line state;
   (* the closer repeats what the opening line said (D24) *)
   let closer = (if narrowings = [] then "union " else "union.tagged ") ^ (if union_my then "my::" else "") ^ union_name.text in
@@ -1649,7 +1665,7 @@ let parse_family state : declaration_kind =
   match narrowings with
   | { text = "fn"; _ } :: family_narrowings ->
       let family_name = expect_name state "the family's name" in
-      ignore (expect state Colon "`:`");
+      expect_opener_colon state;
       end_of_line state;
       let closer =
         String.concat "." ("fam" :: List.map (fun n -> n.text) narrowings) ^ " " ^ family_name.text
@@ -1704,7 +1720,7 @@ let parse_family state : declaration_kind =
       Family_function { family_narrowings; family_name; members }
   | [ { text = "failure"; _ } ] ->
       let failure_family = expect_name state "the family's name" in
-      ignore (expect state Colon "`:`");
+      expect_opener_colon state;
       end_of_line state;
       let closer = "fam.failure " ^ failure_family.text in
       let failures =
@@ -1729,7 +1745,7 @@ let parse_family state : declaration_kind =
       Family_failure { failure_family; failures }
   | [ { text = "handler"; _ } ] ->
       let handler_family = expect_name state "the family's name" in
-      ignore (expect state Colon "`:`");
+      expect_opener_colon state;
       end_of_line state;
       let closer = "fam.handler " ^ handler_family.text in
       let handlers =
@@ -1744,7 +1760,7 @@ let parse_family state : declaration_kind =
                   if peek_kind state = Left_bracket then
                     raise (Line_error (Diagnostic.make ~span:(peek state).span ~what:"handlers taking arguments aren't decided yet"
                                          Diagnostic.Not_designed_yet "not decided yet (D49, standard 12.2)"));
-                  ignore (expect state Colon "`:`");
+                  expect_opener_colon state;
                   end_of_line state;
                   let inner = "handler " ^ handler_name.text in
                   let handler_arms = with_block state inner (fun () -> parse_arms state) in
@@ -1767,7 +1783,7 @@ let parse_family state : declaration_kind =
   | [ { text = "type"; _ }; { text = "new"; _ } ] ->
       (* trace: D61 *)
       let type_family = expect_name state "the family's name" in
-      ignore (expect state Colon "`:`");
+      expect_opener_colon state;
       end_of_line state;
       let closer = "fam.type.new " ^ type_family.text in
       let new_types =
@@ -1883,9 +1899,27 @@ let parse_declaration state : declaration option =
     | d -> Some d
     | exception Line_error d ->
         report state d;
+        (* a refused struct or union line still declares its name, as an unknown type, so nothing that uses
+           it is refused because of it (D13): the name is the line's first capitalized word *)
+        let declared_type =
+          match start.kind with
+          | Word ("struct" | "union") ->
+              let rec index_of i = if i >= Array.length state.tokens then 0 else if state.tokens.(i) == start then i else index_of (i + 1) in
+              let rec find i =
+                match state.tokens.(i).kind with
+                | Newline | End_of_file -> None
+                | Word w when w <> "" && w.[0] >= 'A' && w.[0] <= 'Z' -> Some { text = w; span = state.tokens.(i).span }
+                | _ -> find (i + 1)
+              in
+              find (index_of 0)
+          | _ -> None
+        in
         if line_opens_block state then skip_block state else skip_line state;
-        Some { declaration_kind = Unfinished_declaration { what = ""; why = ""; designed = true };
-               visibility = File_only; declaration_span = start.span }
+        match declared_type with
+        | Some n -> Some { declaration_kind = Unknown_type n; visibility = File_only; declaration_span = start.span }
+        | None ->
+            Some { declaration_kind = Unfinished_declaration { what = ""; why = ""; designed = true };
+                   visibility = File_only; declaration_span = start.span }
 
 let parse_file ~(file : string) (tokens : Token.t array) : Syntax.file * Diagnostic.t list =
   let state = { tokens; position = 0; diagnostics = []; open_blocks = [] } in

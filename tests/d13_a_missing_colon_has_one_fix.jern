@@ -1,0 +1,8 @@
+struct Point
+    x: Int
+end struct Point
+
+fn.main[]:
+    let $p: Point = Point[x = 1]
+    println($p.x as String)
+end fn.main

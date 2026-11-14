@@ -1,0 +1,5 @@
+CompileTimeError: d13_a_refused_struct_line_still_declares_its_name.jern:1:13, line 1 column 13
+ 1 | struct Point[x]:
+   |             ^
+ what: expected `:` here, not `[`
+ why:  the shape of each statement is set out in the standard (D19, standard 1.1)

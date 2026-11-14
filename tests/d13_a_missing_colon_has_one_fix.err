@@ -1,0 +1,5 @@
+CompileTimeError: d13_a_missing_colon_has_one_fix.jern:1:1, line 1 column 1
+ 1 | struct Point
+   | ^^^^^^^^^^^^
+ fix:  `struct Point:`
+ why:  a line that opens a block ends with `:` (D24, standard 1.2)

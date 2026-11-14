@@ -1,0 +1,12 @@
+struct Point[x]:
+    x: Int
+end struct Point
+
+fn shift[$p: Point] -> Point:
+    return copy $p
+end fn shift
+
+fn.main[]:
+    let $p: Point = Point[x = 1]
+    println($p.x as String)
+end fn.main

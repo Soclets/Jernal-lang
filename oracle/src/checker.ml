@@ -79,6 +79,7 @@ type context = {
   short_names : Manifest.short_name list;                        (* `use` lines from the manifest (D60, D114) *)
   mutable current_file : string;                                 (* the file being checked, for `pub` (D106) *)
   mutable global_syntax : (string * statement) list;             (* each file's top-level lets, as written *)
+  unknown_types : (string, unit) Hashtbl.t;                      (* names of refused struct or union lines (D13) *)
   local_baked : (string, Q.t) Hashtbl.t;                         (* this function's `let baked` numbers, for bounds *)
   local_baked_frame : (int, Value.t ref) Hashtbl.t;
   mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
@@ -323,6 +324,7 @@ let rec resolve_type context (t : type_expression) : Types.t =
             | exception e -> context.resolving <- List.tl context.resolving; raise e
           in
           no_arguments resolved
+      | _, [ word ] when Hashtbl.mem context.unknown_types word -> Types.Unknown   (* its own line was refused (D13) *)
       | _ ->
           refuse context ~what:(Printf.sprintf "there's no type called %s" (quote (String.concat "." words))) t.type_span
             "a type is a built-in type or one the program declares (D56, standard 2)")
@@ -1492,6 +1494,11 @@ and check_build fctx ~expected (e : expression) built fields =
             else Types.Instance (word, List.map (fun ((p : name), _) -> (parameter_label p.text, List.assoc p.text bindings)) parameters)
           in
           { C.kind = C.Build_union { union_name = word; case_name = case.text; fields = given }; type_; span })
+  | Syntax.Name { word; _ } | Syntax.Member ({ expression_kind = Syntax.Name { word; _ }; _ }, _)
+    when Hashtbl.mem context.unknown_types word ->
+      (* the type's own line was refused, so what's built here is unknown, and nothing more is said (D13) *)
+      List.iter (fun { field_value; _ } -> try ignore (check_expression fctx ~expected:None field_value) with Skip -> ()) fields;
+      raise Skip
   | _ ->
       refuse context ~what:"only a struct or a union's case is built with `[ ... = ... ]`" span
         "a struct is built with `[ ]` and `=` (D56, standard 2.4)"
@@ -3004,7 +3011,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
       presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = []; versions = Hashtbl.create 8; overlapping_versions = Hashtbl.create 4;
       interfaces = Hashtbl.create 4; type_sets = Hashtbl.create 4; satisfied = []; type_parameters = [];
-      short_names = uses; current_file = ""; global_syntax = []; local_baked = Hashtbl.create 4;
+      short_names = uses; current_file = ""; global_syntax = []; unknown_types = Hashtbl.create 4; local_baked = Hashtbl.create 4;
       local_baked_frame = Hashtbl.create 4;
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
@@ -3117,6 +3124,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
           | Family_type_new { type_family; new_types } ->
               List.iter (fun ((n : name), t) -> Hashtbl.replace context.new_types (type_family.text ^ "." ^ n.text) t) new_types
           | Satisfies _ -> ()
+          | Unknown_type n -> Hashtbl.replace context.unknown_types n.text ()
           | Unfinished_declaration { what; why; designed } ->
               report context
                 (Diagnostic.make ~span:d.declaration_span ~what
