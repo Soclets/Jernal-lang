@@ -1,0 +1,6 @@
+fn.main[]:
+    let $age: Int = 20
+    if $age >= 18:
+        println("adult")
+    end if
+end fn.main

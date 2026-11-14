@@ -1,0 +1,5 @@
+CompileTimeError: d17_bare_index_is_refused.jern:3:19, line 3 column 19
+ 3 |     let $x: Int = $xs[1]
+   |                   ^^^^^^
+ what: an index says how it counts: `pos:` from 1, or `offset:` from 0
+ why:  an index always says how it counts (D17, standard 4.4)

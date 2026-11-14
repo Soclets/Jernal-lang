@@ -1,0 +1,5 @@
+CompileTimeError: d95_unknown_escape_is_refused.jern:2:17, line 2 column 17
+ 2 |     println("one\ntwo")
+   |                 ^^
+ what: `\n` isn't an escape: only `\"` and `\\` are
+ why:  `\` is always special in a string (D95, standard 2.2)

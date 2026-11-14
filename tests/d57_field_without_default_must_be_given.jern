@@ -1,0 +1,8 @@
+struct Reading:
+    celsius: Int
+    place: String = "home"
+end struct Reading
+
+fn.main[]:
+    let $r: Reading = Reading[place = "Bangkok"]
+end fn.main

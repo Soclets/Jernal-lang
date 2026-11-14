@@ -1,0 +1,4 @@
+fn.main[]:
+    let $a: Int = 7 div 2
+    println("never")
+end fn.main

@@ -1,0 +1,5 @@
+fn.main[]:
+    let $zero: Int = 0
+    let $x: Int = 5 div.trunc $zero
+    println("never")
+end fn.main

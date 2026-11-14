@@ -1,0 +1,8 @@
+struct Reading:
+    celsius: Int
+end struct Reading
+
+fn.main[]:
+    let $r: Reading = Reading[celsius = 22]
+    change $r.celsius = 23
+end fn.main

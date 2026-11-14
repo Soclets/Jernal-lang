@@ -1,0 +1,5 @@
+CompileTimeError: d84_inexact_float_literal_needs_tilde.jern:2:21, line 2 column 21
+ 2 |     let $c: Float = 0.1
+   |                     ^^^
+ fix:  `~0.1`
+ why:  a number literal its type can't hold exactly is written with `~`, and one it can is written without (D84, standard 2.1a)

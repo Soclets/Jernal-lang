@@ -1,0 +1,12 @@
+fn.main[]:
+    let $a: Float = 0.5
+    let $b: Float = ~0.1
+    println($a as String)
+    println($b as String)
+    println(($b + ~0.2) as String)
+    println($b as.stored String)
+    let $c: Float = 2.0
+    println($c as String)
+    let $d: Float = -0.25
+    println($d as String)
+end fn.main

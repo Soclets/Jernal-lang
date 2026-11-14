@@ -1,0 +1,6 @@
+fn.main[]:
+    let $big: Int = 9223372036854775807
+    println("before")
+    let $more: Int = $big + 1
+    println("never")
+end fn.main

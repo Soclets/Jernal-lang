@@ -1,0 +1,7 @@
+fn.main[]:
+    let $a: Bool = true
+    let $b: Bool = false
+    if $a && not $b:
+        println("yes")
+    end if
+end fn.main

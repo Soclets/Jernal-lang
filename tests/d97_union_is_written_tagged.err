@@ -1,0 +1,5 @@
+CompileTimeError: d97_union_is_written_tagged.jern:1:1, line 1 column 1
+ 1 | union Status:
+   | ^^^^^
+ fix:  `union.tagged`
+ why:  a union is always written `union.tagged` (D97, standard 2.4a)

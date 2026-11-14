@@ -1,0 +1,5 @@
+CompileTimeError: d18_type_brackets_stick.jern:2:19, line 2 column 19
+ 2 |     let $xs: List <Int> = [1, 2]
+   |                   ^
+ fix:  `List<Int>`
+ why:  a comparison has a space on both sides, and type brackets stick to the name before them (D18, standard 1.5)

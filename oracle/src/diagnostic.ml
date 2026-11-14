@@ -16,10 +16,22 @@ type t = {
   why : string;
   when_ : string option;
   because : string list;
+  edit : (Span.t * string) option;
+      (* the fix as a text edit, applied in memory to find knock-on errors (D13) *)
 }
 
-let make ?span ?what ?fix ?when_ ?(because = []) kind why =
-  { kind; span; what; fix; why; when_; because }
+let unquote text =
+  let n = String.length text in
+  if n >= 2 && text.[0] = '`' && text.[n - 1] = '`' then String.sub text 1 (n - 2) else text
+
+let make ?span ?what ?fix ?when_ ?(because = []) ?edit kind why =
+  let edit =
+    match edit, fix, span with
+    | Some e, _, _ -> Some e
+    | None, Some f, Some s when s.Span.line = s.Span.end_line -> Some (s, unquote f)
+    | _ -> None
+  in
+  { kind; span; what; fix; why; when_; because; edit }
 
 let kind_word = function
   | Compile_time_error -> "CompileTimeError"
@@ -54,6 +66,10 @@ let safe_sub text start length =
   let start = max 0 (min start (String.length text)) in
   let length = max 0 (min length (String.length text - start)) in
   String.sub text start length
+
+let grapheme_column (span : Span.t) =
+  let line_text = Option.value (source_line span.file span.line) ~default:"" in
+  Text.grapheme_count (safe_sub line_text 0 (span.column - 1)) + 1
 
 (* trace: D10 *)
 let render (d : t) : string =

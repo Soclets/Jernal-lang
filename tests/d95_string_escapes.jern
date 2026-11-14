@@ -1,0 +1,4 @@
+fn.main[]:
+    println("Price: $5")
+    println("a \"quote\" and a \\ backslash")
+end fn.main

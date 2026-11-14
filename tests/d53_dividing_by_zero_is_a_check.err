@@ -1,0 +1,5 @@
+RuntimeError: d53_dividing_by_zero_is_a_check.jern:3:19, line 3 column 19
+ 3 |     let $x: Int = 5 div.trunc $zero
+   |                   ^^^^^^^^^^^^^^^^^
+ what: `5 div.trunc $zero` divides by zero
+ why:  dividing by zero is a check (D53, standard 7.2)

@@ -1,0 +1,6 @@
+RuntimeError: d93_gated_odd_width.jern:4:31, line 4 column 31
+ 4 |     let $y: not_two_pow.u24 = $x + 1
+   |                               ^^^^^^
+ what: `$x + 1` doesn't fit in `u24`
+ why:  a number too big for its type is a check (D54, standard 7.2)
+ when: it would be 16777216

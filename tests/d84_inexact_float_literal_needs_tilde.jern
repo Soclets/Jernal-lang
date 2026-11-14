@@ -1,0 +1,4 @@
+fn.main[]:
+    let $c: Float = 0.1
+    println("never")
+end fn.main

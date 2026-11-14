@@ -1,0 +1,8 @@
+fn.main[]:
+    let $done: Bool = false
+    if not $done:
+        println("not done")
+    end if
+    let $both: Bool = true and $done
+    println($both as String)
+end fn.main

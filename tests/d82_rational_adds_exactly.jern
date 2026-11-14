@@ -1,0 +1,8 @@
+fn.main[]:
+    let $a: Rational = 0.1
+    let $b: Rational = 0.2
+    let $c: Rational = 0.3
+    if $a + $b == $c:
+        println("0.1 + 0.2 is 0.3")
+    end if
+end fn.main

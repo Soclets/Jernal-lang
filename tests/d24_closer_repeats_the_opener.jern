@@ -1,0 +1,7 @@
+fn add[$a: Int, $b: Int] -> Int:
+    return $a + $b
+end fn ad
+
+fn.main[]:
+    println(add(1, 2) as String)
+end fn.main

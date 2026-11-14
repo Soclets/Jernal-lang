@@ -1,0 +1,4 @@
+fn.main[]:
+    let $x: Float = 7.0 div 2.0
+    println($x as String)
+end fn.main

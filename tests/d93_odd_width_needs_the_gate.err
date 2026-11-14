@@ -1,0 +1,5 @@
+CompileTimeError: d93_odd_width_needs_the_gate.jern:2:13, line 2 column 13
+ 2 |     let $x: u24 = 5
+   |             ^^^
+ fix:  `not_two_pow.u24`
+ why:  an integer width that isn't a power of two needs the `not_two_pow.` gate (D93, standard 2.1)

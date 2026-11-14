@@ -1,0 +1,10 @@
+fn.main[]:
+    let $a: Int = 7 div.trunc 2
+    let $b: Int = -7 div.trunc 2
+    let $c: Int = -7 div.floor 2
+    let $d: Int = 6 div.exact 2
+    println($a as String)
+    println($b as String)
+    println($c as String)
+    println($d as String)
+end fn.main

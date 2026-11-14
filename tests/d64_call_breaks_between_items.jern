@@ -1,0 +1,11 @@
+fn add[$a: Int, $b: Int] -> Int:
+    return $a + $b
+end fn add
+
+fn.main[]:
+    let $total: Int = add(
+        2,
+        3,
+    )
+    println("Total: " $total as String)
+end fn.main

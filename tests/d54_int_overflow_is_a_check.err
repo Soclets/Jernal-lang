@@ -1,0 +1,6 @@
+RuntimeError: d54_int_overflow_is_a_check.jern:4:22, line 4 column 22
+ 4 |     let $more: Int = $big + 1
+   |                      ^^^^^^^^
+ what: `$big + 1` doesn't fit in `Int`
+ why:  a number too big for its type is a check (D54, standard 7.2)
+ when: it would be 9223372036854775808

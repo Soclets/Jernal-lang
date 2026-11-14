@@ -1,0 +1,6 @@
+fn.main[]:
+    let $xs: List<Int> = [1, 2, 3]
+    println("before")
+    let $x: Int = $xs[pos: 4]
+    println("never")
+end fn.main

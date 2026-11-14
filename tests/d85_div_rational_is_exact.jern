@@ -1,0 +1,7 @@
+fn.main[]:
+    let $half: Rational = 7 div.rational 2
+    let $expected: Rational = 3.5
+    if $half == $expected:
+        println("exact")
+    end if
+end fn.main

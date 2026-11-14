@@ -1,0 +1,15 @@
+fn.main[]:
+    let $xs: List<Int> = [1, 2, 3]
+    let $ages: Map<key: String, val: Int> = ["Ann" => 30, "Bob" => 25]
+    let $none: List<Int> = []
+    let $nobody: Map<key: String, val: Int> = []
+    let $long: List<Int> = [
+        4,
+        5,
+    ]
+    println($xs.len() as String)
+    println($ages.len() as String)
+    println($none.len() as String)
+    println($nobody.len() as String)
+    println($long.len() as String)
+end fn.main

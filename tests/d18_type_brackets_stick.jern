@@ -1,0 +1,4 @@
+fn.main[]:
+    let $xs: List <Int> = [1, 2]
+    println($xs.len() as String)
+end fn.main

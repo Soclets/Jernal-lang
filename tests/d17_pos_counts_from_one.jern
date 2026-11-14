@@ -1,0 +1,7 @@
+fn.main[]:
+    let $xs: List<String> = ["a", "b", "c"]
+    println($xs[pos: 1])
+    println($xs[offset: 0])
+    println($xs[pos: 3])
+    println($xs[offset: 2])
+end fn.main

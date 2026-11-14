@@ -1,0 +1,5 @@
+CompileTimeError: d88_bare_div_on_integers_is_refused.jern:2:21, line 2 column 21
+ 2 |     let $a: Int = 7 div 2
+   |                     ^^^
+ what: dividing integers says which kind: `div.trunc`, `div.floor`, `div.exact` or `div.rational`
+ why:  on integers, `div` says which kind (D88, standard 2.1a)

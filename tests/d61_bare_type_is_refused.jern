@@ -1,0 +1,5 @@
+type UserId = Int
+
+fn.main[]:
+    println("never")
+end fn.main

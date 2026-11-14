@@ -1,0 +1,5 @@
+CompileTimeError: d27_at_least_is_a_word.jern:3:13, line 3 column 13
+ 3 |     if $age >= 18:
+   |             ^^
+ fix:  `at_least`
+ why:  comparisons that include the end are words (D27, standard 4.1)

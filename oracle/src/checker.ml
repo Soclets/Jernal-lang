@@ -83,6 +83,10 @@ let not_designed context ~what span why =
   raise Skip
 
 let quote text = "`" ^ text ^ "`"
+
+(* The span of the keyword a statement starts with. *)
+let keyword_span (s : Span.t) (word : string) : Span.t =
+  { s with end_line = s.line; end_column = s.column + String.length word }
 let type_text t = quote (Types.name t)
 
 (* ---------- Types ---------- *)
@@ -529,7 +533,9 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
              operator.operator_span "comparisons work on values of the same type (D27, standard 4.1)");
       { C.kind = C.Compare { operator = operator.word; left = l; right = r }; type_ = Types.Bool; span }
   | _ ->
-      let l, r = check_pair expected in
+      (* `div.rational` takes integers and gives a Rational, so its operands don't take the result's type *)
+      let operand_expected = if operator.word = "div" && operator.narrowings = [ "rational" ] then None else expected in
+      let l, r = check_pair operand_expected in
       if not (Types.same l.type_ r.type_) then
         refuse context
           ~what:(Printf.sprintf "%s works on two values of the same type, and these are %s and %s" (quote operator_text)
@@ -916,7 +922,7 @@ and check_statement fctx (s : statement) : C.statement list =
         (match existing with
          | Some _ ->
              (* trace: D36 *)
-             error context ~fix:"`shadow`" (Span.join span variable.span)
+             error context ~fix:"`shadow`" (keyword_span span "let")
                "declaring an existing name is refused; `shadow` gives it a new value (D36, standard 3.4)"
          | None -> ());
         let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
@@ -927,7 +933,7 @@ and check_statement fctx (s : statement) : C.statement list =
       let declared = try resolve_type context declared_type with Skip -> Types.Unknown in
       (match find_variable fctx variable.text with
        | Some _ ->
-           error context ~fix:"`shadow`" (Span.join span variable.span)
+           error context ~fix:"`shadow`" (keyword_span span "decl")
              "declaring an existing name is refused; `shadow` gives it a new value (D36, standard 3.4)"
        | None -> ());
       ignore (add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:false ());
@@ -941,7 +947,7 @@ and check_statement fctx (s : statement) : C.statement list =
       | Some info ->
           if info.assigned then begin
             (* trace: D34 *)
-            error context ~fix:(quote "change") span
+            error context ~fix:(quote "change") (keyword_span span "assign")
               "`assign` gives a `decl` its first value, exactly once on each path (D34, standard 3.3)";
             []
           end
@@ -955,7 +961,7 @@ and check_statement fctx (s : statement) : C.statement list =
       (match find_variable fctx variable.text with
        | None ->
            (* trace: D36 *)
-           error context ~fix:"`let`" (Span.join span variable.span)
+           error context ~fix:"`let`" (keyword_span span "shadow")
              "`shadow` gives an existing name a new value (D36, standard 3.4)"
        | Some _ -> ());
       let info = add_variable fctx ~name:variable ~variable_type:declared ~is_mutable ~assigned:true () in
@@ -1065,7 +1071,7 @@ and check_change fctx span target value =
             refuse context
               ~what:(Printf.sprintf "`$%s` can't change: it isn't `mut`" name) name_span why;
           if not info.assigned then
-            refuse context ~fix:(quote "assign") span "`assign` gives a `decl` its first value (D34, standard 3.3)";
+            refuse context ~fix:(quote "assign") (keyword_span span "change") "`assign` gives a `decl` its first value (D34, standard 3.3)";
           match target.expression_kind with
           | Syntax.Variable _ ->
               let v = check_value fctx info.variable_type value in

@@ -1,0 +1,4 @@
+fn.main[]:
+    let $x: u24 = 5
+    println("never")
+end fn.main

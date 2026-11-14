@@ -1,0 +1,7 @@
+fn.main[]:
+    println("one")
+end fn.main
+
+fn.main[]:
+    println("two")
+end fn.main

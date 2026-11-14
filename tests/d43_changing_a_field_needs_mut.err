@@ -1,0 +1,5 @@
+CompileTimeError: d43_changing_a_field_needs_mut.jern:7:12, line 7 column 12
+ 7 |     change $r.celsius = 23
+   |            ^^
+ what: `$r` can't change: it isn't `mut`
+ why:  `change` works on what can change (D33, D43, standard 3.5)

@@ -1,0 +1,5 @@
+CompileTimeError: d18_comparison_needs_spaces.jern:3:12, line 3 column 12
+ 3 |     if $age<18:
+   |            ^
+ fix:  `$age < 18`
+ why:  a comparison has a space on both sides, and type brackets stick to the name before them (D18, standard 1.5)

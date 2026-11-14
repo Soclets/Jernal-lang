@@ -1,0 +1,6 @@
+CompileTimeError: d84_int_literal_that_doesnt_fit_is_refused.jern:2:19, line 2 column 19
+ 2 |     let $x: Int = 9223372036854775808
+   |                   ^^^^^^^^^^^^^^^^^^^
+ what: `9223372036854775808` doesn't fit in `Int`
+ why:  an integer literal that doesn't fit its type is refused (D84, standard 2.1a)
+ when: `Int` holds -9223372036854775808 to 9223372036854775807

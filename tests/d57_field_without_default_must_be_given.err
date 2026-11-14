@@ -1,0 +1,5 @@
+CompileTimeError: d57_field_without_default_must_be_given.jern:7:23, line 7 column 23
+ 7 |     let $r: Reading = Reading[place = "Bangkok"]
+   |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+ what: `celsius` has no default, so it must be given
+ why:  a field without a default must be given (D57, standard 2.4)

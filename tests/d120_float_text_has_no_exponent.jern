@@ -1,0 +1,6 @@
+fn.main[]:
+    let $big: Float = ~100000000000000000000000
+    println($big as String)
+    let $small: Float = 0.0009765625
+    println($small as String)
+end fn.main

@@ -16,8 +16,8 @@ type state = {
   mutable type_depth : int;               (* < > as type brackets, on this line *)
 }
 
-let error state ?what ?fix span why =
-  state.diagnostics <- Diagnostic.make ~span ?what ?fix Diagnostic.Compile_time_error why :: state.diagnostics
+let error state ?what ?fix ?edit span why =
+  state.diagnostics <- Diagnostic.make ~span ?what ?fix ?edit Diagnostic.Compile_time_error why :: state.diagnostics
 
 let not_designed state ~what span why =
   state.diagnostics <- Diagnostic.make ~span ~what Diagnostic.Not_designed_yet why :: state.diagnostics
@@ -195,7 +195,8 @@ let lex_line state (line : string) (line_number : int) =
         in
         (* A refused spelling with one fix: report it, then carry on with the fixed word. *)
         let refused_word ~fix_word ~why width =
-          error state ~fix:(Printf.sprintf "`%s`" fix_word) (span_of i (i + width)) why;
+          error state ~fix:(Printf.sprintf "`%s`" fix_word) ~edit:(span_of i (i + width), " " ^ fix_word ^ " ")
+            (span_of i (i + width)) why;
           push (Word fix_word) i (i + width) true;
           go (i + width) true
         in
@@ -289,7 +290,8 @@ let lex_line state (line : string) (line_number : int) =
               let close = matching i 0 in
               let name = String.trim (stuck_run_before line (let rec b k = if k > 0 && is_space line.[k-1] then b (k-1) else k in b i)) in
               let fixed = name ^ String.sub line i (close - i) in
-              error state ~fix:(Printf.sprintf "`%s`" fixed) (span_of i (i + 1)) spacing_why;
+              let space_start = let rec b k = if k > 0 && is_space line.[k-1] then b (k-1) else k in b i in
+              error state ~fix:(Printf.sprintf "`%s`" fixed) ~edit:(span_of space_start (i + 1), "<") (span_of i (i + 1)) spacing_why;
               state.type_depth <- state.type_depth + 1;
               push Type_open i (i + 1) false;
               go (i + 1) false
@@ -298,7 +300,7 @@ let lex_line state (line : string) (line_number : int) =
               let left = String.trim (stuck_run_before line (let rec b k = if k > 0 && is_space line.[k-1] then b (k-1) else k in b i)) in
               let rec skip k = if k < length && is_space line.[k] then skip (k + 1) else k in
               let right = stuck_run_after line (skip (i + 1)) in
-              error state ~fix:(Printf.sprintf "`%s < %s`" left right) (span_of i (i + 1)) spacing_why;
+              error state ~fix:(Printf.sprintf "`%s < %s`" left right) ~edit:(span_of i (i + 1), " < ") (span_of i (i + 1)) spacing_why;
               push Less i (i + 1) true;
               go (i + 1) true
             end
@@ -311,7 +313,8 @@ let lex_line state (line : string) (line_number : int) =
             end
             else if space_before && space_after then simple Greater 1
             else if state.type_depth > 0 then begin
-              error state ~fix:"`>` right after the type it closes" (span_of i (i + 1)) spacing_why;
+              let space_start = let rec b k = if k > 0 && is_space line.[k-1] then b (k-1) else k in b i in
+              error state ~fix:"`>` right after the type it closes" ~edit:(span_of space_start (i + 1), ">") (span_of i (i + 1)) spacing_why;
               state.type_depth <- state.type_depth - 1;
               push Type_close i (i + 1) false;
               go (i + 1) false
@@ -320,7 +323,7 @@ let lex_line state (line : string) (line_number : int) =
               let left = String.trim (stuck_run_before line (let rec b k = if k > 0 && is_space line.[k-1] then b (k-1) else k in b i)) in
               let rec skip k = if k < length && is_space line.[k] then skip (k + 1) else k in
               let right = stuck_run_after line (skip (i + 1)) in
-              error state ~fix:(Printf.sprintf "`%s > %s`" left right) (span_of i (i + 1)) spacing_why;
+              error state ~fix:(Printf.sprintf "`%s > %s`" left right) ~edit:(span_of i (i + 1), " > ") (span_of i (i + 1)) spacing_why;
               push Greater i (i + 1) true;
               go (i + 1) true
             end

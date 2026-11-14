@@ -1,0 +1,13 @@
+struct Reading:
+    celsius: Int
+    place: String = "home"
+end struct Reading
+
+fn.main[]:
+    let mut $r: Reading = Reading[celsius = 22, place = "Bangkok"]
+    let $a: Reading = Reading[celsius = 22]
+    println($r.place)
+    println($a.place)
+    change $r.celsius = 23
+    println($r.celsius as String)
+end fn.main

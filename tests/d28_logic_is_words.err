@@ -1,0 +1,5 @@
+CompileTimeError: d28_logic_is_words.jern:4:11, line 4 column 11
+ 4 |     if $a && not $b:
+   |           ^^
+ fix:  `and`
+ why:  logic is written in words (D28, standard 4.2)

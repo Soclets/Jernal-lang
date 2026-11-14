@@ -1,0 +1,3 @@
+CompileTimeError:
+ what: the program has no `fn.main`
+ why:  a program starts at its one `fn.main` (D62, standard 5.9)

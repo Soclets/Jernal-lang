@@ -1,0 +1,4 @@
+fn.main[]:
+    let $xs: List<Int> = [1, 2, 3]
+    let $x: Int = $xs[1]
+end fn.main

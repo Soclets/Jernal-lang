@@ -1,0 +1,5 @@
+CompileTimeError: d19_no_semicolons.jern:2:17, line 2 column 17
+ 2 |     println("a");
+   |                 ^
+ what: there are no semicolons; a line break ends a statement
+ why:  one statement, one line (D19, standard 1.1)

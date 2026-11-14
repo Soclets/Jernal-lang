@@ -34,31 +34,97 @@ let compiler_bug what =
   flush stderr;
   118
 
+(* Reads, checks and gives the program made of [texts] (file name, text), with every error. *)
+let check_texts ~(manifest_text : string) (texts : (string * string) list) =
+  let manifest, manifest_diagnostics = Manifest.read ~text:manifest_text in
+  let parsed, file_diagnostics =
+    List.fold_left
+      (fun (parsed, diagnostics) (file, text) ->
+        if not (Text.is_valid_utf_8 text) then
+          ( parsed,
+            diagnostics
+            @ [ Diagnostic.make ~what:(Printf.sprintf "`%s` isn't valid UTF-8" file) Diagnostic.Compile_time_error
+                  "Jernal files are UTF-8 text (D74, standard 10.1)" ] )
+        else begin
+          Diagnostic.add_source ~file ~text;
+          let tokens, lex_diagnostics = Lexer.lex ~file text in
+          let syntax, parse_diagnostics = Parser.parse_file ~file tokens in
+          (parsed @ [ syntax ], diagnostics @ lex_diagnostics @ parse_diagnostics)
+        end)
+      ([], []) texts
+  in
+  let program, check_diagnostics = Checker.check_package ~std_visible:manifest.needs_std parsed in
+  (program, manifest_diagnostics @ file_diagnostics @ check_diagnostics)
+
+let apply_edit (texts : (string * string) list) ~(manifest_text : string) ((span : Span.t), replacement) =
+  let edit text =
+    let lines = Text.lines_of text in
+    if span.line < 1 || span.line > Array.length lines then text
+    else begin
+      let line = lines.(span.line - 1) in
+      let start = min (span.column - 1) (String.length line) and finish = min (span.end_column - 1) (String.length line) in
+      lines.(span.line - 1) <- String.sub line 0 start ^ replacement ^ String.sub line finish (String.length line - finish);
+      String.concat "\n" (Array.to_list lines)
+    end
+  in
+  if span.file = Manifest.file_name then (texts, edit manifest_text)
+  else (List.map (fun (file, text) -> if file = span.file then (file, edit text) else (file, text)) texts, manifest_text)
+
+(* Knock-on errors: apply each single fix in memory and check again; an error that goes away gets a
+   `because:` pointing back at the fix (D13, standard 7.4). *)
+let add_knock_ons ~(manifest_text : string) (texts : (string * string) list) (diagnostics : Diagnostic.t list) =
+  let key (d : Diagnostic.t) = (d.kind, d.what, d.fix, d.why) in
+  let moved (edit_span : Span.t) replacement (d : Diagnostic.t) =
+    match d.span with
+    | Some s when s.file = edit_span.file && s.line = edit_span.line && s.column >= edit_span.end_column ->
+        let delta = String.length replacement - (edit_span.end_column - edit_span.column) in
+        Some { s with column = s.column + delta; end_column = s.end_column + delta }
+    | other -> other
+  in
+  let result = Array.of_list diagnostics in
+  Array.iteri
+    (fun i (d : Diagnostic.t) ->
+      match d.edit, d.span with
+      | Some ((edit_span, replacement) as edit), Some fix_span when result.(i).because = [] ->
+          let edited_texts, edited_manifest = apply_edit texts ~manifest_text edit in
+          let _, again = check_texts ~manifest_text:edited_manifest edited_texts in
+          let still_there (other : Diagnostic.t) =
+            let place = moved edit_span replacement other in
+            List.exists
+              (fun (x : Diagnostic.t) ->
+                key x = key other
+                && (match x.span, place with
+                    | Some a, Some b -> a.file = b.file && a.line = b.line && a.column = b.column
+                    | None, None -> true
+                    | _ -> false))
+              again
+          in
+          let line_text = Option.value (Diagnostic.source_line fix_span.file fix_span.line) ~default:"" in
+          ignore line_text;
+          Array.iteri
+            (fun j (other : Diagnostic.t) ->
+              if j <> i && other.because = [] && other.kind <> Diagnostic.Warning && not (still_there other) then
+                result.(j) <-
+                  { other with
+                    because =
+                      [ Printf.sprintf "with %s at line %d column %d, this error goes away"
+                          (Option.value d.fix ~default:"") fix_span.line (Diagnostic.grapheme_column fix_span) ] })
+            result
+      | _ -> ())
+    result;
+  (* the sources the messages quote are the program as written *)
+  Diagnostic.add_source ~file:Manifest.file_name ~text:manifest_text;
+  List.iter (fun (file, text) -> if Text.is_valid_utf_8 text then Diagnostic.add_source ~file ~text) texts;
+  Array.to_list result
+
 (* Checks and runs the program made of [files] in [folder]; gives the exit code. *)
 let run ~(folder : string) ~(files : string list) : int =
   try
     let manifest_text = read_file (Filename.concat folder Manifest.file_name) in
-    let manifest, manifest_diagnostics = Manifest.read ~text:manifest_text in
-    let parsed, file_diagnostics =
-      List.fold_left
-        (fun (parsed, diagnostics) file ->
-          let text = read_file (Filename.concat folder file) in
-          if not (Text.is_valid_utf_8 text) then
-            ( parsed,
-              diagnostics
-              @ [ Diagnostic.make ~what:(Printf.sprintf "`%s` isn't valid UTF-8" file) Diagnostic.Compile_time_error
-                    "Jernal files are UTF-8 text (D74, standard 10.1)" ] )
-          else begin
-            Diagnostic.add_source ~file ~text;
-            let tokens, lex_diagnostics = Lexer.lex ~file text in
-            let syntax, parse_diagnostics = Parser.parse_file ~file tokens in
-            (parsed @ [ syntax ], diagnostics @ lex_diagnostics @ parse_diagnostics)
-          end)
-        ([], []) files
-    in
-    let program, check_diagnostics = Checker.check_package ~std_visible:manifest.needs_std parsed in
-    let all = manifest_diagnostics @ file_diagnostics @ check_diagnostics in
-    let sorted = print_diagnostics all in
+    let texts = List.map (fun file -> (file, read_file (Filename.concat folder file))) files in
+    let program, diagnostics = check_texts ~manifest_text texts in
+    let diagnostics = add_knock_ons ~manifest_text texts diagnostics in
+    let sorted = print_diagnostics diagnostics in
     match List.find_opt Diagnostic.stops_the_program sorted, program with
     | Some d, _ -> Diagnostic.exit_code d.kind
     | None, None -> 0

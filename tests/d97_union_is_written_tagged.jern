@@ -1,0 +1,8 @@
+union Status:
+    ok
+    failed[code: Int]
+end union Status
+
+fn.main[]:
+    println("never")
+end fn.main

@@ -1,0 +1,10 @@
+/// Says hello.
+fn.main[]:
+    // a line comment
+    println("one")            // after code
+    comment old_version:
+        this is text, not code: println("never")
+        end if
+    end comment old_version
+    println("two")
+end fn.main

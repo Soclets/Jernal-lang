@@ -1,0 +1,6 @@
+fn.main[]:
+    let $yes: Bool = true
+    let $no: Bool = false
+    println($yes as String)
+    println($no as String)
+end fn.main

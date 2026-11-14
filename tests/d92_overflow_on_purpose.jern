@@ -1,0 +1,15 @@
+fn.main[]:
+    let $a: i8 = 127
+    let $wrapped: i8 = $a plus.wrap 1
+    let $capped: i8 = $a plus.saturate 1
+    let $b: u8 = 0
+    let $under: u8 = $b minus.wrap 1
+    let $floor: u8 = $b minus.saturate 1
+    let $c: i8 = 64
+    let $times: i8 = $c times.wrap 2
+    println($wrapped as String)
+    println($capped as String)
+    println($under as String)
+    println($floor as String)
+    println($times as String)
+end fn.main

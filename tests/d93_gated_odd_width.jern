@@ -1,0 +1,5 @@
+fn.main[]:
+    let $x: not_two_pow.u24 = 16777215
+    println($x as String)
+    let $y: not_two_pow.u24 = $x + 1
+end fn.main

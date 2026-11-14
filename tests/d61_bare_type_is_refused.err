@@ -1,0 +1,5 @@
+CompileTimeError: d61_bare_type_is_refused.jern:1:1, line 1 column 1
+ 1 | type UserId = Int
+   | ^^^^
+ what: a bare `type` doesn't say which: `type.alias` or `type.new`
+ why:  there's no bare `type` (D61, standard 2.5)

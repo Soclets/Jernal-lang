@@ -827,8 +827,10 @@ and parse_statement_line state : statement =
         go state.position
       in
       let last = state.tokens.(line_end - 1) in
-      fail_line ~fix:(Printf.sprintf "`change %s`" text) (Span.join start.span last.span)
-        "every update starts with `change` (D33, standard 3.5)"
+      let at_start = { start.span with end_line = start.span.line; end_column = start.span.column } in
+      raise (Line_error (Diagnostic.make ~span:(Span.join start.span last.span) ~fix:(Printf.sprintf "`change %s`" text)
+                           ~edit:(at_start, "change ") Diagnostic.Compile_time_error
+                           "every update starts with `change` (D33, standard 3.5)"))
   | _ ->
       let value = parse_expression state in
       finish (Expression_statement value)
@@ -1158,7 +1160,7 @@ let parse_function state ~(keyword : string) : function_declaration =
   end;
   let is_main = narrowing_words = [ "main" ] in
   let function_my, function_name =
-    if is_main then (false, { text = "main"; span = start.span })
+    if is_main then (false, { text = "main"; span = Span.join start.span (List.hd narrowings).span })
     else if is_word state "my" && (peek_at state 1).kind = Double_colon then begin
       ignore (advance state);
       ignore (advance state);
@@ -1267,7 +1269,8 @@ let parse_union state : declaration_kind =
   let union_name = expect_name state "the union's name" in
   ignore (expect state Colon "`:`");
   end_of_line state;
-  let closer = "union.tagged " ^ union_name.text in
+  (* the closer repeats what the opening line said (D24) *)
+  let closer = (if narrowings = [] then "union " else "union.tagged ") ^ union_name.text in
   let cases =
     with_block state closer (fun () ->
         let rec go acc =
