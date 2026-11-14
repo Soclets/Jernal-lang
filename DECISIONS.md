@@ -1700,3 +1700,16 @@ Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
 and `else if`. Arms have no guards, since a guarded arm would hide whether every case is covered; a check goes inside the
 arm. The case test has no naming form, since `$s.code` can already be read inside `if $s: Status.failed:` (D97). This
 settles everything D97 left open. Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D102. Two or more type parameters are labelled, with `.type`.** A type with one type parameter writes it bare:
+`List<Int>`. With two or more, each is labelled, and a label that takes a type ends in `.type`, since what it takes is a
+type, not a value: `Map<key.type: String, val.type: Int>`. An unlabelled `Map<String, Int>` is refused. Replaces D64's
+`Map<String, Int>`.
+
+```
+let $xs: List<Int> = [1, 2, 3]
+let $ages: Map<key.type: String, val.type: Int> = ["Ann" => 30]
+```
+
+This is Cyborg's (its D25), as Cyborg's design session described on 2026-11-14. The owner asked "What the fuck, why do
+we write `Map<String, Int>`" and "`val.type`?", and said: "`value: Int`. Int is a fucking type". (Owner, 2026-11-14)
