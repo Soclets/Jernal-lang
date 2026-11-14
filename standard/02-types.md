@@ -27,6 +27,10 @@ let $e: Decimal = 0.1        // exact in decimal
 let $f: Rational = 0.1       // exact as 1/10
 ```
 
+Operators bind the way school maths says, tightest first: calls and `.`; unary `-`; `x`, `div.…` and `mod.…`; `+` and
+`-`; comparisons; then `not`, `and`, `or` (D90). `( )` groups, and where maths gives no order between two operators,
+grouping with `( )` is required: `2 + 3 x 4` is 14, and `(2 + 3) x 4` is 20.
+
 Multiplying is `x`, and its narrowed forms are written `times.`, such as `times.wrap` (D89). Dividing is `div` (D88). On integers, it says which kind, and a bare `div` is refused:
 
 ```

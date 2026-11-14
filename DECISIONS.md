@@ -1497,3 +1497,17 @@ declaration, where it can't be read as multiplying: `$point.x` needs no `my::`. 
 decided yet. Cyborg also multiplies with `x`, as its design session described on 2026-11-14. The owner asked "How in
 the tarnational fuck would $point.x not be possible?" and "Isn't `*` for handlers breaking control flow?", and chose:
 "`x`, and then when it needs narrowing, you could do `times.`". (Owner, 2026-11-14)
+
+**D90. Maths precedence, and `( )` groups where maths gives no order.** Operators bind the way school maths says,
+tightest first: calls and `.`; unary `-`; `x`, `div.…` and `mod.…`; `+` and `-`; comparisons; then `not`, `and`, `or`.
+`( )` groups in maths, the one exception to "`( )` runs" (D15). Where maths gives no order between two operators, such
+as bit operators mixed with anything else, the code must group with `( )`, and leaving it out is refused.
+
+```
+let $a: Int = 2 + 3 x 4            // 14
+let $b: Int = (2 + 3) x 4          // 20
+if $x < 10 and $done:              // ($x < 10) and $done
+```
+
+This is Cyborg's (its D116), as Cyborg's design session described on 2026-11-14. Replaces the withdrawn D86's grouping
+and precedence. The owner chose: "maths precedence, if no, group with `()`". (Owner, 2026-11-14)
