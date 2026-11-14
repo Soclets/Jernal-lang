@@ -221,6 +221,9 @@ let rec resolve_type context (t : type_expression) : Types.t =
       | false, [ "bf16" ] -> no_arguments (Types.Float Types.Bf16)
       | false, [ "Decimal" ] -> no_arguments Types.Decimal
       | false, [ "Rational" ] -> no_arguments Types.Rational
+      | false, [ "Ptr" ] when not (Hashtbl.mem context.structs "Ptr") ->
+          (* trace: D79 *)
+          not_designed context ~what:"a raw pointer type isn't decided yet" t.type_span "not decided yet (D79, standard 12.1)"
       | false, [ "Bool" ] -> no_arguments Types.Bool
       | false, ([ "String" ] | [ "String"; "utf8" ]) -> no_arguments Types.String
       | false, [ "List" ] -> one_argument (fun item -> Types.List item)

@@ -476,6 +476,10 @@ and parse_postfix_on state first value =
   | Question ->
       ignore (advance state);
       parse_postfix_on state first (make (Pass_up value) first state)
+  | Type_open ->
+      (* trace: D103 *)
+      raise (Line_error (Diagnostic.make ~span:t.span ~what:"naming a type at a call isn't decided yet"
+                           Diagnostic.Not_designed_yet "not decided yet (D103, standard 12.1)"))
   | _ -> value
 
 and parse_field_values state =
@@ -1668,6 +1672,9 @@ let parse_family state : declaration_kind =
                 match
                   let t = expect_word state "handler" in
                   let handler_name = expect_name state "the handler's name" in
+                  if peek_kind state = Left_bracket then
+                    raise (Line_error (Diagnostic.make ~span:(peek state).span ~what:"handlers taking arguments aren't decided yet"
+                                         Diagnostic.Not_designed_yet "not decided yet (D49, standard 12.2)"));
                   ignore (expect state Colon "`:`");
                   end_of_line state;
                   let inner = "handler " ^ handler_name.text in
@@ -1677,7 +1684,11 @@ let parse_family state : declaration_kind =
                   { handler_name; handler_arms }
                 with
                 | h -> go (h :: acc)
-                | exception Line_error d -> report state d; skip_line state; go acc
+                | exception Line_error d ->
+                    report state d;
+                    (* a refused `handler` line skips its whole block, up to its `end` *)
+                    if line_opens_block state then skip_block state else skip_line state;
+                    go acc
             in
             go [])
       in

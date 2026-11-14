@@ -1,0 +1,15 @@
+fn largest<?Item: Any>[$a: ?Item, $b: ?Item] -> ?Item:
+    return $a
+end fn largest
+
+fam.handler h:
+    handler with_value[$x: Int]:
+        case odd:
+            instead $x
+    end handler with_value
+end fam.handler h
+
+fn.main[]:
+    let $n: Int = largest<Int>(3, 5)
+    let $p: Ptr<u8> = $n
+end fn.main

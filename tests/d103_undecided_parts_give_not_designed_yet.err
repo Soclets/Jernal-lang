@@ -1,0 +1,17 @@
+NotDesignedYet: d103_undecided_parts_give_not_designed_yet.jern:6:23, line 6 column 23
+ 6 |     handler with_value[$x: Int]:
+   |                       ^
+ what: handlers taking arguments aren't decided yet
+ why:  not decided yet (D49, standard 12.2)
+
+NotDesignedYet: d103_undecided_parts_give_not_designed_yet.jern:13:26, line 13 column 26
+ 13 |     let $n: Int = largest<Int>(3, 5)
+    |                          ^
+ what: naming a type at a call isn't decided yet
+ why:  not decided yet (D103, standard 12.1)
+
+NotDesignedYet: d103_undecided_parts_give_not_designed_yet.jern:14:13, line 14 column 13
+ 14 |     let $p: Ptr<u8> = $n
+    |             ^^^^^^^
+ what: a raw pointer type isn't decided yet
+ why:  not decided yet (D79, standard 12.1)
