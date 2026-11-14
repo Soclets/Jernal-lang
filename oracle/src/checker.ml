@@ -385,6 +385,26 @@ let add_variable fctx ?(is_loop_variable = false) ~(name : name) ~variable_type 
   Hashtbl.replace (List.hd fctx.scopes) name.text info;
   info
 
+(* The program's own function [name] as seen from [file]: one without `pub` is seen only in its own
+   file (D106), and two seen at once are a clash (D59). *)
+let find_function context ~(from_file : string) ~(span : Span.t) (name : string) : function_info option =
+  let all = Hashtbl.find_all context.functions name in
+  let visible =
+    List.filter (fun (f : function_info) -> f.declaration.function_visibility <> File_only || f.file = from_file || from_file = "") all
+  in
+  match visible, all with
+  | [ f ], _ -> Some f
+  | [], [] -> None
+  | [], f :: _ ->
+      (* trace: D106 — using what isn't visible is refused with no fix *)
+      refuse context ~what:(Printf.sprintf "%s is seen only in %s, since it has no `pub`" (quote name) (quote f.file)) span
+        "a declaration without `pub` is seen only in its own file (D106, standard 9.2a)"
+  | _ :: _ :: _, _ ->
+      refuse context
+        ~what:(Printf.sprintf "%s is declared in %s" (quote name)
+                 (String.concat " and " (List.map (fun (f : function_info) -> quote f.file) visible)))
+        span "a short name that clashes is always refused (D59, standard 9.2)"
+
 (* ---------- Literals (D84) ---------- *)
 
 (* The float nearest an exact fraction, rounding to nearest, ties to even. *)
@@ -1302,7 +1322,10 @@ and check_call fctx ~expected (e : expression) callee arguments =
   | Syntax.Name { path = []; my = false; word } when Hashtbl.mem context.versions word ->
       check_versions_call fctx span word (Hashtbl.find context.versions word) arguments
   | Syntax.Name { my; path; word } -> (
-      let user = if path = [] || path = [ "pkg" ] then Hashtbl.find_opt context.functions word else None in
+      let user =
+        if path = [] || path = [ "pkg" ] then find_function context ~from_file:fctx.info.file ~span:callee.expression_span word
+        else None
+      in
       let std =
         if (path = [] && not my) || (match path with "std" :: _ -> true | _ -> false) then
           match Std_library.find word with
@@ -1351,7 +1374,7 @@ and check_path_call fctx span callee (head, head_span) (words : name list) argum
     if k = 0 then None
     else
       let name = String.concat "." (List.filteri (fun i _ -> i < k) all) in
-      match Hashtbl.find_opt context.functions name with
+      match find_function context ~from_file:fctx.info.file ~span:callee.expression_span name with
       | Some f -> Some (f, List.filteri (fun i _ -> i >= k - 1) (List.map (fun n -> n) ({ text = head; span = head_span } :: words)) |> List.tl)
       | None -> longest (k - 1)
   in
@@ -1816,7 +1839,7 @@ and check_method_call_checked fctx span (target : C.expression) (receiver : expr
             "`sum` is the exact sum of a list of numbers (D38, standard 13.3)")
   | (Types.Struct type_name | Types.Union type_name), _, _ -> (
       (* a method from the type's family: a function whose first parameter is `$self` (D43) *)
-      match Hashtbl.find_opt context.functions (type_name ^ "." ^ method_name.text) with
+      match find_function context ~from_file:fctx.info.file ~span:method_name.span (type_name ^ "." ^ method_name.text) with
       | Some f when (match f.declaration.parameters with p :: _ -> p.parameter.text = "self" | [] -> false) ->
           if narrowings <> [] then not_built_method target.type_;
           let self = List.hd f.declaration.parameters in
@@ -2427,7 +2450,7 @@ let () = check_statements_ref := check_statements
 let dummy_declaration =
   { narrowings = []; function_name = { text = ""; span = Span.none }; function_my = false; type_parameters = [];
     parameters = []; result = None; fails = []; labels = []; defaults = []; requires = []; ensures = []; body = [];
-    function_span = Span.none }
+    function_span = Span.none; function_visibility = File_only }
 
 (* A generic function's type parameters, each with requirements that exist (D103, D105). *)
 let type_parameters_of context (d : function_declaration) =
@@ -2516,7 +2539,12 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
   let declare_function ?(family_pure = false) file (declaration : function_declaration) full_name =
     let is_main = List.map (fun n -> n.text) declaration.narrowings = [ "main" ] in
     if is_main then mains := (declaration, file) :: !mains
-    else if Hashtbl.mem context.functions full_name then
+    else if
+      List.exists
+        (fun (other : function_info) ->
+          other.file = file || (other.declaration.function_visibility <> File_only && declaration.function_visibility <> File_only))
+        (Hashtbl.find_all context.functions full_name)
+    then
       error context ~what:(Printf.sprintf "%s is declared twice" (quote full_name)) declaration.function_name.span
         "one name means one thing; several parameter lists go in a `versions` block (D46, standard 5.7)"
     else begin
@@ -2531,7 +2559,7 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
           pure = family_pure || List.exists (fun n -> n.text = "pure") declaration.narrowings; failures = [];
           baked = List.exists (fun n -> n.text = "baked") declaration.narrowings }
       in
-      Hashtbl.replace context.functions full_name info;
+      Hashtbl.add context.functions full_name info;
       Hashtbl.replace context.function_by_id id info
     end
   in

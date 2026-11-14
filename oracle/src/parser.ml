@@ -1304,7 +1304,22 @@ let parse_function state ~(keyword : string) : function_declaration =
   expect_closer state ~opener:start.span ~expected:closer;
   end_of_line state;
   { narrowings; function_name; function_my; type_parameters; parameters; result; fails; labels;
-    defaults; requires; ensures; body; function_span = start.span }
+    defaults; requires; ensures; body; function_span = start.span; function_visibility = File_only }
+
+let parse_visibility state : visibility * Token.t option =
+  if is_word state "pub" then begin
+    let t = advance state in
+    match dotted_words state with
+    | [ { text = "pkg"; _ } ] -> (Package, Some t)
+    | [ { text = "all"; _ } ] -> (Everyone, Some t)
+    | [] ->
+        (* trace: D106 *)
+        raise (Line_error (error_diagnostic ~what:"a bare `pub` doesn't say how far: `pub.pkg` or `pub.all`" t.span
+                             "`pub` always says how far (D106, standard 9.2a)"))
+    | _ -> unexpected state "`pub.pkg` or `pub.all`"
+  end
+  else (File_only, None)
+
 
 (* Skips a block the oracle doesn't build yet, up to its matching `end`. *)
 let skip_block state =
@@ -1349,7 +1364,7 @@ let parse_versions state : family_member =
               end_of_line state;
               { narrowings = []; function_name = { versions_name with span = opener.span }; function_my = false;
                 type_parameters = []; parameters; result; fails; labels; defaults; requires; ensures; body;
-                function_span = opener.span }
+                function_span = opener.span; function_visibility = File_only }
             with
             | v -> go (v :: acc)
             | exception Line_error d -> report state d; skip_block state; go acc
@@ -1427,20 +1442,6 @@ let parse_type_set state : declaration_kind =
   expect_closer state ~opener:start.span ~expected:closer;
   end_of_line state;
   Type_set { set_name; members }
-
-let parse_visibility state : visibility * Token.t option =
-  if is_word state "pub" then begin
-    let t = advance state in
-    match dotted_words state with
-    | [ { text = "pkg"; _ } ] -> (Package, Some t)
-    | [ { text = "all"; _ } ] -> (Everyone, Some t)
-    | [] ->
-        (* trace: D106 *)
-        raise (Line_error (error_diagnostic ~what:"a bare `pub` doesn't say how far: `pub.pkg` or `pub.all`" t.span
-                             "`pub` always says how far (D106, standard 9.2a)"))
-    | _ -> unexpected state "`pub.pkg` or `pub.all`"
-  end
-  else (File_only, None)
 
 let unfinished_declaration state ~what ~why ~designed : declaration_kind =
   if line_opens_block state then skip_block state else skip_line state;
@@ -1531,8 +1532,11 @@ let parse_family state : declaration_kind =
             let rec go acc =
               skip_blank_lines state;
               if is_word state "end" || peek_kind state = End_of_file then List.rev acc
-              else if is_word state "fn" then
-                match parse_function state ~keyword:"fn" with
+              else if is_word state "fn" || (is_word state "pub" && is_word_at state 3 "fn") then
+                match
+                  let visibility, _ = parse_visibility state in
+                  { (parse_function state ~keyword:"fn") with function_visibility = visibility }
+                with
                 | f -> go (Member_function f :: acc)
                 | exception Line_error d -> report state d; skip_block state; go acc
               else if is_word state "preset" then
@@ -1670,7 +1674,13 @@ let parse_declaration state : declaration option =
               report state (error_diagnostic ~fix:"`fn.main`" (Span.join start.span t.span)
                               "a program starts at its one `fn.main` (D62, standard 5.9)")
             end;
-            Function (parse_function state ~keyword:"fn")
+            let f = parse_function state ~keyword:"fn" in
+            (* trace: D106 *)
+            if List.map (fun n -> n.text) f.narrowings = [ "main" ] && visibility <> File_only then
+              report state
+                (error_diagnostic ~what:"`fn.main` is where the program starts, so it takes no `pub`" start.span
+                   "`pub.…` on `fn.main` is refused (D106, standard 9.2a)");
+            Function { f with function_visibility = visibility }
         | Word "struct" -> parse_struct state
         | Word "union" -> parse_union state
         | Word "fam" -> parse_family state

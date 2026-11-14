@@ -124,6 +124,8 @@ and loop_handling =
   | Loop_fallback of expression
   | Loop_handler of { family : name; handler : name; jumps : bool }
 
+type visibility = File_only | Package | Everyone
+
 type parameter = {
   self_mutable : bool;              (* mut $self *)
   parameter : name;
@@ -148,11 +150,11 @@ type function_declaration = {
   ensures : expression list;
   body : statement list;
   function_span : Span.t;
+  function_visibility : visibility;   (* D106: without `pub`, seen only in its own file *)
 }
 
 type struct_field = { field_name : name; field_type : type_expression; field_default : expression option; field_visibility : visibility }
 
-and visibility = File_only | Package | Everyone
 
 type struct_declaration = {
   struct_narrowings : name list;

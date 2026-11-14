@@ -58,7 +58,7 @@ for columns and `len()`).
 
 ## Next
 
-- `pub` across files (D106) and `use` blocks in the manifest (D114, D115); multi-file packages can't be tests yet
+- `pub` on types, fields and family members across files (functions are done, D106); tests for `pub` and `use` errors
   (see open questions).
 - Methods on a generic struct, `$x.show()` style calls on a family function's first parameter, units (after v1: NotBuiltYet).
 - Shields, quills, threads: out of scope (NotBuiltYet / NotDesignedYet).
