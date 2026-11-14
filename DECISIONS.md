@@ -2097,3 +2097,10 @@ $s.length()                      // refused: say which
 The owner said "What the fuck is `char`, `char` itself then fucking needs saying more. And where the fuck is
 grapheme"; Claude proposed `code_points` and tying the Unicode version to the std date; the owner chose: "yes".
 (Owner, 2026-11-14)
+
+**D131. A string's bare `length()` counts graphemes.** Replaces D130's refusal of a bare `length()` on a string. Being
+progressive (D64), the plain name gives the everyday answer: `$s.length()` counts grapheme clusters, what a person sees
+as characters, the same as `length.graphemes()`, which stays allowed. `length.bytes()` and `length.code_points()` are
+the narrowings for when that's what's needed; bytes is also the fast one. Swift's `count` does the same. The owner
+asked "Isn't it supposed to be progressive? Is there a good default for length?"; Claude proposed graphemes; the owner
+chose: "yes". (Owner, 2026-11-14)
