@@ -40,7 +40,7 @@ Multiplying is `x` (D89). Overflow on purpose is a narrowing of the operation's 
 ```
 7 div.trunc 2        // 3: rounds toward zero
 -7 div.floor 2       // -4: rounds down
-6 div.exact 2        // 3; with a remainder, it fails
+6 div.exact 2        // 3; with a remainder, it fails (undefined behaviour in UB++, D94)
 7 div.rational 2     // 7/2, an exact Rational
 7 div 2              // refused: say which
 ```

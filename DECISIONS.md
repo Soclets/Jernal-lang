@@ -1568,3 +1568,8 @@ let $half: f16 = 0.5
 The owner asked for "`i8` to `i128`, `u8` to `u128`, `f16` to `f64`?", "`bf16` too? And doesn't LLVM somehow support every
 fucking int?", "where the uck is u8000000", suggested gating odd widths ("`let x: not_std.i80000`?"), asked "Does
 `u256` count as odd", proposed "`not_two_pow.`", and chose: "yeA". (Owner, 2026-11-14)
+
+**D94. `div.exact` fails the same way in every mode but `UB++`.** `div.exact` with a remainder is a failure (D85), so
+it fails, and can be handled, in `Interp`, `Working`, `FinalSafe` and `FinalPerf` alike (D71). In `UB++`, where anything
+wrong is undefined behaviour (D70), a remainder is undefined behaviour too. Settles D85's open question. Claude proposed
+the same behaviour in every mode; the owner said: "Nope, because `UB++`". (Owner, 2026-11-14)
