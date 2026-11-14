@@ -21,7 +21,6 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 - How a file or package is named on the command line, and whether `jern comp --Interp` is refused (D74).
 - The manifest: nesting, features, the lockfile, and the real word for `same` (D76).
 - Debug information per build mode.
-- Command-line arguments, which will come from a package (D62).
 - Threads, and whether changing shared data needs a shield (D79).
 
 ## 12.4 Quills and units

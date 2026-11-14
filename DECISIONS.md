@@ -1828,3 +1828,24 @@ really need to separate std and os? Jernal would never be freestanding", said "I
 of making that in the path. Cyborg doesn't do that", asked "Doesn't `io` stand for input/output?" and "Define
 `console`", pointed out that `inline.llvm_ir` is jargon too, and said: "You don't even write the path, bro". (Owner,
 2026-11-14)
+
+**D108. Command-line arguments come from `args()`.** `args()`, in `std::env`, gives the program's arguments as a
+`List<String>`, without the program's own name, so `$args[pos: 1]` is the first argument. `program_path()` gives the
+program's own path. An argument that isn't valid text is a failure of `args()`; the narrowing `args.raw()` gives raw
+bytes instead. Settles D62's open question.
+
+```
+fn.main[]:
+    let $args: List<String> = args()
+    if $args.length == 0:
+        println("usage: greet NAME")
+        return early
+    end if
+    println("Hello, " $args[pos: 1])
+end fn.main
+```
+
+The owner asked "how do you get CLI args"; Claude proposed this; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D109. `value.type`, not `val.type`.** Replaces D102's label: a map is `Map<key.type: String, value.type: Int>`. The
+owner said: "change `val` to `value`". (Owner, 2026-11-14)

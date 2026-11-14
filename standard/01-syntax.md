@@ -45,7 +45,7 @@ the part that changes how it's used; the top of the body describes it or says wh
 - `( )` runs something: a call (D15). In maths, it also groups: `(2 + 3) x 4` (D90).
 - `[ ]` describes or holds: parameters in a declaration, building a struct, a type's details, list and map literals,
   labelled indexing (D15, D17, D56, D64).
-- `< >` fills in a type: `List<Int>`, `Map<key.type: String, val.type: Int>` (D18).
+- `< >` fills in a type: `List<Int>`, `Map<key.type: String, value.type: Int>` (D18).
 
 ```
 fn greet[$name: String]:       // [ ] describes what goes in

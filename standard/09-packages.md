@@ -63,6 +63,10 @@ Jernal has one standard package, `std`, organized by path (D107): `std::io` for 
 world (`std::io::stdio`, `std::io::file`, `std::io::net`), `std::env` for the program's surroundings, `std::time` and
 `std::math`. Code writes short names: `println` is `std::io::stdio::println`.
 
+`args()`, in `std::env`, gives the program's arguments as a `List<String>`, without the program's own name;
+`program_path()` gives its path (D108). An argument that isn't valid text is a failure of `args()`, and `args.raw()`
+gives raw bytes.
+
 ## 9.3 `use`
 
 `use path as name` gives something a short name in that file (D60). The path is written short. One name per `use`, with

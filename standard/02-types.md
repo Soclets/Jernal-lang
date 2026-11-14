@@ -85,13 +85,13 @@ Lists and maps are written with `[ ]`, and the declared type decides what a lite
 
 ```
 let $xs: List<Int> = [1, 2, 3]
-let $ages: Map<key.type: String, val.type: Int> = ["Ann" => 30, "Bob" => 25]
+let $ages: Map<key.type: String, value.type: Int> = ["Ann" => 30, "Bob" => 25]
 let $none: List<Int> = []
-let $nobody: Map<key.type: String, val.type: Int> = []
+let $nobody: Map<key.type: String, value.type: Int> = []
 ```
 
 A type with one type parameter writes it bare, as `List<Int>`; with two or more, each is labelled, and a label that
-takes a type ends in `.type`, as `Map<key.type: String, val.type: Int>` (D102).
+takes a type ends in `.type`, as `Map<key.type: String, value.type: Int>` (D102).
 
 Maps come in kinds, as narrowings (D64):
 
