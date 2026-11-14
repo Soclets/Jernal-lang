@@ -810,6 +810,11 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
     | Syntax.Ignore value ->
         let value = check_expression fctx ~expected:None value in
         require_can_fail context value;
+        (* trace: D55 — a call with a result uses `??` with a value instead *)
+        if value.type_ <> Types.Nothing && value.type_ <> Types.Unknown then
+          refuse context
+            ~what:(Printf.sprintf "this call gives %s, so `?? ignore` doesn't fit; `??` takes a value to use instead" (type_text value.type_))
+            span "`?? ignore` drops a failure after a call with no result; a call with a result uses `??` with a value (D55, standard 6.3)";
         { C.kind = C.Ignore value; type_ = Types.Nothing; span }
     | Syntax.Pass_up inner ->
         (* trace: D48 — `?` passes a failure up, refused unless this function lists it *)

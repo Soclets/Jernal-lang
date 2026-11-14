@@ -1,0 +1,5 @@
+CompileTimeError: d55_ignore_is_for_a_call_with_no_result.jern:9:5, line 9 column 5
+ 9 |     half(3) ?? ignore
+   |     ^^^^^^^^^^^^^^^^^
+ what: this call gives `Int`, so `?? ignore` doesn't fit; `??` takes a value to use instead
+ why:  `?? ignore` drops a failure after a call with no result; a call with a result uses `??` with a value (D55, standard 6.3)

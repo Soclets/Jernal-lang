@@ -1,0 +1,10 @@
+fn half[$n: Int] -> Int fails [odd]:
+    if $n mod.trunc 2 != 0:
+        fail odd
+    end if
+    return $n div.trunc 2
+end fn half
+
+fn.main[]:
+    half(3) ?? ignore
+end fn.main
