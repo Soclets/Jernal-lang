@@ -1661,3 +1661,12 @@ end match
 
 As in Cyborg, as its design session described on 2026-11-14. Claude proposed it; the owner chose: "A". (Owner,
 2026-11-14)
+
+**D99. No catch-all in `match`, and reusable sets of arms for unions.** `match` has no catch-all arm: every case is
+always covered, so adding a case to a union makes every `match` that needs it refuse until it's handled. Instead, a
+named set of arms for a union's cases can be written once and reused in many `match`es, like `fam.handler` (D48) for
+failures; at each use, it must still cover every case. How such a set is declared and used is not decided yet. Picking
+out a few cases is done with the case test, `if $x: Type.case:` (D97). Radium's design session described Radium's
+`otherwise` and handlers as being for failures only, with no catch-all in `match`, and suggested reusable arm sets; the
+owner had said: "I think Radium had `otherwise` blocks that could be used with pre-made handlers". Claude recommended
+no catch-all, with arm sets later; the owner asked "What do you recommend?", and chose: "D". (Owner, 2026-11-14)

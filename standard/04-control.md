@@ -79,6 +79,9 @@ match $s:
 end match
 ```
 
+There's no catch-all arm: every case is always covered (D99). A named set of arms can be reused across `match`es, and
+must still cover every case; its form isn't decided yet. To pick out a few cases, use the case test below.
+
 `match` is a statement and gives no value; a value from it comes through `decl` and `assign` (D98).
 
 `if $value: Type.case:` tests which case a value is. Inside, its fields can be read; outside, they can't. That
