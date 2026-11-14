@@ -1,0 +1,26 @@
+union.tagged Light:
+    red
+    green
+end union.tagged Light
+
+fn name[$l: Light] -> String:
+    match $l:
+        case red:
+            return "red"
+        case green:
+            return "green"
+    end match
+end fn name
+
+fn checked[$n: Int] -> Int fails [negative]:
+    if $n at_least 0:
+        return $n
+    end if
+    fail negative
+end fn checked
+
+fn.main[]:
+    println(name(Light.green[]))
+    let $n: Int = checked(5) ?? 0
+    println($n as String)
+end fn.main

@@ -2820,13 +2820,15 @@ let check_function context (info : function_info) =
           scope)
       (function_scopes fctx);
   (* A function with a result returns on every path (D26). *)
+  (* a path ends at `return` or `fail`; an `if` with an `else` or a `match` ends when every branch does *)
   let rec always_returns (statements : statement list) =
     List.exists
       (fun (s : statement) ->
         match s.statement_kind with
-        | Return _ -> true
+        | Return _ | Fail _ -> true
         | If { branches; else_body = Some e } ->
             List.for_all (fun b -> always_returns b.branch_body) branches && always_returns e
+        | Match { match_arms = Match_arms arms; _ } -> arms <> [] && List.for_all (fun (a : arm) -> always_returns a.arm_body) arms
         | _ -> false)
       statements
   in
