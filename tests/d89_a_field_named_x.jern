@@ -1,0 +1,10 @@
+struct Point:
+    x: Int
+    y: Int
+end struct Point
+
+fn.main[]:
+    let $p: Point = Point[x = 3, y = 4]
+    let $area: Int = $p.x x $p.y
+    println($area as String)
+end fn.main
