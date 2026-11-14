@@ -19,7 +19,8 @@ rule mut.never_changed refuse
 - `name` and `ver`: a version is a labelled date, biggest first, plus `breaks` if it changed or removed something
   `pub.all`, or `not_broken` otherwise (D110). Journey checks the word against what changed, and a `need` moves to later
   `not_broken` releases on its own, never to a `breaks` one.
-- `need <package> <date>`: one per package, with the version always written.
+- `need <package> <date>`: one per package, with the version always written. There are no package features; an
+  optional part is a separate package (D112).
 - `rule`: the compiler's and linter's rules, so configuration stays out of the code.
 
 A line that applies only in some situations starts with a scope, joined with `.`: `target.` (operating system or CPU)

@@ -1877,3 +1877,7 @@ target.windows.mode.FinalPerf rule unused.variable refuse
 
 Settles the manifest's nesting, following Cyborg's planned prefix, as its design session described on 2026-11-14.
 Claude proposed it; the owner chose: "yes". (Owner, 2026-11-14)
+
+**D112. No package features.** A `need` has no `with` and a package has no optional parts; an optional part is a
+separate package. Claude proposed none for now; the owner said: "There's none, just don't fucking have it in there".
+(Owner, 2026-11-14)
