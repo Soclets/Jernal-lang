@@ -70,7 +70,7 @@ for columns and `len()`).
   and reports any crash of the oracle (rule 13). Last run: 22,898 programs, no crashes.
 - `oracle/tools/crosscheck.py <scratch>`: checks float text (D119), Decimal (D83), integer division and remainders
   (D85, D88), Rational (D139) and f32/f16 sums (D93) against Python's own implementations, about 300 random cases
-  each, and float sums against math.fsum (D38). Last run: 1,594 cases, no differences.
+  each, float sums against math.fsum (D38), and the rounding words of `as` (D91). Last run: 1,894 cases, no differences.
 
 ## Error wording proposed by the oracle (D137)
 

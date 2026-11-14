@@ -8,6 +8,7 @@
 - Rational (D83, D139): +, -, x and div against fractions.Fraction, printed reduced.
 - f32 and f16 (D93): sums rounded to the format must equal Python's struct rounding ('f' and 'e').
 - sum (D38): `$xs.sum()` on a List<Float> must equal math.fsum, which D38 names as the model.
+- rounding words (D91): as.trunc, as.floor, as.ceil, as.round.even and as.round.away from Float to Int.
 
 Usage, from the repository root:  python3 -I oracle/tools/crosscheck.py <scratch folder>
 """
@@ -130,4 +131,17 @@ for i in range(100):
               "    println($s%d as.stored String)" % i]
     expected.append(plain(decimal.Decimal(math.fsum(xs))))
 sums_ok = run("sums", lines, expected)
-sys.exit(0 if floats_ok and decimals_ok and integers_ok and rationals_ok and small_floats_ok and sums_ok else 1)
+random.seed(91)
+lines, expected = [], []
+words = ["trunc", "floor", "ceil", "round.even", "round.away"]
+for i in range(300):
+    x = random.choice([random.uniform(-1e6, 1e6), random.randint(-50, 50) + 0.5, float(random.randint(-9, 9))])
+    word = words[i % len(words)]
+    literal = plain(decimal.Decimal(x)) + ("" if "." in plain(decimal.Decimal(x)) else ".0")
+    lines += ["    let $f%d: Float = %s" % (i, literal), "    let $n%d: Int = $f%d as.%s Int" % (i, i, word),
+              "    println($n%d as String)" % i]
+    away = math.floor(abs(x) + 0.5) * (1 if x >= 0 else -1) if abs(x) % 1 == 0.5 else round(x)
+    expected.append(str({"trunc": int(x), "floor": math.floor(x), "ceil": math.ceil(x), "round.even": round(x),
+                         "round.away": away}[word]))
+rounding_ok = run("rounding", lines, expected)
+sys.exit(0 if floats_ok and decimals_ok and integers_ok and rationals_ok and small_floats_ok and sums_ok and rounding_ok else 1)
