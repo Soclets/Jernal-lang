@@ -1944,3 +1944,6 @@ siml parser and one error renderer, both in Rust. The owner said "It's a PM, may
 networking", "don't PMs usually depend on optimizations (para, concur) and your own Wifi? Not "Does this have manual
 memory"?" and "What if we remove the compiled cache? And error messages could just be a server? or something"; Claude
 proposed splitting the jobs instead of a server; the owner chose: "Typ", confirmed as "Yup". (Owner, 2026-11-14)
+
+**D118. No formatting tool for now.** There's no format print or formatting tool, so no decimal places, padding,
+newlines or tabs in text for now (D21, D95). The owner said: "No format print for now." (Owner, 2026-11-14)
