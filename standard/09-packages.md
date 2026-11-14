@@ -33,8 +33,7 @@ mode.Working rule unused.variable warn
 
 The manifest is checked, with errors in 7.3's format (D113). `Journey.lock`, in siml, records the exact version and
 content hash of every package in the build; it's committed, builds always use it, and versions move only on
-`jern update`, never onto a `breaks` release (D116). The manifest, the lock and every file's resolved `use` are compiled
-into a local cache in the fastest machine-specific form; it isn't committed, and rebuilds itself when they change.
+`jern update`, never onto a `breaks` release (D116). Both are read directly as text; there's no compiled cache (D117).
 
 siml is one fact per line: what the line is, then its values separated by spaces. There are no sections, `=` or `;`.
 Blank lines group, quotes are used only when needed, comments are `//`, and a list is repeated lines (D76).

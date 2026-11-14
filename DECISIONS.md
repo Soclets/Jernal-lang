@@ -1933,3 +1933,14 @@ locked http 2026y-11m-16d.2 hash 41c7…
 
 The owner asked "Isn't `.lock` supposed to be the compiled version? Where's `use`?" and "Oh shit, it's not portable,
 right?"; Claude proposed splitting the two; the owner chose: "Yes". (Owner, 2026-11-14)
+
+**D117. Journey is written in Go for networking; JernComp owns siml and its errors; no compiled cache.** Replaces
+D113's compiling and D116's local cache: `Journey.siml` and `Journey.lock` are read directly as text, since they're
+small. JernComp, through `jern`, is the only program that reads and checks `Journey.siml`, and the only one that prints
+errors in D10's format. Journey is written in Go and does the networking: resolving versions, downloading in parallel,
+hashing, and writing `Journey.lock`. Journey gets the checked list of `need`s from `jern` as plain data; if the manifest
+has errors, `jern` prints them and Journey stops. JernComp checks `Journey.lock` whenever it reads it. So there's one
+siml parser and one error renderer, both in Rust. The owner said "It's a PM, maybe Go? I mean, I heard Go has good
+networking", "don't PMs usually depend on optimizations (para, concur) and your own Wifi? Not "Does this have manual
+memory"?" and "What if we remove the compiled cache? And error messages could just be a server? or something"; Claude
+proposed splitting the jobs instead of a server; the owner chose: "Typ", confirmed as "Yup". (Owner, 2026-11-14)

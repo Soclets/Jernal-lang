@@ -7,7 +7,7 @@
 | JernComp | the compiler, in Rust, driving LLVM through `inkwell`, through `llvm-sys` where `inkwell` falls short, and through small C++ pieces where neither reaches (D65, D74) |
 | JernOrac | the oracle, in OCaml (D69, D73, D75) |
 | JernGC | the garbage collector (chapter 8, D74) |
-| Journey | the package manager (D76) |
+| Journey | the package manager, in Go: resolves versions, downloads in parallel, hashes, writes `Journey.lock`; it gets the checked manifest from `jern`, which owns reading siml and its errors (D76, D117) |
 | `jern` | the command (D74) |
 
 Jernal files end in `.jern` (D74).
