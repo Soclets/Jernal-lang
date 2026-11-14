@@ -592,6 +592,8 @@ let rec check_number_literal fctx ~(expected : Types.t option) (e : expression) 
         | _ -> decimal_literal_value ~negative digits
       in
       let f = Numbers.round_rational (Numbers.format_of kind) q in
+      (* `-0.0` is IEEE's negative zero, which an exact fraction can't say *)
+      let f = if negative && Float.equal f 0.0 then Float.neg 0.0 else f in
       (* trace: D120 *)
       if not (Float.is_finite f) then
         refuse context ~what:(Printf.sprintf "%s is outside the range of %s" (quote text) (type_text (Types.Float kind)))

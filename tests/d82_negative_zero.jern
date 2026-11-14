@@ -1,0 +1,7 @@
+fn.main[]:
+    let $z: Float = -0.0
+    let $one: Float = 1.0
+    println($z as String)
+    println(($one div $z) as String)
+    println(($z == 0.0) as String)
+end fn.main
