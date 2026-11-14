@@ -22,3 +22,4 @@ the same commit (D81). JernComp and JernOrac are built from this standard, and a
 | [10. Tools and build modes](10-tools.md) | JernComp, JernOrac, JernGC, `jern`, build modes |
 | [11. Shields and quills](11-shields-quills.md) | unchecked code, compiler extensions, Dialects |
 | [12. Not decided yet](12-not-decided.md) | every open question |
+| [13. The standard package](13-std.md) | what each part of `std` does |

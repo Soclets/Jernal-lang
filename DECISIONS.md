@@ -2053,3 +2053,11 @@ Journey Claude come later, once the oracle has tests to compare against. The rep
 written from `standard/` only, and the oracle and compiler never read each other's source (rule 18, from D69); the
 oracle's integers are `Int64` (rule 19, from D73). Claude proposed these; the owner asked "Wouldn't that be a fucking
 popup?" about a session card, so the session is started in chat instead, and chose: "yupppp". (Owner, 2026-11-14)
+
+**D127. Where std lives in each implementation, and a std chapter.** JernOrac builds every std function into itself,
+in OCaml, straight from the standard; it never runs std's Jernal code, so a bug in std shows up as a difference, as
+D69 intends. For JernComp, std's book is written in Jernal, with shields (D80) for system calls, and std's quill holds
+only what Jernal code can't express, plugged in like any quill (D77). JernGC and program start-up are the runtime,
+written in Rust and linked into every program. Since the oracle builds std from the standard alone, the standard gets a
+chapter, `standard/13-std.md`, saying exactly what every std function does. Claude proposed it; the owner chose: "yes".
+(Owner, 2026-11-14)
