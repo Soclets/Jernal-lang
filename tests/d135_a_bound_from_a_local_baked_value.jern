@@ -1,0 +1,7 @@
+fn.main[]:
+    let baked $most: Int = 2
+    let mut $xs: List<Int>[len.max: $most] = [1]
+    $xs.add(2)
+    println($xs.len() as String)
+    $xs.add(3)
+end fn.main

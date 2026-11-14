@@ -1,0 +1,6 @@
+RuntimeError: d135_a_bound_from_a_local_baked_value.jern:6:5, line 6 column 5
+ 6 |     $xs.add(3)
+   |     ^^^^^^^^^^
+ what: this would make the list longer than `len.max: 2`
+ why:  adding past `len.max` is a check (D135, standard 13.3)
+ when: it would have 3 items

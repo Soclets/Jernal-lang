@@ -64,8 +64,8 @@ for columns and `len()`).
 ## Next
 
 - Tests for multi-file packages, `pub` and `use` errors, once package tests are decided (asked).
-- Bounds written as a top-level `let baked` of literals work (D135); one that calls a function, or a local
-  `let baked`, gives NotBuiltYet, since types are resolved before those are worked out.
+- Bounds written as a `let baked` value work (D135), top-level or earlier in the same function; one whose value
+  calls a function that isn't checked yet gives NotBuiltYet, since types are resolved before it's worked out.
 - Whatever Tankun decides on the open questions below.
 - Out of scope: units (after v1), quills and Dialects, threads, shields, every build mode but `Interp`.
 

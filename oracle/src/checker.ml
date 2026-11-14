@@ -79,6 +79,8 @@ type context = {
   short_names : Manifest.short_name list;                        (* `use` lines from the manifest (D60, D114) *)
   mutable current_file : string;                                 (* the file being checked, for `pub` (D106) *)
   mutable global_syntax : (string * statement) list;             (* each file's top-level lets, as written *)
+  local_baked : (string, Q.t) Hashtbl.t;                         (* this function's `let baked` numbers, for bounds *)
+  local_baked_frame : (int, Value.t ref) Hashtbl.t;
   mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
 }
 
@@ -342,6 +344,7 @@ and resolve_details context (t : type_expression) named =
           Q.of_bigint (integer_literal_value ~negative:(negative <> negate) digits)
       | Syntax.Decimal_literal { digits; negative; tilde = false } -> decimal_literal_value ~negative:(negative <> negate) digits
       | Syntax.Negate inner -> literal inner (not negate)
+      | Syntax.Variable v when not negate && Hashtbl.mem context.local_baked v -> Hashtbl.find context.local_baked v
       | Syntax.Variable v when not negate -> (
           match !baked_bound_ref context { text = v; span = e.expression_span } with
           | Some q -> q
@@ -2231,7 +2234,17 @@ and check_statement fctx (s : statement) : C.statement list =
         if not is_mutable then info.is_parameter <- names_a_parameter fctx value declared;
         if baked then begin
           Hashtbl.replace context.baked_variables info.variable.variable_id ();
-          Option.iter (fun v -> context.baked_values <- context.baked_values @ [ (info.variable, v) ]) checked_value
+          Option.iter (fun v -> context.baked_values <- context.baked_values @ [ (info.variable, v) ]) checked_value;
+          (* worked out now too, if it can be, so a later type in this function can use it as a bound (D135) *)
+          Option.iter
+            (fun (v : C.expression) ->
+              let program = { C.functions = context.checked; main = 0; struct_defaults = Hashtbl.create 1; globals = [] } in
+              match Interpreter.evaluate_with program context.local_baked_frame v with
+              | value ->
+                  Hashtbl.replace context.local_baked_frame info.variable.variable_id (ref value);
+                  Option.iter (Hashtbl.replace context.local_baked variable.text) (Fits.number_of value)
+              | exception _ -> ())
+            checked_value
         end;
         match checked_value with
         | Some v -> make (C.Define (info.variable, if is_mutable then stored v else v))
@@ -2905,6 +2918,8 @@ let file_scope context file =
 
 let check_function context (info : function_info) =
   let declaration = info.declaration in
+  Hashtbl.reset context.local_baked;
+  Hashtbl.reset context.local_baked_frame;
   (* trace: D41 — a pure function changes nothing else, and `mut $self` would change the caller's value *)
   if info.pure then
     List.iter
@@ -2985,7 +3000,8 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
       presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = []; versions = Hashtbl.create 8; overlapping_versions = Hashtbl.create 4;
       interfaces = Hashtbl.create 4; type_sets = Hashtbl.create 4; satisfied = []; type_parameters = [];
-      short_names = uses; current_file = ""; global_syntax = [];
+      short_names = uses; current_file = ""; global_syntax = []; local_baked = Hashtbl.create 4;
+      local_baked_frame = Hashtbl.create 4;
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
