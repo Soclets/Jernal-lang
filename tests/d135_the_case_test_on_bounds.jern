@@ -1,0 +1,12 @@
+fn describe[$input: Int]:
+    if $input: Int[min: 100, max: 200]:
+        println("in range: " $input as String)
+    else:
+        println("out of range")
+    end if
+end fn describe
+
+fn.main[]:
+    describe(150)
+    describe(250)
+end fn.main

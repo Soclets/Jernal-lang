@@ -1,0 +1,6 @@
+CompileTimeError: d135_an_array_literal_of_the_wrong_length_is_refused.jern:2:37, line 2 column 37
+ 2 |     let $pixel: Array<u8>[len: 4] = [255, 128, 0]
+   |                                     ^^^^^^^^^^^^^
+ what: `[255, 128, 0]` doesn't fit in `Array<u8>[len: 4]`
+ why:  a literal that breaks a bound is refused (D135, standard 2.3a)
+ when: it has 3 items

@@ -105,6 +105,21 @@ let keyword_span (s : Span.t) (word : string) : Span.t =
   { s with end_line = s.line; end_column = s.column + String.length word }
 let type_text t = quote (Types.name t)
 
+let integer_literal_value ~negative digits = let z = Z.of_string digits in if negative then Z.neg z else z
+
+let decimal_literal_value ~negative digits =
+  (* digits.digits as an exact fraction *)
+  let dot = String.index digits '.' in
+  let whole = String.sub digits 0 dot and fraction = String.sub digits (dot + 1) (String.length digits - dot - 1) in
+  let numerator = Z.of_string (whole ^ fraction) in
+  let denominator = Z.pow (Z.of_int 10) (String.length fraction) in
+  let q = Q.make numerator denominator in
+  if negative then Q.neg q else q
+
+
+(* What a type.new is made of (D61). *)
+let rec underlying = function Types.New (_, t) | Types.Bounded (t, _) -> underlying t | t -> t
+
 (* ---------- Types ---------- *)
 
 let sized_integer word =
@@ -122,9 +137,10 @@ let rec resolve_type context (t : type_expression) : Types.t =
   | Parameter_type p ->
       not_built context ~what:(Printf.sprintf "the type parameter `?%s` isn't built in the oracle yet" p) t.type_span
         "functions and types can take type parameters (D103, standard 5.8)"
-  | Named_type { details = _ :: _; _ } ->
-      not_built context ~what:"bounds on a type aren't built in the oracle yet" t.type_span
-        "a type's details go in `[ ]` after the type (D135, standard 2.3a)"
+  | Named_type { details = _ :: _; _ } -> resolve_details context t t.type_kind
+  | Named_type { words = [ "Array" ]; my = false; _ } ->
+      refuse context ~what:"an `Array` always says its length, as `Array<u8>[len: 4]`" t.type_span
+        "an `Array` is a fixed-size array that always says `[len: N]` (D135, standard 2.3a)"
   | Named_type { words; arguments; my; _ } -> (
       let no_arguments result =
         if arguments <> [] then
@@ -210,8 +226,82 @@ let rec resolve_type context (t : type_expression) : Types.t =
           refuse context ~what:(Printf.sprintf "there's no type called %s" (quote (String.concat "." words))) t.type_span
             "a type is a built-in type or one the program declares (D56, standard 2)")
 
-(* What a type.new is made of (D61). *)
-let rec underlying = function Types.New (_, t) -> underlying t | t -> t
+(* A type's details in [ ] (D135): lengths for lists and arrays, min and max for numbers. *)
+and resolve_details context (t : type_expression) named =
+  let why = "a type's details go in `[ ]` after the type (D135, standard 2.3a)" in
+  let details = match named with Named_type { details; _ } -> details | _ -> [] in
+  let value_of (d : detail) : Q.t =
+    let rec literal (e : expression) negate =
+      match e.expression_kind with
+      | Syntax.Integer_literal { digits; negative; tilde = false } ->
+          Q.of_bigint (integer_literal_value ~negative:(negative <> negate) digits)
+      | Syntax.Decimal_literal { digits; negative; tilde = false } -> decimal_literal_value ~negative:(negative <> negate) digits
+      | Syntax.Negate inner -> literal inner (not negate)
+      | _ ->
+          not_built context ~what:"a bound that's worked out, rather than written as a number, isn't built in the oracle yet"
+            d.detail_value.expression_span "all bounds are `baked` (D135, standard 2.3a)"
+    in
+    literal d.detail_value false
+  in
+  let whole (d : detail) =
+    let q = value_of d in
+    if not (Z.equal (Q.den q) Z.one) || Q.sign q < 0 then
+      refuse context ~what:(Printf.sprintf "%s is a count of items, so it's a whole number from 0" (quote d.detail_label))
+        d.detail_value.expression_span why;
+    Z.to_int (Q.num q)
+  in
+  let allowed labels =
+    List.iter
+      (fun (d : detail) ->
+        if not (List.mem d.detail_label labels) then
+          refuse context
+            ~what:(Printf.sprintf "%s isn't a detail this type takes; it takes %s" (quote d.detail_label)
+                     (String.concat " and " (List.map (fun l -> quote (l ^ ":")) labels)))
+            d.detail_label_span why)
+      details
+  in
+  let find label = List.find_opt (fun (d : detail) -> d.detail_label = label) details in
+  let base_expression = { t with type_kind = (match named with Named_type n -> Named_type { n with details = [] } | k -> k) } in
+  match named with
+  | Named_type { words = [ "Array" ]; my = false; arguments = [ { argument_label = None; argument_type } ]; _ } -> (
+      allowed [ "len" ];
+      let item = resolve_type context argument_type in
+      match find "len" with
+      | Some d -> Types.Array (item, whole d)
+      | None -> refuse context ~what:"an `Array` always says its length, as `[len: 4]`" t.type_span why)
+  | _ -> (
+      let base = resolve_type context base_expression in
+      let checked_order low high =
+        match low, high with
+        | Some l, Some h when Q.gt l h ->
+            refuse context ~what:"the lower bound is above the upper one, so no value fits" t.type_span why
+        | _ -> ()
+      in
+      match underlying base with
+      | Types.List _ ->
+          allowed [ "len.min"; "len.max" ];
+          let len_min = Option.map whole (find "len.min") and len_max = Option.map whole (find "len.max") in
+          checked_order (Option.map Q.of_int len_min) (Option.map Q.of_int len_max);
+          Types.Bounded (base, { Types.no_bounds with len_min; len_max })
+      | Types.Integer _ | Types.Float _ | Types.Decimal | Types.Rational ->
+          allowed [ "min"; "max" ];
+          let min = Option.map value_of (find "min") and max = Option.map value_of (find "max") in
+          (match underlying base with
+           | Types.Integer _ ->
+               List.iter
+                 (fun (d : detail) ->
+                   if not (Z.equal (Q.den (value_of d)) Z.one) then
+                     refuse context ~what:(Printf.sprintf "an integer's %s is a whole number" (quote d.detail_label))
+                       d.detail_value.expression_span why)
+                 details
+           | _ -> ());
+          checked_order min max;
+          Types.Bounded (base, { Types.no_bounds with min; max })
+      | Types.Unknown -> Types.Unknown
+      | b ->
+          not_designed context ~what:(Printf.sprintf "details on %s aren't decided yet" (type_text b)) t.type_span
+            "not decided yet (D135, standard 12.1)")
+
 
 (* ---------- Variables ---------- *)
 
@@ -242,17 +332,6 @@ let add_variable fctx ?(is_loop_variable = false) ~(name : name) ~variable_type 
 
 (* ---------- Literals (D84) ---------- *)
 
-let integer_literal_value ~negative digits = let z = Z.of_string digits in if negative then Z.neg z else z
-
-let decimal_literal_value ~negative digits =
-  (* digits.digits as an exact fraction *)
-  let dot = String.index digits '.' in
-  let whole = String.sub digits 0 dot and fraction = String.sub digits (dot + 1) (String.length digits - dot - 1) in
-  let numerator = Z.of_string (whole ^ fraction) in
-  let denominator = Z.pow (Z.of_int 10) (String.length fraction) in
-  let q = Q.make numerator denominator in
-  if negative then Q.neg q else q
-
 (* The float nearest an exact fraction, rounding to nearest, ties to even. *)
 let float_of_rational (q : Q.t) : float = Numbers.float_of_rational q
 
@@ -263,6 +342,33 @@ let float_exactly (q : Q.t) : bool =
 (* ---------- Expressions ---------- *)
 
 let constant ?(span = Span.none) value type_ = { C.kind = C.Constant value; type_; span }
+
+(* A value stored into a type with details is checked there (D135): a literal now, anything else when running. *)
+let fit context (target : Types.t) (c : C.expression) : C.expression =
+  if not (Fits.has_details target) then c
+  else
+    let rec literal_value (x : C.expression) =
+      match x.kind with
+      | C.Constant v -> Some v
+      | C.List_literal xs ->
+          let values = List.map literal_value xs in
+          if List.for_all Option.is_some values then Some (Value.List { items = Dynarray.of_list (List.map Option.get values) })
+          else None
+      | _ -> None
+    in
+    match literal_value c with
+    | Some v -> (
+        match Fits.problem target v with
+        | Some p ->
+            report context
+              (Diagnostic.make ~span:c.span ~when_:p
+                 ~what:(let text = Source.text_of c.span in
+                        if text = "" then Printf.sprintf "this doesn't fit in `%s`" (Types.name target)
+                        else Printf.sprintf "`%s` doesn't fit in `%s`" text (Types.name target))
+                 Diagnostic.Compile_time_error "a literal that breaks a bound is refused (D135, standard 2.3a)");
+            raise Skip
+        | None -> c)
+    | None -> { c with kind = C.Check_fits { value = c; target } }
 
 let literal_text = function
   | Syntax.Integer_literal { digits; negative; tilde } | Syntax.Decimal_literal { digits; negative; tilde } ->
@@ -417,7 +523,7 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         expect_type context Types.int position;
         let item_type =
           match underlying target.type_ with
-          | Types.List item -> item
+          | Types.List item | Types.Array (item, _) -> item
           | Types.Unknown -> Types.Unknown
           | t ->
               refuse context ~what:(Printf.sprintf "%s can't be indexed" (type_text t)) span
@@ -793,7 +899,9 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
       if not (Types.is_number t) && t <> Types.Unknown then
         refuse context ~what:(Printf.sprintf "%s works on numbers, and this is %s" (quote operator_text) (type_text l.type_))
           operator.operator_span "maths works on numbers (D90, standard 2.1a)";
-      let result_type = ref l.type_ in
+      (* arithmetic gives back the plain type (D135) *)
+      let rec plain = function Types.Bounded (t, _) -> plain t | t -> t in
+      let result_type = ref (plain l.type_) in
       (match operator.word, operator.narrowings with
        | ("+" | "-" | "x"), [] -> ()
        | ("plus" | "minus" | "times"), [ ("wrap" | "saturate") as how ] ->
@@ -842,6 +950,9 @@ and check_list_literal fctx ~expected (e : expression) items =
   let span = e.expression_span in
   match Option.map underlying expected with
   | Some (Types.List item_type) ->
+      let checked = List.map (fun x -> let c = check_expression fctx ~expected:(Some item_type) x in expect_type context item_type c; c) items in
+      { C.kind = C.List_literal checked; type_ = Option.get expected; span }
+  | Some (Types.Array (item_type, _)) ->
       let checked = List.map (fun x -> let c = check_expression fctx ~expected:(Some item_type) x in expect_type context item_type c; c) items in
       { C.kind = C.List_literal checked; type_ = Option.get expected; span }
   | Some (Types.Map (kind, _, _)) when items = [] ->
@@ -947,7 +1058,7 @@ and check_build fctx (e : expression) built fields =
                 let v = check_expression fctx ~expected:(Some t) field_value in
                 expect_type context t v;
                 check_hand_off ~escapes:true fctx v field_value;
-                (field.text, v))
+                (field.text, fit context t v))
           fields
       in
       List.iter
@@ -1164,7 +1275,7 @@ and check_arguments fctx span ~(function_name : string) ~(parameters : (string *
       | Some value ->
           let c = check_expression fctx ~expected:(Some parameter_type) value in
           expect_type context parameter_type c;
-          `Given c
+          `Given (fit context parameter_type c)
       | None -> (
           match List.assoc_opt parameter defaults with
           | Some default -> `Default (parameter, default, parameter_type)
@@ -1259,6 +1370,17 @@ and require_changeable fctx (receiver : expression) ~(method_text : string) =
           refuse context ~what:(Printf.sprintf "%s changes `$%s`, which isn't `mut`" (quote method_text) name) name_span why
       | _ -> ())
 
+(* A list type's length bounds, if it has any (D135). *)
+and list_bounds (t : Types.t) : Types.bounds option =
+  match t with
+  | Types.Bounded (_, b) when b.len_min <> None || b.len_max <> None -> Some b
+  | Types.Bounded (t, _) | Types.New (_, t) -> list_bounds t
+  | _ -> None
+
+(* An Array's reading methods are a list's (D135). *)
+and check_method_call_on_list fctx span (target : C.expression) receiver (as_list : Types.t) words arguments (_ : int option) =
+  check_method_call_checked fctx span { target with type_ = as_list } receiver words arguments
+
 (* $value.method(...), $value.len.bytes(), $r.items.len(): fields first, then a method and its narrowings. *)
 and check_method_call fctx span (base : expression) (words : name list) arguments =
   let context = fctx.context in
@@ -1277,6 +1399,10 @@ and check_method_call fctx span (base : expression) (words : name list) argument
     | _ -> (value, source, words)
   in
   let target, receiver, words = walk base_checked base words in
+  check_method_call_checked fctx span target receiver words arguments
+
+and check_method_call_checked fctx span (target : C.expression) (receiver : expression) (words : name list) arguments =
+  let context = fctx.context in
   let method_name = List.hd words in
   let narrowings = List.map (fun n -> n.text) (List.tl words) in
   let method_text = String.concat "." (List.map (fun n -> n.text) words) in
@@ -1304,6 +1430,7 @@ and check_method_call fctx span (base : expression) (words : name list) argument
     let c = check_expression fctx ~expected:(Some item_type) x in
     expect_type context item_type c;
     check_hand_off fctx c x;
+    let c = fit context item_type c in
     { c with kind = C.Copy c }
   in
   let checked_int (x : expression) =
@@ -1323,14 +1450,20 @@ and check_method_call fctx span (base : expression) (words : name list) argument
   | Types.String, "len", [ "bytes" ] -> ignore (positional 0); builtin "len.bytes" (Methods.string_length `Bytes) Types.int []
   | Types.String, "len", [ "code_points" ] ->
       ignore (positional 0); builtin "len.code_points" (Methods.string_length `Code_points) Types.int []
-  | (Types.List _ | Types.Map _), "len", [] -> ignore (positional 0); builtin "len" Methods.length Types.int []
+  | (Types.List _ | Types.Map _ | Types.Array _), "len", [] -> ignore (positional 0); builtin "len" Methods.length Types.int []
+  (* trace: D135 — an Array has nothing that changes its length *)
+  | Types.Array _, ("add" | "remove" | "clear"), [] ->
+      refuse context ~what:(Printf.sprintf "an `Array` has a fixed length, so it has no %s" (quote method_name.text))
+        method_name.span "an `Array` has nothing that changes its length (D135, standard 13.3)"
+  | Types.Array (item, n), _, _ -> check_method_call_on_list fctx span target receiver (Types.List item) words arguments (Some n)
   (* trace: D136 *)
   | Types.List item, "add", [] -> (
+      let run f = Methods.within_length (list_bounds target.type_) f in
       match arguments with
-      | [ { label = None; value } ] -> builtin ~changes:true "add" Methods.add Types.Nothing [ checked_item item value ]
+      | [ { label = None; value } ] -> builtin ~changes:true "add" (run Methods.add) Types.Nothing [ checked_item item value ]
       | [ { label = None; value }; at ] ->
           let counting = position_argument at in
-          builtin ~changes:true "add" (Methods.add_at counting) Types.Nothing [ checked_item item value; checked_int at.value ]
+          builtin ~changes:true "add" (run (Methods.add_at counting)) Types.Nothing [ checked_item item value; checked_int at.value ]
       | _ ->
           refuse context ~what:"`add` takes an item, and maybe `pos:` or `offset:`" span
             "each built-in method's arguments are set out in std (D136, standard 13.3)")
@@ -1338,11 +1471,13 @@ and check_method_call fctx span (base : expression) (words : name list) argument
       match arguments with
       | [ at ] ->
           let counting = position_argument at in
-          builtin ~changes:true "remove" (Methods.remove counting) item [ checked_int at.value ]
+          builtin ~changes:true "remove" (Methods.within_length (list_bounds target.type_) (Methods.remove counting)) item [ checked_int at.value ]
       | _ ->
           refuse context ~what:"`remove` takes `pos:` or `offset:`" span
             "each built-in method's arguments are set out in std (D136, standard 13.3)")
-  | Types.List _, "clear", [] -> ignore (positional 0); builtin ~changes:true "clear" Methods.clear Types.Nothing []
+  | Types.List _, "clear", [] ->
+      ignore (positional 0);
+      builtin ~changes:true "clear" (Methods.within_length (list_bounds target.type_) Methods.clear) Types.Nothing []
   | Types.List item, "contains", [] -> (
       match positional 1 with
       | [ x ] ->
@@ -1613,7 +1748,7 @@ and check_value ?(escapes = false) fctx (declared : Types.t) (value : expression
   let v = check_expression fctx ~expected:(Some declared) value in
   expect_type fctx.context declared v;
   check_hand_off ~escapes fctx v value;
-  v
+  fit fctx.context declared v
 
 (* A frozen name for a parameter's inside is still the parameter's (D139). *)
 and names_a_parameter fctx (value : expression) (t : Types.t) =
@@ -1761,8 +1896,12 @@ and check_case_test fctx (value : expression) (tested : type_expression) : C.exp
           refuse context ~what:(Printf.sprintf "this is %s, and the test asks about %s" (type_text t) (quote (union_name ^ "." ^ case_name)))
             tested.type_span "the case test asks which case a value is (D97, standard 4.5a)")
   | Named_type { details = _ :: _; _ } ->
-      not_built context ~what:"the case test on bounds isn't built in the oracle yet" tested.type_span
-        "the case test works on bounds (D135, standard 2.3a)"
+      (* trace: D135 — the case test works on bounds *)
+      let target = resolve_type context tested in
+      if not (Types.same target checked.type_) then
+        refuse context ~what:(Printf.sprintf "this is %s, and the test asks about %s" (type_text checked.type_) (type_text target))
+          tested.type_span "the case test asks whether a value fits a type (D97, D135, standard 2.3a)";
+      ({ C.kind = C.Fits_test { value = checked; target }; type_ = Types.Bool; span = tested.type_span }, Some target)
   | _ ->
       refuse context ~what:"the case test names a union's case, such as `Status.failed`" tested.type_span
         "`if <value>: <type>.<case>:` tests which case a value is (D97, standard 4.5a)"
@@ -1860,7 +1999,7 @@ and check_for fctx span loop_name (variable : name) iterable at handling body =
   let item_type =
     match Option.map (fun (c : C.expression) -> underlying c.type_) iterable_checked with
     | Some Types.Range -> Types.int
-    | Some (Types.List item) -> item
+    | Some (Types.List item | Types.Array (item, _)) -> item
     | Some (Types.Map (Types.Map_hash, _, _)) ->
         (* trace: D138 *)
         error context ~what:"a `Map.hash` has no order to rely on, so it can't be looped over; `.keys.sorted()` gives an order"

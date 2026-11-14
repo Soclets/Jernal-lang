@@ -168,3 +168,24 @@ let map_keys_sorted _span = function
       let keys = List.map fst (Dynarray.to_list (entries map).entries) in
       Value.List { items = Dynarray.of_list (List.stable_sort compare_keys keys) }
   | _ -> Value.Nothing
+
+(* A change to a list with length bounds keeps within them (D135). *)
+let within_length (bounds : Types.bounds option) run span arguments =
+  let result = run span arguments in
+  (match bounds, arguments with
+   | Some b, Value.List l :: _ ->
+       let n = Dynarray.length l.items in
+       (match b.len_max with
+        | Some m when n > m ->
+            runtime_error ~what:(Printf.sprintf "this would make the list longer than `len.max: %d`" m)
+              ~when_:(Printf.sprintf "it would have %d items" n) span
+              "adding past `len.max` is a check (D135, standard 13.3)"
+        | _ -> ());
+       (match b.len_min with
+        | Some m when n < m ->
+            runtime_error ~what:(Printf.sprintf "this would make the list shorter than `len.min: %d`" m)
+              ~when_:(Printf.sprintf "it would have %d item%s" n (if n = 1 then "" else "s")) span
+              "removing below `len.min` is a check (D135, standard 13.3)"
+        | _ -> ())
+   | _ -> ());
+  result

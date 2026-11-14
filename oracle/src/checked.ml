@@ -39,6 +39,8 @@ and expression_kind =
   | Pass_up of expression
   | Is_case of { value : expression; case_name : string }   (* the case test (D97) *)
   | Key_index of { target : expression; key : expression }   (* $m[key: ...] (D138) *)
+  | Check_fits of { value : expression; target : Types.t }   (* a value stored into a bounded type (D135) *)
+  | Fits_test of { value : expression; target : Types.t }    (* the case test on bounds (D135) *)
 
 and builtin = {
   builtin_name : string;

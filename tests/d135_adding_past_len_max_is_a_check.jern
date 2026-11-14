@@ -1,0 +1,7 @@
+fn.main[]:
+    let mut $xs: List<Int>[len.max: 2] = [1]
+    $xs.add(2)
+    println($xs.len() as String)
+    $xs.add(3)
+    println("never")
+end fn.main

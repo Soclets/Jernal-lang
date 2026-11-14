@@ -1,0 +1,6 @@
+RuntimeError: d135_a_value_that_breaks_a_bound_is_a_check.jern:2:12, line 2 column 12
+ 2 |     return $n
+   |            ^^
+ what: `$n` doesn't fit in `Int[min: 100, max: 200]`
+ why:  a value that might break a bound is checked where it's stored (D135, standard 2.3a)
+ when: it is 50

@@ -1,0 +1,3 @@
+fn.main[]:
+    let $score: Int[min: 100, max: 200] = 250
+end fn.main

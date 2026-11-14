@@ -1,0 +1,4 @@
+fn.main[]:
+    let mut $pixel: Array<u8>[len: 2] = [1, 2]
+    $pixel.add(3)
+end fn.main

@@ -1,0 +1,8 @@
+fn set_score[$n: Int] -> Int[min: 100, max: 200]:
+    return $n
+end fn set_score
+
+fn.main[]:
+    println(set_score(150) as String)
+    println(set_score(50) as String)
+end fn.main

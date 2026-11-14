@@ -1,0 +1,15 @@
+fn.main[]:
+    let $xs: List<Int>[len.min: 1] = [5]
+    let $pixel: Array<u8>[len: 4] = [255, 128, 0, 255]
+    let $score: Int[min: 100, max: 200] = 150
+    let $top: List<Int[min: 0, max: 100]>[len.max: 3] = [90, 75, 100]
+    println($xs.len() as String)
+    println($pixel[pos: 2] as String)
+    println($pixel.len() as String)
+    println($pixel.contains(0) as String)
+    let $more: Int = $score + 100
+    println($more as String)
+    println($top.last() as String)
+    let $half: Float[min: 0.0, max: 1.0] = 0.5
+    println($half as String)
+end fn.main

@@ -1,0 +1,6 @@
+CompileTimeError: d135_a_literal_that_breaks_a_bound_is_refused.jern:2:43, line 2 column 43
+ 2 |     let $score: Int[min: 100, max: 200] = 250
+   |                                           ^^^
+ what: `250` doesn't fit in `Int[min: 100, max: 200]`
+ why:  a literal that breaks a bound is refused (D135, standard 2.3a)
+ when: it is 250

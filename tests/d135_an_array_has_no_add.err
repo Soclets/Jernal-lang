@@ -1,0 +1,5 @@
+CompileTimeError: d135_an_array_has_no_add.jern:3:12, line 3 column 12
+ 3 |     $pixel.add(3)
+   |            ^^^
+ what: an `Array` has a fixed length, so it has no `add`
+ why:  an `Array` has nothing that changes its length (D135, standard 13.3)

@@ -288,6 +288,15 @@ and evaluate_plain context (e : C.expression) : Value.t =
       let reaches = if Z.gt step Z.zero then Z.leq from last else Z.geq from last in
       Value.Range { from; last = (if reaches then Some last else None); step }
   | C.Copy inner -> Value.deep_copy (evaluate context inner)
+  | C.Check_fits { value; target } -> (
+      (* trace: D135 *)
+      let v = evaluate context value in
+      match Fits.problem target v with
+      | None -> v
+      | Some p ->
+          runtime_error ~what:(Printf.sprintf "`%s` doesn't fit in `%s`" (source_text e.span) (Types.name target)) ~when_:p
+            e.span "a value that might break a bound is checked where it's stored (D135, standard 2.3a)")
+  | C.Fits_test { value; target } -> Value.Bool (Fits.problem target (evaluate context value) = None)
   | C.Key_index { target; key } ->
       let map = evaluate context target in
       Methods.map_index e.span map (evaluate context key)
