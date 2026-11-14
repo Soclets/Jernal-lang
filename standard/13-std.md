@@ -131,3 +131,24 @@ $xs.last() -> <item type>
 A position outside the list is a check, and so are `first()` and `last()` on an empty list. Adding past `len.max` or
 removing below `len.min` is a check (D135). An `Array` has `contains`, `first`, `last`, `len()` and indexing, but nothing
 that changes its length.
+
+### Map operations
+
+A map is read and changed by key, labelled like indexing (D138):
+
+```
+$m[key: <key>] -> <value type>             // a missing key is a check
+$m.get(key: <key>) -> <value type>         // fails instead of a check
+$m.contains(key: <key>) -> Bool
+change $m[key: <key>] = <value>            // adds or replaces
+$m.remove(key: <key>) -> <value type>
+$m.len() -> Int
+$m.keys.sorted() -> List<<key type>>
+```
+
+Looping over a `Map.hash` is a `CompileTimeError`, since it has no order to rely on; loop over `.keys.sorted()`, or use
+`Map.insertion` or `Map.sorted` (D138).
+
+### Comparing strings
+
+`<`, `>`, `at_least` and `at_most` compare strings by Unicode code point (D138).

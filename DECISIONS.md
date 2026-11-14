@@ -2227,3 +2227,28 @@ its tests start recording error text byte for byte.
    `why:  not decided yet (standard 12.1)`.
 
 Claude recommended all five; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D138. Strings order by code point, a `Map.hash` can't be looped over, and the basic map operations.** Asked by
+Jernal Oracle Claude.
+
+- Strings compare with `<`, `>`, `at_least` and `at_most` by Unicode code point, which is deterministic and needs no
+  locale. Comparing grapheme by grapheme would give the same order. Alphabetical order for a language would be a
+  separate std function, naming the language.
+- Looping over a `Map.hash` is a `CompileTimeError`, since it has no order to rely on and the oracle and compiler would
+  disagree (D69). Go through it in a defined order with `.keys.sorted()`, or use `Map.insertion` or `Map.sorted`.
+- A map is read and changed by key, labelled like indexing (D17): `$m[key: <key>]`, where a missing key is a check;
+  `$m.get(key: <key>)`, which fails instead; `contains(key: <key>)`; `change $m[key: <key>] = <value>` to add or
+  replace; `remove(key: <key>)`, which gives back the value; and `len()`.
+
+```
+let mut $ages: Map.hash<key: String, val: Int> = ["Ann" => 30, "Bob" => 25]
+$ages[key: "Ann"]                   // 30
+$ages.get(key: "Zoe") ?? 0
+change $ages[key: "Cat"] = 41
+for $name in $ages.keys.sorted():
+    println($name " is " $ages[key: $name] as String)
+end for
+```
+
+The owner asked "Why is 7 banned, and why does 2 use codepoint instead of grapheme?" and "How would you get a
+hashmap's stuff?", and chose: "yes". The name of the failure from `get` is not decided yet. (Owner, 2026-11-14)
