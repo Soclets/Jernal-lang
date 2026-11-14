@@ -960,3 +960,30 @@ save_backup($data) ?? ignore
 
 Cyborg writes `?? void`, but Jernal has no `void` word (D26). Claude proposed `?? ignore`; the owner chose: "yea".
 (Owner, 2026-11-14)
+
+**D56. Structs.** A struct is declared as a block, with fields written without `$`, one per line, and the closer
+repeats the name. It's built with `[ ]` and `=`, since `[ ]` describes (D15), and its fields are read with `.`.
+Changing a field needs the whole variable to be `mut` (D43); single fields aren't marked as changeable. Properties are
+narrowings on `struct`, strongest first, and the closer repeats them, as on `fn` (D41); this is how D51's `must_give` is
+marked. Type names are capitalized (`Reading`, `OpenFile`, `Int`, `String`), and sized types stay lowercase (`i32`,
+D25).
+
+```
+struct Reading:
+    celsius: Int
+    place: String
+end struct Reading
+
+let mut $r: Reading = Reading[celsius = 22, place = "Bangkok"]
+println($r.place)
+change $r.celsius = 23
+
+struct.must_give File:
+    ...
+end struct.must_give File
+```
+
+Not decided yet: field defaults, building with fields out of order, and `pub` on fields. This matches Cyborg's struct
+(its D57, from Radium), as Cyborg's design session described on 2026-11-14, except that Cyborg's type names are
+lowercase. The owner said "Ask Cyborg"; Claude proposed this form with capitalized names; the owner chose: "yea".
+(Owner, 2026-11-14)
