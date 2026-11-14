@@ -44,6 +44,21 @@ Multiplying is `x`, and its narrowed forms are written `times.`, such as `times.
 On `Float`, `Decimal` and `Rational`, a bare `div` keeps the same type: `7.0 div 2.0` is `3.5`. The remainder is
 `mod.trunc` or `mod.floor`, matching its division (D85). There is no `/` (D87).
 
+Converting between number types uses `as` (D91):
+
+- A conversion that always fits is a plain `as`; one that might not fit is a plain `as` with a check.
+- `as.wrap` keeps the low bits, and `as.saturate` sticks at the ends.
+- From `Float`, `Decimal` or `Rational` to an integer, the rounding is always said: `as.trunc`, `as.floor`, `as.ceil`,
+  `as.round.even`, `as.round.away`, or `as.exact`, a failure if anything would be lost.
+- Into `Float`, a value rounds to nearest.
+
+```
+let $small: i32 = $big as i32
+let $capped: u8 = $big as.saturate u8
+let $i: Int = $f as.round.even Int
+let $exact: Int = $r as.exact Int ?? 0
+```
+
 A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals never need it; one that doesn't fit is a
 `CompileTimeError`. A negative is written `~-0.1`.
 

@@ -1511,3 +1511,26 @@ if $x < 10 and $done:              // ($x < 10) and $done
 
 This is Cyborg's (its D116), as Cyborg's design session described on 2026-11-14. Replaces the withdrawn D86's grouping
 and precedence. The owner chose: "maths precedence, if no, group with `()`". (Owner, 2026-11-14)
+
+**D91. Converting between number types.** Conversions use `as`, and say what they do whenever there's a choice:
+
+- A conversion that always fits is a plain `as`.
+- One that might not fit is a plain `as` with a check; a value that doesn't fit is a `RuntimeError` (D53).
+- Overflow on purpose is written out: `as.wrap` keeps the low bits, and `as.saturate` sticks at the ends.
+- From `Float`, `Decimal` or `Rational` to an integer type, the rounding is always said: `as.trunc`, `as.floor`,
+  `as.ceil`, `as.round.even`, `as.round.away`, or `as.exact`, which is a failure that can be handled if anything would
+  be lost. There's no bare rounding, since ties are a real choice.
+- Into `Float`, a value rounds to nearest.
+
+```
+let $big: Int = $small as Int
+let $small: i32 = $big as i32
+let $low: u8 = $big as.wrap u8
+let $capped: u8 = $big as.saturate u8
+let $f: Float = $n as Float
+let $i: Int = $f as.round.even Int
+let $exact: Int = $r as.exact Int ?? 0
+```
+
+Settles D85's open list of rounding words. This is Cyborg's (its D424, D425), as Cyborg's design session described on
+2026-11-14. Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
