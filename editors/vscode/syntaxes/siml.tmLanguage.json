@@ -1,0 +1,22 @@
+{
+  "name": "siml",
+  "scopeName": "source.siml",
+  "patterns": [
+    { "name": "comment.line.double-slash.siml", "match": "//.*$" },
+    { "name": "string.quoted.double.siml", "match": "\"[^\"]*\"" },
+    {
+      "match": "^\\s*(end)\\s+(.*)$",
+      "captures": { "1": { "name": "keyword.control.end.siml" }, "2": { "name": "entity.name.section.siml" } }
+    },
+    {
+      "match": "^\\s*([^\\s:]+)(:)\\s*$",
+      "captures": { "1": { "name": "entity.name.section.siml" }, "2": { "name": "punctuation.section.siml" } }
+    },
+    {
+      "match": "^\\s*((?:(?:target|mode)\\.[A-Za-z0-9_]+\\.?)*)\\s*(name|ver|need|rule|use|kind|locked|hash)\\b",
+      "captures": { "1": { "name": "storage.modifier.scope.siml" }, "2": { "name": "keyword.other.siml" } }
+    },
+    { "name": "constant.numeric.date.siml", "match": "\\b\\d{4}y-\\d{1,2}m-\\d{1,2}d(\\.\\d+)?\\b" },
+    { "name": "constant.language.siml", "match": "\\b(breaks|not_broken|refuse|warn|allow|tests|as)\\b" }
+  ]
+}

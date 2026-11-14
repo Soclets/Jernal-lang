@@ -1,0 +1,150 @@
+{
+  "name": "Jernal",
+  "scopeName": "source.jernal",
+  "patterns": [
+    { "include": "#block_comment" },
+    { "include": "#doc_comment" },
+    { "include": "#line_comment" },
+    { "include": "#inline_block" },
+    { "include": "#string" },
+    { "include": "#declaration" },
+    { "include": "#closer" },
+    { "include": "#keyword" },
+    { "include": "#word_operator" },
+    { "include": "#constant" },
+    { "include": "#number" },
+    { "include": "#variable" },
+    { "include": "#type_parameter" },
+    { "include": "#label" },
+    { "include": "#type" },
+    { "include": "#call" },
+    { "include": "#operator" }
+  ],
+  "repository": {
+    "block_comment": {
+      "name": "comment.block.jernal",
+      "begin": "^(\\s*)(comment)\\s+([a-z_][a-z0-9_]*)\\s*:\\s*$",
+      "beginCaptures": { "2": { "name": "keyword.other.comment.jernal" }, "3": { "name": "entity.name.section.jernal" } },
+      "end": "^\\s*(end)\\s+(comment)\\s+(\\3)\\s*$",
+      "endCaptures": {
+        "1": { "name": "keyword.control.end.jernal" },
+        "2": { "name": "keyword.other.comment.jernal" },
+        "3": { "name": "entity.name.section.jernal" }
+      }
+    },
+    "doc_comment": { "name": "comment.line.documentation.jernal", "match": "///.*$" },
+    "line_comment": { "name": "comment.line.double-slash.jernal", "match": "//.*$" },
+    "inline_block": {
+      "begin": "^(\\s*)(inline)(\\.[a-z_][a-z0-9_]*)\\s*:\\s*$",
+      "beginCaptures": { "2": { "name": "keyword.other.inline.jernal" }, "3": { "name": "entity.name.tag.jernal" } },
+      "end": "^\\s*(end)\\s+(inline)(\\3)\\s*$",
+      "endCaptures": {
+        "1": { "name": "keyword.control.end.jernal" },
+        "2": { "name": "keyword.other.inline.jernal" },
+        "3": { "name": "entity.name.tag.jernal" }
+      },
+      "contentName": "string.unquoted.inline.jernal"
+    },
+    "string": {
+      "name": "string.quoted.double.jernal",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.jernal", "match": "\\\\[\"\\\\]" },
+        { "name": "invalid.illegal.escape.jernal", "match": "\\\\." }
+      ]
+    },
+    "declaration": {
+      "patterns": [
+        {
+          "match": "\\b(fn)((?:\\.[a-z_][a-z0-9_]*)*)\\s+((?:my::)?[a-z_][a-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.function.jernal" },
+            "2": { "name": "storage.modifier.narrowing.jernal" },
+            "3": { "name": "entity.name.function.jernal" }
+          }
+        },
+        {
+          "match": "\\b(fn)(\\.main)\\b",
+          "captures": { "1": { "name": "storage.type.function.jernal" }, "2": { "name": "entity.name.function.main.jernal" } }
+        },
+        {
+          "match": "\\b(struct|union|interface|type_set|type|shield)((?:\\.[a-z_][a-z0-9_]*)*)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.jernal" },
+            "2": { "name": "storage.modifier.narrowing.jernal" },
+            "3": { "name": "entity.name.type.jernal" }
+          }
+        },
+        {
+          "match": "\\b(fam)((?:\\.[a-z_][a-z0-9_]*)*)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": { "name": "storage.type.family.jernal" },
+            "2": { "name": "storage.modifier.narrowing.jernal" },
+            "3": { "name": "entity.name.namespace.jernal" }
+          }
+        },
+        {
+          "match": "\\b(handler|failure|preset|unit|op|versions)\\s+([A-Za-z_][A-Za-z0-9_<>=!]*)",
+          "captures": { "1": { "name": "storage.type.member.jernal" }, "2": { "name": "entity.name.function.member.jernal" } }
+        }
+      ]
+    },
+    "closer": {
+      "match": "^\\s*(end)\\b(.*)$",
+      "captures": { "1": { "name": "keyword.control.end.jernal" }, "2": { "name": "comment.line.closer.jernal" } }
+    },
+    "keyword": {
+      "patterns": [
+        { "name": "keyword.control.jernal", "match": "\\b(if|else|for|in|at|while|break|return|early|match|case|with|otherwise|instead|fail|fails|ignore)\\b" },
+        { "name": "storage.type.variable.jernal", "match": "\\b(let|mut|baked|decl|assign|shadow|change)\\b" },
+        { "name": "keyword.other.ownership.jernal", "match": "\\b(give|copy)\\b" },
+        { "name": "keyword.other.header.jernal", "match": "\\b(labels|defaults|requires|ensures|reason|pin|includes|satisfies|use)\\b" },
+        { "name": "storage.modifier.visibility.jernal", "match": "\\bpub\\.(pkg|all)\\b|\\bpub\\b" },
+        { "name": "keyword.other.path.jernal", "match": "\\b(my|pkg)::" }
+      ]
+    },
+    "word_operator": {
+      "patterns": [
+        { "name": "keyword.operator.word.logic.jernal", "match": "\\b(and|or)(\\.both)?\\b|\\bnot\\b" },
+        { "name": "keyword.operator.word.comparison.jernal", "match": "\\b(at_least|at_most)\\b" },
+        { "name": "keyword.operator.word.arithmetic.jernal", "match": "\\b(div|mod|plus|minus|times)(\\.[a-z_]+)?\\b|(?<=\\s)x(?=\\s)" },
+        { "name": "keyword.operator.word.conversion.jernal", "match": "\\bas(\\.[a-z_]+)*\\b" }
+      ]
+    },
+    "constant": { "name": "constant.language.jernal", "match": "\\b(true|false)\\b" },
+    "number": {
+      "patterns": [
+        { "name": "constant.numeric.approximate.jernal", "match": "~-?\\d[\\d_]*(\\.\\d[\\d_]*)?" },
+        { "name": "constant.numeric.jernal", "match": "(?<![\\w$])\\d[\\d_]*(\\.\\d[\\d_]*)?" }
+      ]
+    },
+    "variable": { "name": "variable.other.jernal", "match": "\\$[A-Za-z_][A-Za-z0-9_]*" },
+    "type_parameter": { "name": "entity.name.type.parameter.jernal", "match": "\\?[A-Z][A-Za-z0-9_]*" },
+    "label": {
+      "match": "\\b([a-z_][a-z0-9_]*(?:\\.[a-z_][a-z0-9_]*)*)(:)(?=\\s)",
+      "captures": { "1": { "name": "variable.parameter.label.jernal" }, "2": { "name": "punctuation.separator.label.jernal" } }
+    },
+    "type": {
+      "patterns": [
+        { "name": "support.type.builtin.jernal", "match": "\\b(Int|Float|Decimal|Rational|Bool|String|List|Array|Map|Any)\\b" },
+        { "name": "support.type.sized.jernal", "match": "\\b(not_two_pow\\.)?[iu]\\d+\\b|\\b(bf16|f16|f32|f64)\\b" },
+        { "name": "entity.name.type.jernal", "match": "\\b[A-Z][A-Za-z0-9_]*\\b" }
+      ]
+    },
+    "call": {
+      "match": "\\b([a-z_][a-z0-9_]*)(?=\\()",
+      "captures": { "1": { "name": "entity.name.function.call.jernal" } }
+    },
+    "operator": {
+      "patterns": [
+        { "name": "keyword.operator.comparison.jernal", "match": "==|!=|(?<=\\s)[<>](?=\\s)" },
+        { "name": "keyword.operator.map.jernal", "match": "=>" },
+        { "name": "keyword.operator.return-type.jernal", "match": "->" },
+        { "name": "keyword.operator.failure.jernal", "match": "\\?\\?|\\?(?![A-Z])|\\*(?=[a-z_])" },
+        { "name": "keyword.operator.arithmetic.jernal", "match": "[+\\-]" },
+        { "name": "keyword.operator.assignment.jernal", "match": "=" }
+      ]
+    }
+  }
+}

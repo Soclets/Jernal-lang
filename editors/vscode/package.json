@@ -1,0 +1,31 @@
+{
+  "name": "jernal",
+  "displayName": "Jernal",
+  "description": "Syntax highlighting for Jernal (.jern) and its manifest (Journey.siml).",
+  "version": "0.0.1",
+  "publisher": "soclets",
+  "license": "Apache-2.0 WITH LLVM-exception",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "jernal",
+        "aliases": ["Jernal", "jernal"],
+        "extensions": [".jern"],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "siml",
+        "aliases": ["siml"],
+        "extensions": [".siml"],
+        "filenames": ["Journey.siml", "Journey.lock"],
+        "configuration": "./siml-configuration.json"
+      }
+    ],
+    "grammars": [
+      { "language": "jernal", "scopeName": "source.jernal", "path": "./syntaxes/jernal.tmLanguage.json" },
+      { "language": "siml", "scopeName": "source.siml", "path": "./syntaxes/siml.tmLanguage.json" }
+    ]
+  }
+}

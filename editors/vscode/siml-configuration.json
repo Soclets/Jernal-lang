@@ -1,0 +1,8 @@
+{
+  "comments": { "lineComment": "//" },
+  "autoClosingPairs": [{ "open": "\"", "close": "\"" }],
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*\\S.*:\\s*$",
+    "decreaseIndentPattern": "^\\s*end\\b"
+  }
+}
