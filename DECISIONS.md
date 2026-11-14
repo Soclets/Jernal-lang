@@ -1368,3 +1368,26 @@ designed. How a shield is written is not decided yet.
 Jernal isn't freestanding: every program runs with its runtime, including JernGC, on an operating system. The owner
 asked "would we like shields?" and "First, define what kinds need shield", chose "Yes" to this list, and said: "Jernal
 can't freestand, right? That's fine". (Owner, 2026-11-14)
+
+**D80. How a shield is written.** A shield is a named block. Its body starts with `reason`, saying why the escape hatch
+is needed, then `pin` for each GC object handed to the outside, then the code.
+
+```
+shield read_header:
+    reason "libpng's C API takes a raw buffer"
+    pin $buffer
+    let $ptr: Ptr<u8> = $buffer.raw_address()
+    let $status: i32 = png_read(give $ptr, $buffer.length)
+end shield read_header
+```
+
+- A pinned object isn't moved or freed by the GC until the shield's `end`. Handing out an object that isn't pinned is
+  refused.
+- The build report lists every shield, with its reason, and any quill's unchecked IR (D79).
+- Everything outside a shield stays fully checked; only what a shield gives back has to be valid Jernal.
+
+This follows a general rule for where things go: the opening line says what something is, the part that changes how
+it's used (a function's parameters, result and `fails`, D48); the top of the body describes it or says what it
+promises (`labels`, `defaults`, `requires`, `ensures`, D42, and a shield's `reason`). From Cyborg's shield, as Cyborg's
+design session described it on 2026-11-14. The owner said "Why the fuck is `:` there, and not behind `"`?" and "Idk,
+failures are in a function's header"; Claude proposed that rule; the owner chose: "fair, yea". (Owner, 2026-11-14)
