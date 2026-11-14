@@ -82,13 +82,20 @@ gives raw bytes.
 
 ## 9.3 `use`
 
-`use path as name` gives something a short name in that file (D60). The path is written short. One name per `use`, with
+`use path as name` gives something a short name in one file (D60). `use` lines live in `Journey.siml`, inside a block
+named after the file, never in a `.jern` file (D114). The path is written short. One name per `use`, with
 no wildcards.
 
 - An unquoted name must match the last word of its path.
 - A quoted name is the writer's free choice. The quotes appear only on the `use` line. A quoted name nothing could call,
   such as `""` or `"fn"`, is refused.
 - If the part before the last dot is a function, an unquoted short name can't be the narrowing alone.
+
+```
+main.jern:
+use time.seconds as seconds
+end main.jern
+```
 
 ```
 use time.seconds as seconds          // a family member

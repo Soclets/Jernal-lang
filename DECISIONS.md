@@ -1886,3 +1886,18 @@ separate package. Claude proposed none for now; the owner said: "There's none, j
 format, and compiled into the fastest form for the tools to load, recompiled whenever it changes. The time saved is
 small, and it's done anyway. Claude described the manifest as only read; the owner said: "Nope, it's checked, and
 compiles to the fastest thing, even though it saves less time than just not compiling it". (Owner, 2026-11-14)
+
+**D114. `use` lives in the manifest, in a block per file.** A `.jern` file has no `use` lines. Short names chosen with
+`use` (D60) go in `Journey.siml`, inside a block named after the file they're for, closed by a named `end`. D60's rules
+for names stay. This is the first block in siml, alongside D111's one-line prefixes.
+
+```
+// Journey.siml
+main.jern:
+use time.seconds as seconds
+use show.stored as "show_stored"
+end main.jern
+```
+
+Not decided yet: whether a block can apply to every file. The owner said "nah, it's all in Journey, you say the file",
+and, asked how: "you make a block." (Owner, 2026-11-14)
