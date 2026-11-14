@@ -1,0 +1,10 @@
+struct Box:
+    items: List<Int>
+end struct Box
+
+fn.main[]:
+    let $xs: List<Int> = [1, 2]
+    change $xs[pos: 1] = 5
+    let $box: Box = Box[items = [1]]
+    $box.items.add(2)
+end fn.main

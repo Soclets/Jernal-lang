@@ -1,0 +1,4 @@
+fn.main[]:
+    std::io::stdio::println("by path")
+    println("short")
+end fn.main

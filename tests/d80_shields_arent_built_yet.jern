@@ -1,0 +1,6 @@
+fn.main[]:
+    shield read_header:
+        reason "a C library takes a raw buffer"
+        println("inside")
+    end shield read_header
+end fn.main

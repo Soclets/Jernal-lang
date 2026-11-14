@@ -1,0 +1,8 @@
+fam.unit money:
+    unit cents: base
+    unit dollars = 100 cents
+end fam.unit money
+
+fn.main[]:
+    println("never")
+end fn.main

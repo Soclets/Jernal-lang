@@ -1,0 +1,7 @@
+fn now_ish[] -> Int:
+    return 1
+end fn now_ish
+
+fn.main[]:
+    let $t: Int = now_ish
+end fn.main

@@ -1,0 +1,11 @@
+CompileTimeError: d6_a_let_freezes_the_inside.jern:7:12, line 7 column 12
+ 7 |     change $xs[pos: 1] = 5
+   |            ^^^
+ what: `$xs` can't change: it isn't `mut`
+ why:  `change` works on what can change (D33, D43, standard 3.5)
+
+CompileTimeError: d6_a_let_freezes_the_inside.jern:9:5, line 9 column 5
+ 9 |     $box.items.add(2)
+   |     ^^^^
+ what: `add` changes `$box`, which isn't `mut`
+ why:  calling a method that changes its value on a value that can't change is refused (D43, standard 5.4)

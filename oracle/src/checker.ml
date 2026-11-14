@@ -738,6 +738,12 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         (* trace: D30 *)
         refuse context ~what:"there's no `continue`; an item is skipped by wrapping the work in an `if`" span
           "`break` leaves a loop, and there is no `continue` (D30, standard 4.6)"
+    | Syntax.Name { word; path = []; my = false }
+      when (match Hashtbl.find_all context.functions word with
+            | [ f ] -> f.declaration.parameters = [] && f.result_type <> Types.Nothing
+            | _ -> false) ->
+        (* trace: D15 — a function with no parameters has one fix: call it *)
+        refuse context ~fix:(quote (word ^ "()")) span "`( )` runs something (D15, standard 1.4)"
     | Syntax.Name { word; _ } ->
         refuse context ~what:(Printf.sprintf "`%s` names a function or type, not a value; a call takes `( )`" word) span
           "`( )` runs something (D15, standard 1.4)"

@@ -1,0 +1,5 @@
+NotBuiltYet: d58_units_come_after_v1.jern:1:1, line 1 column 1
+ 1 | fam.unit money:
+   | ^^^
+ what: units aren't built yet: they come after v1
+ why:  units are designed now and built after v1 (D58, standard 2.6)

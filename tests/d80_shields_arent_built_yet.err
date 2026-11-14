@@ -1,0 +1,5 @@
+NotBuiltYet: d80_shields_arent_built_yet.jern:2:5, line 2 column 5
+ 2 |     shield read_header:
+   |     ^^^^^^
+ what: shields aren't built yet
+ why:  shields hold unchecked code (D79, D80, standard 11.2)
