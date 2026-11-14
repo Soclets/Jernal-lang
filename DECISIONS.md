@@ -2024,3 +2024,24 @@ quill.unverified refuse` in `Journey.siml` makes it an error. There are no signi
 `Journey.lock` pins it (D116). The warning rather than a refusal follows the owner's CyborgPL ruling, "warn them, don't
 refuse", as Cyborg's design session quoted on 2026-11-14, and the hash idea is its suggestion. Claude proposed it; the
 owner chose: "yea". (Owner, 2026-11-14)
+
+**D125. The quill interface: C, versioned by name, and functions over handles.** A quill is a native library with a
+plain C interface, so any language that can make one can write a quill. It exports one entry point whose name carries
+the interface's version, `jern_quill_v1`; a later version adds a new entry point, and JernComp keeps loading older
+quills. JernComp hands the quill a table of functions over opaque handles, never its internal data structures, so
+JernComp's internals can change without breaking quills. A quill's outputs are D77's list: errors and warnings in D10's
+format, Jernal code, which is checked, and LLVM IR, which is listed like a shield.
+
+```
+jern_quill_v1(api: *const JernApi) -> *const QuillHooks
+
+api.items(program)
+api.type_of(expression)
+api.error(span, what, why, fix)
+api.emit_jernal(text)
+api.emit_llvm_ir(text)
+```
+
+The full list of functions grows as quills need it. Cyborg's design session advised designing around what a quill
+receives, through functions rather than structs, on 2026-11-14. Claude proposed it; the owner chose: "yea". (Owner,
+2026-11-14)

@@ -59,6 +59,19 @@ its inputs: the checked program, the manifest, and files the manifest names. `je
 and compares, and a difference is an error naming the quill. A quill that needs something that isn't reproducible
 declares it in its own manifest, and the build report lists it.
 
+A quill has a plain C interface (D125). It exports one entry point whose name carries the interface's version,
+`jern_quill_v1`; later versions add new entry points, and older quills keep loading. JernComp hands it functions over
+opaque handles, never its internal data structures.
+
+```
+jern_quill_v1(api: *const JernApi) -> *const QuillHooks
+api.items(program)
+api.type_of(expression)
+api.error(span, what, why, fix)
+api.emit_jernal(text)
+api.emit_llvm_ir(text)
+```
+
 Journey's registry builds every published quill from its source and records the binary's hash; a quill is verified when
 the binary used has exactly that hash (D124). An unverified quill is used with a warning, and `rule quill.unverified
 refuse` makes it an error.
