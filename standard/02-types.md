@@ -59,6 +59,9 @@ println($b as String)                // ~0.1
 println($b as.stored String)         // 0.1000000000000000055511151231257827021181583404541015625
 ```
 
+Floats print with no exponent for now: `1e23` prints all 24 digits (D120). A float literal outside its type's range,
+such as `70000.0` for an `f16`, is a `CompileTimeError` (D120).
+
 Converting between number types uses `as` (D91):
 
 - A conversion that always fits is a plain `as`; one that might not fit is a plain `as` with a check.
@@ -79,7 +82,7 @@ A `Decimal` literal with more than its 34 digits needs `~` too. `Int` literals n
 
 ## 2.1b Booleans
 
-`Bool` is the type of `true` and `false` (D96).
+`Bool` is the type of `true` and `false` (D96). As text, they're `true` and `false` (D120).
 
 ## 2.2 Strings
 

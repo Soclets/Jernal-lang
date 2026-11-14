@@ -4,8 +4,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 ## 12.1 Language core
 
-- **Text:** what a `Bool` or a struct looks like as text, whether huge or tiny floats switch to an exponent, and
-  whether a float literal outside its type's range is refused. There's no formatting tool for now (D118).
+- **Text:** what a struct looks like as text, and exponent literals (D120). There's no formatting tool for now (D118).
 - **Generics:** value parameters, and naming a type at a call (D103).
 - **A raw pointer type**, such as the `Ptr<u8>` in 11.2's example.
 

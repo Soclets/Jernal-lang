@@ -1966,3 +1966,9 @@ CyborgPL prints the shortest digits with no mark, and its conversions must name 
 described on 2026-11-14; multifinity's notes proposed the `~`. The owner said "But that means `as` lies? Which probably
 isn't expected, tbh", asked "How does CyborgPL handle its store prints?" and "Isn't that silent rounding?", and chose:
 "yup". (Owner, 2026-11-14)
+
+**D120. `Bool` text, no float exponents for now, and float literals out of range are refused.** `true as String` is
+`true`, and `false as String` is `false`. A float prints all its shortest digits with no exponent, such as `1e23` as
+`100000000000000000000000`, until exponent literals are designed, since printed text is a valid literal (D119). A
+float literal outside its type's range, such as `let $x: f16 = 70000.0`, is a `CompileTimeError`, as an integer literal
+that doesn't fit is (D84). Claude proposed all three; the owner chose: "yes". (Owner, 2026-11-14)
