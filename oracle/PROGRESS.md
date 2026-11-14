@@ -32,29 +32,36 @@ for columns and `len()`).
 | `src/manifest.ml` | reading and checking `Journey.siml` |
 | `src/package.ml`, `src/test_runner.ml`, `bin/jernorac.ml` | the commands |
 
-## Built
+## Built (176 tests passing)
 
 - Manifest: `name`, `ver`, `need std 2026y-11m-14d`, `kind tests`; other packages, dates, `rule`, scopes and
   `use` blocks give NotBuiltYet.
 - Chapter 1: lines, brackets across lines, comments and comment blocks, `<`/`>` spacing, refused spellings with fixes,
-  named closers, strings and escapes, control characters refused.
-- Chapter 2: `Int` and every integer width (Int64 or Z), overflow checks, `.wrap`/`.saturate`, `div.*`, `mod.*`,
-  `f64` maths and its text (shortest, `~`, `as.stored`, NaN/inf), `Rational`, `Bool`, `String`, lists, maps (D138),
-  structs with defaults, tagged unions, `type.alias`, `type.new`.
-- Chapter 3: `let`, `mut`, `decl`/`assign` on every path, `shadow`, `change`, `give`, `copy`, top-level `let`.
-- Chapter 4: comparisons and chains (D139), logic, joins, indexing, `if`, `match`, the case test, `while`, `for`, named
-  `break`, `at pos`/`at offset`, ranges, `sum`.
-- Chapter 5: functions, `return early`, labels, defaults, `requires`, `fn.pure`, `fam.fn`, presets, methods with
-  `$self`/`mut $self`, `fn.main`, `my::`.
+  named closers, strings and escapes, control characters refused (D139).
+- Chapter 2: every integer width (Int64 or Z), overflow checks, `.wrap`/`.saturate`, `div.*`, `mod.*`, `f64`/`f32`/
+  `f16`/`bf16` (correctly rounded, `numbers.ml`) and their text, `Rational`, `Decimal` (decimal128, `decimal.ml`),
+  `Bool`, `String`, lists, maps (D138, D141), structs with defaults, tagged unions, `type.alias`, `type.new`, bounds
+  and `Array` (D135, `fits.ml`), conversions with `as` (D91).
+- Chapter 3: `let`, `mut`, `decl`/`assign` on every path, `shadow`, `change`, `give`, `copy`, top-level `let`,
+  `let baked` worked out when compiling, keeping a parameter needs `copy` (D139).
+- Chapter 4: comparisons and chains (D139), logic, joins, indexing, `if`, `match`, the case test (unions and bounds),
+  `while`, `for`, named `break`, `at pos`/`at offset`, ranges, `sum`.
+- Chapter 5: functions, `return early`, labels, defaults, `requires`, `fn.pure`, `fn.pure.baked`, `fam.fn`, presets,
+  methods with `$self`/`mut $self`, `versions` (D46), generic functions and structs (D103), interfaces, type sets and
+  `satisfies` (D105), `fn.main`, `my::`.
+- Chapter 6: `fails`, `fail`, `?`, `??`, `?? ignore`, `otherwise` with `instead`, `fam.failure` written in full (D140),
+  `fam.handler` with `*`, `match ... with`, for-line handling (D134), unhandled failures crash (D137).
 - Chapter 7: the message format, knock-on errors with `because:` (each fix is an in-memory edit, D13), recovery of
-  refused lines, exit codes.
-- Chapter 13: `println`, `read_line`, `read_all`, `lines`, `args`, `program_path`, `exit`, list, string and map methods.
+  refused lines, exit codes, several errors in source order with a blank line between (D139).
+- Chapter 13: `println`, `read_line`, `read_all`, `lines`, `args`, `program_path` (the package folder, D139), `exit`
+  (0 to 117), list, string and map methods.
 
 ## Next
 
-- Chapter 6: `fails`, `fail`, `?`, `otherwise`, handler families, `match ... with`, failures from `for` lines.
-- Conversions with `as` between number types (D91), `f32`/`f16`/`bf16`, `Decimal` (decimal128).
-- Bounds (D135), `Array`, generics, interfaces, `versions`, `let baked`, `fn.pure.baked`, `pub` across files.
+- `pub` across files (D106) and `use` blocks in the manifest (D114, D115); multi-file packages can't be tests yet
+  (see open questions).
+- Methods on a generic struct, `$x.show()` style calls on a family function's first parameter, units (after v1: NotBuiltYet).
+- Shields, quills, threads: out of scope (NotBuiltYet / NotDesignedYet).
 
 ## Error wording proposed by the oracle (D137)
 
@@ -69,6 +76,9 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - A literal `Status.ok[]` builds a case with no data; `Status.ok` alone isn't a value.
 - A value stored where it can change (`let mut`, `change`, `add`) is copied, so nothing frozen changes through it.
 
-## Open questions (sent to Jernal Design Claude)
+## Open questions (sent to Jernal Design Claude, waiting on Tankun)
 
-(none open)
+- Exactly what "known when compiling" is (D8, D135): proposed the baked expressions; the oracle uses literals and baked.
+- A literal argument that fits more than one version (D46): the oracle refuses the call (choice b, kept for now).
+- Where `Equatable`/`Ordered` come from, and how a type defines `==` and `<` (D105): the oracle uses program-declared
+  interfaces only, built-in types satisfy only through a line, and comparing structs is NotDesignedYet.
