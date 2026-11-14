@@ -110,6 +110,8 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
   that isn't in the package is refused [not refused].
 - A handler used at a call that can't raise one of its arms' failures (D49: "one handler may cover several failure
   families"): is that arm allowed there? [refused, as an inline arm would be]
+- FYI, not a question: NotBuiltYet messages said "isn't built in the oracle yet", against 7.3 ("never says which
+  implementation printed it"); now "isn't built yet". It changed one recorded .err (d78_inline_foreign_code...).
 - The exact list of keywords, since `my::` depends on it (D63). [the oracle's list is in `oracle/src/parser.ml`,
   `keywords`; `range`, `pos`, `offset`, `from`, `to`, `before`, `step_by`, `key`, `self` and `Any` aren't in it]
 
