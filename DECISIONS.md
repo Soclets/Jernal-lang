@@ -2111,3 +2111,25 @@ pair is `Pair<left: Int, right: String>`. Replaces D130's and D131's `length`: i
 `len.code_points()` and `len.graphemes()` on strings. The owner said "Holy shitttttttttttttttt, why is Map so fucking
 long. It's the labels", and, when Claude proposed `Map<String => Int>`: "In all fucking seriousness, how about we calm
 down with `.type`, and just say `key:`, and `val:`? And maybe say `.len` instead?" (Owner, 2026-11-14)
+
+**D133. Reading standard input: `read_line`, `read_all` and `lines`.** In `std::io::stdio`:
+
+- `read_line()` reads the next line, without its ending (`\n` or `\r\n`). It fails with `end_of_input` when nothing is
+  left, and with `not_text` when the line isn't valid UTF-8. An empty line is `""`.
+- `read_all()` reads everything left, until the input ends. Reaching the end isn't a failure; empty input is `""`. It
+  fails with `not_text`.
+- `lines()` goes through the remaining lines in a `for` loop, stopping at the end of input. A line that isn't valid
+  text is a `not_text` failure.
+- Each has a `.raw()` narrowing that gives bytes and never fails with `not_text`.
+
+```
+let $name: String = read_line() ?? "stranger"
+let $all: String = read_all() ?? ""
+for $line in lines():
+    println($line)
+end for
+```
+
+Not decided yet: how a failure raised while a `for` loop gets its next item is handled, and the `.raw()` result types.
+The owner asked "What does it read?", "What the fuck is `< names.txt`?" and "Does it read only a line?"; Claude
+proposed the three; the owner chose: "EYs", taken as yes to all three. (Owner, 2026-11-14)

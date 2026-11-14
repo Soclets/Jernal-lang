@@ -23,6 +23,30 @@ println("Hello, World!")
 println("Age: " $age as String)
 ```
 
+### Reading standard input
+
+```
+fn read_line[] -> String fails [end_of_input, not_text]
+fn read_all[] -> String fails [not_text]
+fn lines[] -> <a sequence of String>
+```
+
+Standard input is whatever the program is connected to: the keyboard, another program's output, or a file (D133).
+
+- `read_line()` reads the next line, without its ending (`\n` or `\r\n`). It fails with `end_of_input` when nothing is
+  left, and with `not_text` when the line isn't valid UTF-8. An empty line is `""`.
+- `read_all()` reads everything left; reaching the end isn't a failure, and empty input is `""`.
+- `lines()` goes through the remaining lines in a `for` loop, stopping at the end of input; a line that isn't valid
+  text is a `not_text` failure.
+- Each has a `.raw()` narrowing that gives bytes and never fails with `not_text`.
+
+```
+let $name: String = read_line() ?? "stranger"
+for $line in lines():
+    println($line)
+end for
+```
+
 ## 13.2 `std::env`
 
 ### `args`
