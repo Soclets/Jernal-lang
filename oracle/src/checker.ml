@@ -685,6 +685,22 @@ and check_expression fctx ~(expected : Types.t option) (e : expression) : C.expr
         let from = check_int from in
         let inclusive, ending = match ending with To x -> (true, check_int x) | Before x -> (false, check_int x) in
         let step_by = Option.map check_int step_by in
+        (* trace: D37 — a range known when compiling that can never reach its end is refused *)
+        let known (c : C.expression) = match c.kind with C.Constant v -> Some (Value.integer_to_z v) | _ -> None in
+        (match step_by with
+         | Some s when known s = Some Z.zero ->
+             refuse context ~what:"`step_by:` is 0, so the range never ends" s.span "a `step_by:` of 0 is a check (D37, standard 4.7)"
+         | _ -> ());
+        (match known from, known ending, (match step_by with None -> Some Z.one | Some s -> known s) with
+         | Some f, Some e, Some s ->
+             let last = if inclusive then e else if Z.gt s Z.zero then Z.pred e else Z.succ e in
+             let reaches = if Z.gt s Z.zero then Z.leq f last else Z.geq f last in
+             if not reaches then
+               refuse context
+                 ~what:(Printf.sprintf "this range goes from %s %s %s, so it never reaches its end" (Z.to_string f)
+                          (if Z.gt s Z.zero then "up" else "down") (if inclusive then "to " ^ Z.to_string e else "before " ^ Z.to_string e))
+                 span "a range known when compiling that can never reach its end is refused (D37, standard 4.7)"
+         | _ -> ());
         { C.kind = C.Range { from; ending; inclusive; step_by }; type_ = Types.Range; span }
     | Syntax.Index { target; counting; position } ->
         let target = check_expression fctx ~expected:None target in

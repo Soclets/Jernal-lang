@@ -1,0 +1,5 @@
+CompileTimeError: d37_a_known_range_that_never_reaches_its_end_is_refused.jern:2:15, line 2 column 15
+ 2 |     for $i in range[from: 5, to: 1]:
+   |               ^^^^^^^^^^^^^^^^^^^^^
+ what: this range goes from 5 up to 1, so it never reaches its end
+ why:  a range known when compiling that can never reach its end is refused (D37, standard 4.7)

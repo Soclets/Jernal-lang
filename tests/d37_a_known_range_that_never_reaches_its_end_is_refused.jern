@@ -1,0 +1,5 @@
+fn.main[]:
+    for $i in range[from: 5, to: 1]:
+        println($i as String)
+    end for
+end fn.main
