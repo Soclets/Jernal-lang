@@ -2061,3 +2061,11 @@ only what Jernal code can't express, plugged in like any quill (D77). JernGC and
 written in Rust and linked into every program. Since the oracle builds std from the standard alone, the standard gets a
 chapter, `standard/13-std.md`, saying exactly what every std function does. Claude proposed it; the owner chose: "yes".
 (Owner, 2026-11-14)
+
+**D128. `need std` names a version of std, and the build mode picks the implementation.** JernOrac reads `Journey.siml`
+itself, as the standard says, and makes `std`'s names visible only through a `need std` line (D59). `need std <date>`
+means std as specified on that date; both implementations implement it, JernOrac with its built-in std (D127) under
+`--Interp`, JernComp with its own under the compiled modes. A date one of them doesn't implement gives `NotBuiltYet` in
+that one. The manifest never names an implementation, so the same program runs on both and can be compared (D69). The
+owner asked "Doesn't JernOrac have to read Journey to get std?" and "What about `need std JernOrac`?"; Claude explained
+why the manifest shouldn't name an implementation; the owner chose: "yea". (Owner, 2026-11-14)
