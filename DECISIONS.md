@@ -1243,3 +1243,7 @@ where the owner said "`FinalPerf` isn't comedic, it assumes you have tested it t
 and `x` undecided. The owner said "Funny, bro. It says fucking performance", asked "Did Cyborg dclaude says how
 FinalPerf works?" and "ask"; Claude proposed Cyborg's, with all three operators wrapping; the owner chose: "yea".
 (Owner, 2026-11-14)
+
+**D72. No default build mode.** Every build and run names its mode; nothing is picked implicitly. As in Cyborg (its
+D26). Claude proposed `Interp` for running and `Working` for building as defaults; the owner chose: "No". (Owner,
+2026-11-14)
