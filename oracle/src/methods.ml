@@ -28,17 +28,17 @@ let string_length kind _span = function
       | `Bytes -> int (String.length s)
       | `Code_points -> int (Text.code_point_count s)
       | `Graphemes -> int (Text.grapheme_count s))
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let length _span = function
   | Value.List l :: _ -> int (Dynarray.length l.items)
   | Value.Map m :: _ -> int (Dynarray.length m.entries)
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 (* trace: D136 *)
 let add _span = function
   | list :: [ item ] -> Dynarray.add_last (items list) item; Value.Nothing
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let add_at counting span = function
   | list :: [ item; position ] ->
@@ -48,7 +48,7 @@ let add_at counting span = function
       Dynarray.clear xs;
       List.iteri (fun i x -> if i = offset then Dynarray.add_last xs item; Dynarray.add_last xs x) before;
       Value.Nothing
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let remove counting span = function
   | list :: [ position ] ->
@@ -59,13 +59,13 @@ let remove counting span = function
       Dynarray.clear xs;
       List.iteri (fun i x -> if i <> offset then Dynarray.add_last xs x) before;
       removed
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
-let clear _span = function list :: _ -> Dynarray.clear (items list); Value.Nothing | _ -> Value.Nothing
+let clear _span = function list :: _ -> Dynarray.clear (items list); Value.Nothing | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let contains _span = function
   | list :: [ item ] -> Value.Bool (Dynarray.exists (fun x -> Value.equal x item) (items list))
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let first_or_last which span = function
   | list :: _ ->
@@ -75,7 +75,7 @@ let first_or_last which span = function
           ~what:(Printf.sprintf "`%s()` on an empty list" (match which with `First -> "first" | `Last -> "last"))
           span "`first()` and `last()` on an empty list are checks (D136, standard 13.3)";
       (match which with `First -> Dynarray.get xs 0 | `Last -> Dynarray.get xs (Dynarray.length xs - 1))
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 (* trace: D38 *)
 let sum (item_type : Types.t) span = function
@@ -96,8 +96,8 @@ let sum (item_type : Types.t) span = function
           if List.length finite = List.length values then Value.Decimal (Decimal.round (List.fold_left Q.add Q.zero finite))
           else Value.Decimal (List.fold_left (fun total v -> match v with Value.Decimal d -> Decimal.add total d | _ -> total) (Decimal.Finite Q.zero) values)
       | Types.Rational -> Value.Rational (List.fold_left (fun total v -> match v with Value.Rational q -> Q.add total q | _ -> total) Q.zero values)
-      | _ -> Value.Nothing)
-  | _ -> Value.Nothing
+      | _ -> C.impossible "a built-in method called with arguments the checker refuses")
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 (* ---------- Maps (D138) ---------- *)
 
@@ -144,11 +144,11 @@ let map_get span = function
       | None ->
           (* trace: D141 *)
           raise (C.Failure_raised ({ C.failure_name = "not_found"; failure_fields = [] }, span)))
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let map_contains _span = function
   | map :: [ key ] -> Value.Bool (find_key (entries map) key <> None)
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let map_remove span = function
   | map :: [ key ] -> (
@@ -161,13 +161,13 @@ let map_remove span = function
           List.iteri (fun j e -> if j <> i then Dynarray.add_last m.entries e) before;
           removed
       | None -> missing_key span)
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 let map_keys_sorted _span = function
   | map :: _ ->
       let keys = List.map fst (Dynarray.to_list (entries map).entries) in
       Value.List { items = Dynarray.of_list (List.stable_sort compare_keys keys) }
-  | _ -> Value.Nothing
+  | _ -> C.impossible "a built-in method called with arguments the checker refuses"
 
 (* A change to a list with length bounds keeps within them (D135). *)
 let within_length (bounds : Types.bounds option) run span arguments =
