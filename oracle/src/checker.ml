@@ -2129,6 +2129,15 @@ and check_statement fctx (s : statement) : C.statement list =
               "`assign` gives a `decl` its first value, exactly once on each path (D34, standard 3.3)";
             []
           end
+          else if List.length fctx.loops > info.loop_depth then begin
+            (* trace: D34 — a loop could run it more than once, or not at all *)
+            info.assigned <- true;
+            error context
+              ~what:(Printf.sprintf "this `assign` is inside a loop, so it could give `$%s` a value more than once, or never"
+                       variable.text)
+              (keyword_span span "assign") "`assign` gives a `decl` its first value exactly once on each path (D34, standard 3.3)";
+            []
+          end
           else
             match check_value fctx info.variable_type value with
             | v -> info.assigned <- true; make (C.Set (info.variable, if info.is_mutable then stored v else v))

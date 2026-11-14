@@ -78,6 +78,7 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - A package's `.jern` files are the ones directly in its folder, not in subfolders.
 - Tests run with empty standard input and no arguments.
 - `$m.remove(key:)` with a missing key is a check, like `$m[key:]`.
+- An `assign` inside a loop is refused, even when a `break` follows it (to ask: how precise "once on each path" is).
 - An item or entry (`$xs[pos: 1]`, `$m[key: $k]`) may stand in a join like a field, as D138's example does.
 - A literal `Status.ok[]` builds a case with no data; `Status.ok` alone isn't a value.
 - A value stored where it can change (`let mut`, `change`, `add`) is copied, so nothing frozen changes through it.

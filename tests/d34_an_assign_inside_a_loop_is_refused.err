@@ -1,0 +1,5 @@
+CompileTimeError: d34_an_assign_inside_a_loop_is_refused.jern:4:9, line 4 column 9
+ 4 |         assign $label = "x"
+   |         ^^^^^^
+ what: this `assign` is inside a loop, so it could give `$label` a value more than once, or never
+ why:  `assign` gives a `decl` its first value exactly once on each path (D34, standard 3.3)

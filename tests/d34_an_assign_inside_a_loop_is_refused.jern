@@ -1,0 +1,6 @@
+fn.main[]:
+    decl $label: String
+    for $i in range[from: 1, to: 3]:
+        assign $label = "x"
+    end for
+end fn.main
