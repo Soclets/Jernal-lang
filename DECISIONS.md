@@ -1947,3 +1947,22 @@ proposed splitting the jobs instead of a server; the owner chose: "Typ", confirm
 
 **D118. No formatting tool for now.** There's no format print or formatting tool, so no decimal places, padding,
 newlines or tabs in text for now (D21, D95). The owner said: "No format print for now." (Owner, 2026-11-14)
+
+**D119. A float becomes text as its shortest digits, marked `~` when not exact.** `$f as String` gives the fewest digits
+that read back as exactly the same float, with `~` in front when the float isn't exactly that decimal, so the text is
+always a valid Jernal literal for the same float (D84). `$f as.stored String` gives every digit actually stored, which
+is always exact. This applies to every float type (D93).
+
+```
+let $a: Float = 0.5
+let $b: Float = ~0.1
+println($a as String)                // 0.5
+println($b as String)                // ~0.1
+println(($b + ~0.2) as String)       // ~0.30000000000000004
+println($b as.stored String)         // 0.1000000000000000055511151231257827021181583404541015625
+```
+
+CyborgPL prints the shortest digits with no mark, and its conversions must name the form, as its design session
+described on 2026-11-14; multifinity's notes proposed the `~`. The owner said "But that means `as` lies? Which probably
+isn't expected, tbh", asked "How does CyborgPL handle its store prints?" and "Isn't that silent rounding?", and chose:
+"yup". (Owner, 2026-11-14)

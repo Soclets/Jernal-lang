@@ -48,6 +48,15 @@ Multiplying is `x` (D89). Overflow on purpose is a narrowing of the operation's 
 On `Float`, `Decimal` and `Rational`, a bare `div` keeps the same type: `7.0 div 2.0` is `3.5`. The remainder is
 `mod.trunc` or `mod.floor`, matching its division (D85). There is no `/` (D87).
 
+A float becomes text as its shortest digits that read back exactly, with `~` in front when it isn't exactly that decimal,
+so the text is a valid literal for the same float; `as.stored String` gives every stored digit (D119).
+
+```
+println(~0.1 as String)              // ~0.1
+println(0.5 as String)               // 0.5
+println(~0.1 as.stored String)       // 0.1000000000000000055511151231257827021181583404541015625
+```
+
 Converting between number types uses `as` (D91):
 
 - A conversion that always fits is a plain `as`; one that might not fit is a plain `as` with a check.
