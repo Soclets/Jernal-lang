@@ -1308,7 +1308,7 @@ half, a **quill**, its compiler half, or both, under one name and version. These
   way.
 - **A quill's syntax is always marked**, in a fixed set of places (a type, a call, a prefix, a statement, a block, a
   raw block in another language, a manifest rule), so a quill never takes a plain word and two quills never clash. The
-  marker is not decided yet; Cyborg uses `＠`.
+  marker is not decided yet; Cyborg uses `@`.
 - **What a quill can do:** read the whole checked program; add errors and warnings, which only make programs stricter;
   define what its own marked items mean; produce Jernal code, which is checked like hand-written code, or LLVM IR,
   which is unchecked and listed in the build report; and prove checks can't fail, so they're dropped (except in
