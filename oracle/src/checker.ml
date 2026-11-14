@@ -1092,9 +1092,9 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
            (* trace: D139 *)
            refuse context ~what:"`Bool` has no order, so it can't be compared with `<`, `>`, `at_least` or `at_most`"
              operator.operator_span "`Bool` has no order (D139, standard 4.1)"
-       | Types.Struct _ | Types.Union _ | Types.List _ | Types.Map _ when not ordered ->
-           not_built context ~what:(Printf.sprintf "comparing %s values isn't built in the oracle yet" (type_text l.type_))
-             operator.operator_span "a type defines `==` and `<` (D105, standard 5.8)"
+       | Types.Struct _ | Types.Union _ | Types.Instance _ | Types.List _ | Types.Map _ | Types.Array _ when not ordered ->
+           not_designed context ~what:(Printf.sprintf "how %s values are compared isn't decided yet" (type_text l.type_))
+             operator.operator_span "not decided yet (D105, standard 12.1)"
        | t when ordered ->
            not_designed context ~what:(Printf.sprintf "ordering %s values isn't decided yet" (type_text t))
              operator.operator_span "not decided yet (D105, standard 12.1)"
