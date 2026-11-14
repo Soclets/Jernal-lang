@@ -1,0 +1,5 @@
+CompileTimeError: d10_columns_in_bytes_and_graphemes.jern:2:46, line 2 column 38
+ 2 |     let $greeting: String = "héllo👋🏽" $missing
+   |                                      ^^^^^^^^
+ what: there's no variable called `$missing` here
+ why:  every new name says how it's made (D5, D34, standard 3.1)
