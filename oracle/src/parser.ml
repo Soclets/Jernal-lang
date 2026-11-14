@@ -1048,8 +1048,15 @@ and parse_for state : statement =
     end
     else None
   in
-  (* trace: D134 *)
+  (* trace: D134 — `?` right after the list is the for line's own handling *)
+  let iterable, written_pass_up =
+    match iterable.expression_kind with
+    | Pass_up inner when at_line_end_after_colon state -> (inner, true)
+    | _ -> (iterable, false)
+  in
   let handling =
+    if written_pass_up then Some Loop_pass_up
+    else
     match peek_kind state with
     | Question -> ignore (advance state); Some Loop_pass_up
     | Double_question -> ignore (advance state); Some (Loop_fallback (parse_or state))
@@ -1067,6 +1074,9 @@ and parse_for state : statement =
   let s = statement_of (For { loop_name; variable; iterable; at; handling; body }) start state in
   end_of_line state;
   s
+
+and at_line_end_after_colon state =
+  peek_kind state = Colon && (match (peek_at state 1).kind with Newline | End_of_file -> true | _ -> false)
 
 and parse_match state : statement =
   let start = advance state in

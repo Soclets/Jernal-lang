@@ -32,36 +32,42 @@ for columns and `len()`).
 | `src/manifest.ml` | reading and checking `Journey.siml` |
 | `src/package.ml`, `src/test_runner.ml`, `bin/jernorac.ml` | the commands |
 
-## Built (176 tests passing)
+## Built (192 tests passing)
 
-- Manifest: `name`, `ver`, `need std 2026y-11m-14d`, `kind tests`; other packages, dates, `rule`, scopes and
-  `use` blocks give NotBuiltYet.
+- Manifest: `name`, `ver`, `need std 2026y-11m-14d`, `kind tests`, `use` blocks for a file and `all` (D60, D114,
+  D115); other packages and dates and scoped lines give NotBuiltYet; `rule` lines give NotDesignedYet.
 - Chapter 1: lines, brackets across lines, comments and comment blocks, `<`/`>` spacing, refused spellings with fixes,
   named closers, strings and escapes, control characters refused (D139).
 - Chapter 2: every integer width (Int64 or Z), overflow checks, `.wrap`/`.saturate`, `div.*`, `mod.*`, `f64`/`f32`/
   `f16`/`bf16` (correctly rounded, `numbers.ml`) and their text, `Rational`, `Decimal` (decimal128, `decimal.ml`),
-  `Bool`, `String`, lists, maps (D138, D141), structs with defaults, tagged unions, `type.alias`, `type.new`, bounds
-  and `Array` (D135, `fits.ml`), conversions with `as` (D91).
-- Chapter 3: `let`, `mut`, `decl`/`assign` on every path, `shadow`, `change`, `give`, `copy`, top-level `let`,
-  `let baked` worked out when compiling, keeping a parameter needs `copy` (D139).
+  `Bool`, `String`, lists, maps (D138, D141), structs with defaults, tagged unions, `type.alias`, `type.new`,
+  `fam.type.new`, bounds and `Array` (D135, `fits.ml`), conversions with `as` (D91).
+- Chapter 3: `let`, `mut`, `decl`/`assign` on every path, `shadow`, `change`, `give` (each branch its own path),
+  `copy`, top-level `let`, `let baked` worked out when compiling, keeping a parameter needs `copy` (D139).
 - Chapter 4: comparisons and chains (D139), logic, joins, indexing, `if`, `match`, the case test (unions and bounds),
-  `while`, `for`, named `break`, `at pos`/`at offset`, ranges, `sum`.
+  `while`, `for`, named `break`, `at pos`/`at offset`, ranges (a literal one that never ends is refused), `sum`.
 - Chapter 5: functions, `return early`, labels, defaults, `requires`, `fn.pure`, `fn.pure.baked`, `fam.fn`, presets,
-  methods with `$self`/`mut $self`, `versions` (D46), generic functions and structs (D103), interfaces, type sets and
-  `satisfies` (D105), `fn.main`, `my::`.
+  methods with `$self`/`mut $self`, dot calls on a family function's first argument, `versions` (D46), generic
+  functions, structs and their methods (D103), interfaces, type sets and `satisfies` (D105), `fn.main`, `my::`.
 - Chapter 6: `fails`, `fail`, `?`, `??`, `?? ignore`, `otherwise` with `instead`, `fam.failure` written in full (D140),
   `fam.handler` with `*`, `match ... with`, for-line handling (D134), unhandled failures crash (D137).
 - Chapter 7: the message format, knock-on errors with `because:` (each fix is an in-memory edit, D13), recovery of
-  refused lines, exit codes, several errors in source order with a blank line between (D139).
+  refused lines and broken function headers, exit codes, errors in source order with a blank line between (D139).
+- Chapter 8: `struct.must_give` given exactly once on every path, before every way out, never copied (D51, D52).
+- Chapter 9: `pub` on functions, types and fields across files (D106), `use` (D60, D114, D115).
 - Chapter 13: `println`, `read_line`, `read_all`, `lines`, `args`, `program_path` (the package folder, D139), `exit`
-  (0 to 117), list, string and map methods.
+  (0 to 117), list, string and map methods; `.raw()` gives NotDesignedYet.
 
 ## Next
 
-- `pub` on types, fields and family members across files (functions are done, D106); tests for `pub` and `use` errors
-  (see open questions).
-- Methods on a generic struct, `$x.show()` style calls on a family function's first parameter, units (after v1: NotBuiltYet).
-- Shields, quills, threads: out of scope (NotBuiltYet / NotDesignedYet).
+- Tests for multi-file packages, `pub` and `use` errors, once package tests are decided (asked).
+- Whatever Tankun decides on the open questions below.
+- Out of scope: units (after v1), quills and Dialects, threads, shields, every build mode but `Interp`.
+
+## Tools
+
+- `oracle/tools/robustness.py <scratch>`: runs every test changed in small ways (cut short, lines and words removed)
+  and reports any crash of the oracle (rule 13). Last run: 15,196 programs, no crashes.
 
 ## Error wording proposed by the oracle (D137)
 
@@ -77,6 +83,12 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - A value stored where it can change (`let mut`, `change`, `add`) is copied, so nothing frozen changes through it.
 
 ## Open questions (sent to Jernal Design Claude, waiting on Tankun)
+
+- Package tests: a subfolder of `tests/` with its own `Journey.siml` is one test, with `<folder>.out/.err/.exit`.
+- Float and Decimal dividing by zero: IEEE (inf, NaN) or a check? [IEEE]
+- `for` over a list changed inside the loop [the items it had when the loop started]; `for` over `Map.insertion`/
+  `Map.sorted` [NotDesignedYet]; `remove(key:)` with a missing key [a check]; Decimal text `1.10` [`1.1`]; converting
+  Float or Rational into Decimal [NotDesignedYet]; a case with no data [`Status.ok[]`; design expects `Status.ok`].
 
 - Exactly what "known when compiling" is (D8, D135): proposed the baked expressions; the oracle uses literals and baked.
 - A literal argument that fits more than one version (D46): the oracle refuses the call (choice b, kept for now).

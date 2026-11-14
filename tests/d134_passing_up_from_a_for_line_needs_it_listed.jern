@@ -1,0 +1,9 @@
+fn echo[]:
+    for $line in lines()?:
+        println($line)
+    end for
+end fn echo
+
+fn.main[]:
+    echo()
+end fn.main

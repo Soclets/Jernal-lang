@@ -1,0 +1,20 @@
+fn echo[] fails [not_text]:
+    for $line in lines()?:
+        println($line)
+    end for
+end fn echo
+
+fam.handler text:
+    handler blank:
+        case not_text:
+            instead ""
+    end handler blank
+end fam.handler text
+
+fn.main[]:
+    echo() ?? ignore
+    for $line in lines() otherwise text.blank:
+        println($line)
+    end for
+    println("done")
+end fn.main

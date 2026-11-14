@@ -1,0 +1,5 @@
+CompileTimeError: d134_passing_up_from_a_for_line_needs_it_listed.jern:2:18, line 2 column 18
+ 2 |     for $line in lines()?:
+   |                  ^^^^^^^
+ what: getting the next line can fail with `not_text`, and this function doesn't list it
+ why:  `?` passes a failure up, refused unless this function lists it (D48, D134, standard 4.6)

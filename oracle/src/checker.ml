@@ -307,6 +307,12 @@ let rec resolve_type context (t : type_expression) : Types.t =
 and resolve_details context (t : type_expression) named =
   let why = "a type's details go in `[ ]` after the type (D135, standard 2.3a)" in
   let details = match named with Named_type { details; _ } -> details | _ -> [] in
+  (* trace: D58 — units are designed now and built after v1 *)
+  (match List.find_opt (fun (d : detail) -> d.detail_label = "unit") details with
+   | Some d ->
+       not_built context ~what:"units aren't built yet: they come after v1" d.detail_label_span
+         "units are designed now and built after v1 (D58, standard 2.6)"
+   | None -> ());
   let value_of (d : detail) : Q.t =
     let rec literal (e : expression) negate =
       match e.expression_kind with
