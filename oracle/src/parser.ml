@@ -680,9 +680,73 @@ and closer_word_of_line state =
   | Some (Word "otherwise") -> "otherwise"
   | _ -> (match peek_kind state with Word w -> w | _ -> "")
 
+(* The names a refused line still declares (D13): a `let`, `decl` or `shadow` declares its variable,
+   with its type if that part can be read; a `for` declares its loop variable and position. *)
+and recover_declarations state : recovered list =
+  let saved = state.position in
+  let first = peek state in
+  let result =
+    match first.kind with
+    | Word ("let" | "decl" | "shadow") -> (
+        ignore (advance state);
+        let is_mutable = if is_word state "mut" then (ignore (advance state); true) else false in
+        if is_word state "baked" then ignore (advance state);
+        match peek_kind state with
+        | Token.Variable v ->
+            let n = name_of (advance state) v in
+            let recovered_type =
+              if peek_kind state = Colon && not (line_has_broken_before_end state) then begin
+                ignore (advance state);
+                match parse_type state with t -> Some t | exception Line_error _ -> None
+              end
+              else None
+            in
+            [ { recovered_name = n; recovered_type; recovered_mutable = is_mutable } ]
+        | _ -> [])
+    | Word "for" ->
+        ignore (advance state);
+        let rec variables acc =
+          match peek_kind state with
+          | Newline | End_of_file -> List.rev acc
+          | Word "in" ->
+              (* skip to `at pos $p`, if any *)
+              let rec find_at () =
+                match peek_kind state with
+                | Newline | End_of_file -> None
+                | Word "at" -> (
+                    ignore (advance state);
+                    ignore (advance state);
+                    match peek_kind state with Token.Variable p -> Some (name_of (advance state) p) | _ -> None)
+                | _ -> ignore (advance state); find_at ()
+              in
+              (match find_at () with
+               | Some p -> List.rev ({ recovered_name = p; recovered_type = Some { type_kind = Named_type { my = false; words = [ "Int" ]; arguments = []; details = [] }; type_span = p.span }; recovered_mutable = false } :: acc)
+               | None -> List.rev acc)
+          | Token.Variable v when acc = [] ->
+              let n = name_of (advance state) v in
+              variables ({ recovered_name = n; recovered_type = None; recovered_mutable = false } :: acc)
+          | _ -> ignore (advance state); variables acc
+        in
+        variables []
+    | _ -> []
+  in
+  state.position <- saved;
+  result
+
+(* Whether a Broken token comes before the line's `=`, so the type can't be read. *)
+and line_has_broken_before_end state =
+  let rec go i =
+    match state.tokens.(i).kind with
+    | Newline | End_of_file | Equals -> false
+    | Broken -> true
+    | _ -> go (i + 1)
+  in
+  go state.position
+
 (* An opening line that can't be read: its body is still read, up to its `end` (D13). *)
 and parse_broken_block state (d : Diagnostic.t option) : statement =
   let start = peek state in
+  let declares = recover_declarations state in
   let closer = closer_word_of_line state in
   Option.iter (report state) d;
   skip_line state;
@@ -697,13 +761,18 @@ and parse_broken_block state (d : Diagnostic.t option) : statement =
   in
   skip_blank_lines state;
   if is_word state "end" && is_word_at state 1 closer then skip_line state;
-  { statement_kind = Broken_block body; statement_span = start.span }
+  { statement_kind = Broken_block { declares; body }; statement_span = start.span }
 
 and parse_statement state : statement option =
   let start = peek state in
+  let broken_statement () =
+    let declares = recover_declarations state in
+    skip_line state;
+    if declares = [] then None else Some { statement_kind = Broken_statement declares; statement_span = start.span }
+  in
   if line_has_broken state then
     if line_opens_block state then Some (parse_broken_block state None)
-    else (skip_line state; None)
+    else broken_statement ()
   else
     let opens = line_opens_block state in
     let saved = state.position in
@@ -716,9 +785,8 @@ and parse_statement state : statement option =
         end
         else begin
           report state d;
-          skip_line state;
-          ignore start;
-          None
+          state.position <- saved;
+          broken_statement ()
         end
 
 and statement_of kind (start : Token.t) state = { statement_kind = kind; statement_span = span_from start.span state }

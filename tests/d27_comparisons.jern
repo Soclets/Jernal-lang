@@ -1,0 +1,10 @@
+fn.main[]:
+    let $a: Int = 3
+    let $b: Int = 5
+    println(($a == $b) as String)
+    println(($a != $b) as String)
+    println(($a < $b) as String)
+    println(($a > $b) as String)
+    println(($a at_least 3) as String)
+    println(($a at_most 2) as String)
+end fn.main

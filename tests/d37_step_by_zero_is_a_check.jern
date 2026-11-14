@@ -1,0 +1,9 @@
+fn walk[$step: Int]:
+    for $i in range[from: 1, to: 5, step_by: $step]:
+        println($i as String)
+    end for
+end fn walk
+
+fn.main[]:
+    walk(0)
+end fn.main

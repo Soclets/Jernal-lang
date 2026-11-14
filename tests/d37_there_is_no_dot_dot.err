@@ -1,0 +1,5 @@
+CompileTimeError: d37_there_is_no_dot_dot.jern:2:16, line 2 column 16
+ 2 |     for $i in 1..5:
+   |                ^^
+ what: there's no `..`; a range is written `range[from: ..., to: ...]`
+ why:  a range is labelled (D37, standard 4.7)

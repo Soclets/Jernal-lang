@@ -1,0 +1,7 @@
+fn.main[]:
+    let mut $xs: List<Int> = [1, 2, 3]
+    change $xs[pos: 3] = 10
+    println($xs[pos: 3] as String)
+    change $xs[offset: 0] = 7
+    println($xs[pos: 1] as String)
+end fn.main

@@ -1,0 +1,7 @@
+fn.main[]:
+    let mut $a: List<Int> = [1, 2, 3]
+    let mut $b: List<Int> = copy $a
+    change $b[pos: 1] = 9
+    println($a[pos: 1] as String)
+    println($b[pos: 1] as String)
+end fn.main

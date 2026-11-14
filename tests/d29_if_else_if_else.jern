@@ -1,0 +1,15 @@
+fn describe[$age: Int]:
+    if $age < 13:
+        println("kid")
+    else if $age < 18:
+        println("teen")
+    else:
+        println("adult")
+    end if
+end fn describe
+
+fn.main[]:
+    describe(10)
+    describe(15)
+    describe(30)
+end fn.main

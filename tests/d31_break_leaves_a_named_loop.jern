@@ -1,0 +1,13 @@
+fn.main[]:
+    let $grid: List<List<Int>> = [[1, 2], [3, 4], [5, 6]]
+    let $target: Int = 4
+    for rows $row in $grid:
+        for $cell in $row:
+            println($cell as String)
+            if $cell == $target:
+                break rows
+            end if
+        end for
+    end for rows
+    println("done")
+end fn.main

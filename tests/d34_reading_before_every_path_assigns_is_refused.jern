@@ -1,0 +1,8 @@
+fn.main[]:
+    let $hot: Bool = true
+    decl $label: String
+    if $hot:
+        assign $label = "hot"
+    end if
+    println($label)
+end fn.main

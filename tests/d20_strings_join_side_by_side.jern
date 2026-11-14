@@ -1,0 +1,14 @@
+struct User:
+    name: String
+end struct User
+
+fn.main[]:
+    let $name: String = "Tankun"
+    let $user: User = User[name = "Ann"]
+    let $age: Int = 30
+    println("Hello, " $name)
+    println("Hi, " $user.name "!")
+    println("Age: " $age as String)
+    let $line: String = "a" "b" "c"
+    println($line)
+end fn.main

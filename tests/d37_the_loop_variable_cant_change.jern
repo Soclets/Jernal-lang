@@ -1,0 +1,5 @@
+fn.main[]:
+    for $i in range[from: 1, to: 3]:
+        change $i = 5
+    end for
+end fn.main

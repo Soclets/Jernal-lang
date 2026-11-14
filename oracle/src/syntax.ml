@@ -101,8 +101,13 @@ and statement_kind =
   | Break of name option
   | Fail of { failure : name; fields : field_value list }
   | Instead of expression
-  | Broken_block of statement list          (* an opening line that was refused; its body is still checked (D13) *)
+  | Broken_block of { declares : recovered list; body : statement list }
+      (* an opening line that was refused; its body is still checked, and a `for` still creates its variables (D13) *)
+  | Broken_statement of recovered list
+      (* a refused `let`, `decl` or `shadow` still creates its variable, with the type it wrote (D13) *)
   | Unfinished of { what : string; why : string; designed : bool }   (* NotBuiltYet / NotDesignedYet *)
+
+and recovered = { recovered_name : name; recovered_type : type_expression option; recovered_mutable : bool }
 
 and branch = { condition : condition; branch_body : statement list }
 

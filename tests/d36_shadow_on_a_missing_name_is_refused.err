@@ -1,0 +1,5 @@
+CompileTimeError: d36_shadow_on_a_missing_name_is_refused.jern:2:5, line 2 column 5
+ 2 |     shadow $x: Int = 2
+   |     ^^^^^^
+ fix:  `let`
+ why:  `shadow` gives an existing name a new value (D36, standard 3.4)

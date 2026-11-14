@@ -1,0 +1,5 @@
+fn.main[]:
+    let mut $a: List<Int> = [1, 2, 3]
+    let $d: List<Int> = give $a
+    println($a.len() as String)
+end fn.main

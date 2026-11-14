@@ -1,0 +1,5 @@
+CompileTimeError: d7_a_given_name_is_retired.jern:4:13, line 4 column 13
+ 4 |     println($a.len() as String)
+   |             ^^
+ what: `$a` was given away, so it can't be used here
+ why:  `give` retires the name it gives (D7, standard 3.6)

@@ -1,0 +1,5 @@
+CompileTimeError: d33_every_update_says_change.jern:3:5, line 3 column 5
+ 3 |     $count = $count + 1
+   |     ^^^^^^^^^^^^^^^^^^^
+ fix:  `change $count = $count + 1`
+ why:  every update starts with `change` (D33, standard 3.5)

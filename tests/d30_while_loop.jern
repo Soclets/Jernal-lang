@@ -1,0 +1,7 @@
+fn.main[]:
+    let mut $count: Int = 0
+    while $count < 3:
+        change $count = $count + 1
+        println($count as String)
+    end while
+end fn.main

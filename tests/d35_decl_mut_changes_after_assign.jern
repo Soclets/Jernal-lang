@@ -1,0 +1,6 @@
+fn.main[]:
+    decl mut $count: Int
+    assign $count = 1
+    change $count = $count + 1
+    println($count as String)
+end fn.main

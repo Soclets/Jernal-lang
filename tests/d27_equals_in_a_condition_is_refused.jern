@@ -1,0 +1,6 @@
+fn.main[]:
+    let $a: Int = 3
+    if $a = 3:
+        println("three")
+    end if
+end fn.main

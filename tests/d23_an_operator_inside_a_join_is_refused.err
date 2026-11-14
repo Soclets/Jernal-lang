@@ -1,0 +1,5 @@
+CompileTimeError: d23_an_operator_inside_a_join_is_refused.jern:4:26, line 4 column 26
+ 4 |     println("Total: " $a + $b)
+   |                          ^
+ what: `+` can't be used inside a join; the value it works out needs a named step first
+ why:  a join holds only strings, variables, fields and `as` (D23, standard 4.3)

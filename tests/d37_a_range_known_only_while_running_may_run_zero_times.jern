@@ -1,0 +1,11 @@
+fn count_up[$last: Int]:
+    for $i in range[from: 1, to: $last]:
+        println($i as String)
+    end for
+    println("end")
+end fn count_up
+
+fn.main[]:
+    count_up(0)
+    count_up(2)
+end fn.main

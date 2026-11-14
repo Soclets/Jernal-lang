@@ -1,0 +1,9 @@
+fn.main[]:
+    let $names: List<String> = ["Ann", "Bob"]
+    for $name in $names at pos $p:
+        println($p as String ". " $name)
+    end for
+    for $name in $names at offset $o:
+        println($o as String ": " $name)
+    end for
+end fn.main

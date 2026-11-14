@@ -1,0 +1,5 @@
+fn.main[]:
+    let $total: Int = 5
+    shadow $total: String = $total as String
+    println($total)
+end fn.main

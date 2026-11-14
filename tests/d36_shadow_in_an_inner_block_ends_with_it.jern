@@ -1,0 +1,9 @@
+fn.main[]:
+    let $name: String = "outer"
+    let $inner: Bool = true
+    if $inner:
+        shadow $name: String = "inner"
+        println($name)
+    end if
+    println($name)
+end fn.main

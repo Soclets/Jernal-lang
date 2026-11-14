@@ -1,0 +1,5 @@
+CompileTimeError: d27_equals_in_a_condition_is_refused.jern:3:11, line 3 column 11
+ 3 |     if $a = 3:
+   |           ^
+ fix:  `==`
+ why:  `=` gives a value, and `==` compares (D27, standard 4.1)

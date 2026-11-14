@@ -1,0 +1,4 @@
+fn.main[]:
+    let mut $a: List<Int> = [1, 2, 3]
+    let $c: List<Int> = $a
+end fn.main

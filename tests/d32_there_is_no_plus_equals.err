@@ -1,0 +1,5 @@
+CompileTimeError: d32_there_is_no_plus_equals.jern:3:19, line 3 column 19
+ 3 |     change $count += 1
+   |                   ^^
+ what: there's no `+=`; an update is written `change $x = $x + ...`
+ why:  every update starts with `change` and reads in order (D32, standard 3.5)

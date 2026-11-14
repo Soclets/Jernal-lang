@@ -1,0 +1,19 @@
+fn check[$name: String] -> Bool:
+    println("checked " $name)
+    return true
+end fn check
+
+fn.main[]:
+    if false and check("a"):
+        println("never")
+    end if
+    if true or check("b"):
+        println("or")
+    end if
+    if false and.both check("c"):
+        println("never")
+    end if
+    if true or.both check("d"):
+        println("or.both")
+    end if
+end fn.main

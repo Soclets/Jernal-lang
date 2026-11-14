@@ -1024,8 +1024,13 @@ and check_statement fctx (s : statement) : C.statement list =
               error context ~what:(Printf.sprintf "no loop around this is called %s" (quote n.text)) n.span
                 "`break name` leaves that loop and every loop inside it (D31, standard 4.6)";
               []))
-  | Broken_block body ->
-      ignore (check_block fctx body);
+  | Broken_block { declares; body } ->
+      in_scope fctx (fun () ->
+          declare_recovered fctx declares;
+          ignore (check_statements fctx body));
+      []
+  | Broken_statement declares ->
+      declare_recovered fctx declares;
       []
   | Unfinished { what; why; designed } ->
       report context
@@ -1039,6 +1044,18 @@ and check_statement fctx (s : statement) : C.statement list =
             | Fail _ -> "a function raises a failure with `fail` (D48, standard 6.2)"
             | _ -> "`instead` gives the value used in place of a failed call (D48, standard 6.3)"));
       []
+
+(* Variables a refused line still creates, so nothing that uses them is refused because of it (D13). *)
+and declare_recovered fctx (declares : recovered list) =
+  List.iter
+    (fun r ->
+      let t =
+        match r.recovered_type with
+        | Some t -> (try resolve_type fctx.context t with Skip -> Types.Unknown)
+        | None -> Types.Unknown
+      in
+      ignore (add_variable fctx ~name:r.recovered_name ~variable_type:t ~is_mutable:r.recovered_mutable ~assigned:true ()))
+    declares
 
 (* A value landing in a place of a known type. *)
 and check_value fctx (declared : Types.t) (value : expression) : C.expression =

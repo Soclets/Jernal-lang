@@ -1,0 +1,5 @@
+CompileTimeError: d7_handing_off_says_give_or_copy.jern:3:25, line 3 column 25
+ 3 |     let $c: List<Int> = $a
+   |                         ^^
+ what: `$a` can change inside, so handing it off needs `give` or `copy`
+ why:  a hand-off says what it does (D7, standard 3.6)

@@ -1,0 +1,5 @@
+fn.main[]:
+    let mut $count: Int = 0
+    $count = $count + 1
+    println($count as String)
+end fn.main

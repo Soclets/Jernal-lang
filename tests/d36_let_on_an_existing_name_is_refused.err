@@ -1,0 +1,5 @@
+CompileTimeError: d36_let_on_an_existing_name_is_refused.jern:3:5, line 3 column 5
+ 3 |     let $x: Int = 2
+   |     ^^^
+ fix:  `shadow`
+ why:  declaring an existing name is refused; `shadow` gives it a new value (D36, standard 3.4)

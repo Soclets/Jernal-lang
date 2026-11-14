@@ -1,0 +1,5 @@
+CompileTimeError: d34_reading_before_every_path_assigns_is_refused.jern:7:13, line 7 column 13
+ 7 |     println($label)
+   |             ^^^^^^
+ what: `$label` has no value yet on every path to here
+ why:  a `decl` is read only after `assign` on every path (D34, standard 3.3)

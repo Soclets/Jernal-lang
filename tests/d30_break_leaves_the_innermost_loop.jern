@@ -1,0 +1,10 @@
+fn.main[]:
+    for $i in range[from: 1, to: 3]:
+        for $j in range[from: 1, to: 3]:
+            if $j == 2:
+                break
+            end if
+            println($i as String " " $j as String)
+        end for
+    end for
+end fn.main

@@ -1,0 +1,4 @@
+fn.main[]:
+    shadow $x: Int = 2
+    println($x as String)
+end fn.main

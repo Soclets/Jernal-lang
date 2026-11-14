@@ -1,0 +1,5 @@
+fn.main[]:
+    let $x: Int = 1
+    let $x: Int = 2
+    println($x as String)
+end fn.main

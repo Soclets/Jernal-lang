@@ -1,0 +1,5 @@
+CompileTimeError: d34_assigning_twice_is_refused.jern:4:5, line 4 column 5
+ 4 |     assign $label = "cold"
+   |     ^^^^^^
+ fix:  `change`
+ why:  `assign` gives a `decl` its first value, exactly once on each path (D34, standard 3.3)

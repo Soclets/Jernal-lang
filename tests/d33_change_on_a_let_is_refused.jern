@@ -1,0 +1,4 @@
+fn.main[]:
+    let $count: Int = 0
+    change $count = 1
+end fn.main

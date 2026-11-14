@@ -1,0 +1,9 @@
+fn.main[]:
+    let mut $x: Int = 5
+    let $n: Int = $x
+    change $x = 6
+    println($n as String)
+    let $frozen: List<Int> = [1, 2]
+    let $same: List<Int> = $frozen
+    println($same.len() as String)
+end fn.main

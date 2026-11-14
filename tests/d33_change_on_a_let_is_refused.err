@@ -1,0 +1,5 @@
+CompileTimeError: d33_change_on_a_let_is_refused.jern:3:12, line 3 column 12
+ 3 |     change $count = 1
+   |            ^^^^^^
+ what: `$count` can't change: it isn't `mut`
+ why:  `change` works on what can change (D33, D43, standard 3.5)

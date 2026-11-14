@@ -1,0 +1,6 @@
+fn.main[]:
+    decl mut $label: String
+    assign $label = "hot"
+    assign $label = "cold"
+    println($label)
+end fn.main

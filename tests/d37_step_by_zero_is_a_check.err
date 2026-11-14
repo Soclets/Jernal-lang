@@ -1,0 +1,5 @@
+RuntimeError: d37_step_by_zero_is_a_check.jern:2:46, line 2 column 46
+ 2 |     for $i in range[from: 1, to: 5, step_by: $step]:
+   |                                              ^^^^^
+ what: `step_by:` is 0, so the range never ends
+ why:  a `step_by:` of 0 is a check (D37, standard 4.7)

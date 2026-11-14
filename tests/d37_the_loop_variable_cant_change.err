@@ -1,0 +1,5 @@
+CompileTimeError: d37_the_loop_variable_cant_change.jern:3:16, line 3 column 16
+ 3 |         change $i = 5
+   |                ^^
+ what: `$i` is the loop's own variable, which can't be changed inside the loop
+ why:  the loop's own variable can't be changed inside the loop (D37, standard 4.7)
