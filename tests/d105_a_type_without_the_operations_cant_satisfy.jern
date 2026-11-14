@@ -1,0 +1,9 @@
+interface Ordered<?Self>:
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+Bool satisfies Ordered
+
+fn.main[]:
+    println("never")
+end fn.main

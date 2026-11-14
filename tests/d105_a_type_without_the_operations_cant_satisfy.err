@@ -1,0 +1,5 @@
+CompileTimeError: d105_a_type_without_the_operations_cant_satisfy.jern:5:16, line 5 column 16
+ 5 | Bool satisfies Ordered
+   |                ^^^^^^^
+ what: `Bool` has no `<`, so it can't satisfy `Ordered`
+ why:  a type that satisfies an interface has its operations (D105, standard 5.8)

@@ -2955,12 +2955,36 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
         (fun d ->
           match d.declaration_kind with
           | Satisfies { satisfying; interface } -> (
+              context.current_file <- file.file_name;
               match resolve_type context satisfying with
               | t ->
                   if not (Hashtbl.mem context.interfaces interface.text) then
                     error context ~what:(Printf.sprintf "there's no interface called %s" (quote interface.text)) interface.span
                       "a type fits an interface through a written `satisfies` line (D105, standard 5.8)"
-                  else context.satisfied <- (Types.name t, interface.text) :: context.satisfied
+                  else begin
+                    (* trace: D105 — a built-in type has the operations the standard gives it *)
+                    let has operation =
+                      match underlying t, operation with
+                      | (Types.Integer _ | Types.Float _ | Types.Decimal | Types.Rational), ("==" | "!=" | "<" | ">" | "+" | "-" | "x" | "div") -> true
+                      | Types.Integer _, "mod" -> true
+                      | Types.String, ("==" | "!=" | "<" | ">") -> true
+                      | Types.Bool, ("==" | "!=") -> true
+                      | _ -> false
+                    in
+                    match underlying t with
+                    | Types.Struct _ | Types.Union _ | Types.Instance _ ->
+                        report context
+                          (Diagnostic.make ~span:interface.span
+                             ~what:"how a type of the program's own defines its operations isn't decided yet"
+                             Diagnostic.Not_designed_yet "not decided yet (D105, standard 12.1)")
+                    | _ -> (
+                        match List.find_opt (fun o -> not (has o)) (interface_operations context interface.text) with
+                        | Some missing ->
+                            error context
+                              ~what:(Printf.sprintf "%s has no %s, so it can't satisfy %s" (type_text t) (quote missing) (quote interface.text))
+                              interface.span "a type that satisfies an interface has its operations (D105, standard 5.8)"
+                        | None -> context.satisfied <- (Types.name t, interface.text) :: context.satisfied)
+                  end
               | exception Skip -> ())
           | _ -> ())
         file.declarations)
