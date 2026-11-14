@@ -213,7 +213,7 @@ and evaluate_plain context (e : C.expression) : Value.t =
       | Value.Float (f, k) -> Value.Float (Float.neg f, k)
       | Value.Rational q -> Value.Rational (Q.neg q)
       | Value.Decimal d -> Value.Decimal (Decimal.negate d)
-      | v -> v)
+      | _ -> C.impossible "negating something that isn't a number")
   | C.Compare { operator; left; right } ->
       (* left, then right: OCaml leaves `let ... and ...` in no set order *)
       let l = evaluate context left in
@@ -240,8 +240,8 @@ and evaluate_plain context (e : C.expression) : Value.t =
           match operator, l, r with
           | "and", Value.Bool a, Value.Bool b -> Value.Bool (a && b)
           | _, Value.Bool a, Value.Bool b -> Value.Bool (a || b)
-          | _ -> Value.Bool false))
-  | C.Not inner -> (match evaluate context inner with Value.Bool b -> Value.Bool (not b) | v -> v)
+          | _ -> C.impossible "logic on something that isn't a Bool"))
+  | C.Not inner -> (match evaluate context inner with Value.Bool b -> Value.Bool (not b) | _ -> C.impossible "`not` on something that isn't a Bool")
   | C.List_literal items -> Value.List { items = Dynarray.of_list (List.map (evaluate context) items) }
   | C.Map_literal (map_kind, entries) ->
       let m = { Value.map_kind; entries = Dynarray.create () } in
@@ -270,13 +270,13 @@ and evaluate_plain context (e : C.expression) : Value.t =
       match evaluate context target with
       | Value.Struct s -> !(List.assoc name s.fields)
       | Value.Union u -> !(List.assoc name u.case_fields)
-      | v -> v)
+      | _ -> C.impossible "a field of something that isn't a struct or a case")
   | C.Index { target; counting; position } -> (
       let list = evaluate context target in
       let p = evaluate context position in
       match list with
       | Value.List l -> Dynarray.get l.items (list_offset e.span counting l p)
-      | v -> v)
+      | _ -> C.impossible "indexing something that isn't a list")
   | C.Range { from; ending; inclusive; step_by } ->
       let from = Value.integer_to_z (evaluate context from) in
       let ending = Value.integer_to_z (evaluate context ending) in
@@ -486,14 +486,14 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
       (* trace: D85 *)
       | "mod", [ "trunc" ] -> check_zero (); fits (Z.rem a b)
       | "mod", [ "floor" ] -> check_zero (); fits (Z.sub a (Z.mul (Z.fdiv a b) b))
-      | _ -> l)
+      | _ -> C.impossible ("an integer operator the checker refuses: " ^ operator))
   | Value.Float (a, k), Value.Float (b, _) -> (
       match operator with
       | "+" -> Value.Float (Numbers.round_float k (a +. b), k)
       | "-" -> Value.Float (Numbers.round_float k (a -. b), k)
       | "x" -> Value.Float (Numbers.round_float k (a *. b), k)
       | "div" -> Value.Float (Numbers.round_float k (a /. b), k)
-      | _ -> l)
+      | _ -> C.impossible ("a number operator the checker refuses: " ^ operator))
   | Value.Decimal a, Value.Decimal b -> (
       (* trace: D83 — each result rounded once to decimal128 *)
       match operator with
@@ -501,7 +501,7 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
       | "-" -> Value.Decimal (Decimal.subtract a b)
       | "x" -> Value.Decimal (Decimal.multiply a b)
       | "div" -> Value.Decimal (Decimal.divide a b)
-      | _ -> l)
+      | _ -> C.impossible ("a number operator the checker refuses: " ^ operator))
   | Value.Rational a, Value.Rational b -> (
       match operator with
       | "+" -> Value.Rational (Q.add a b)
@@ -512,8 +512,8 @@ and arithmetic (e : C.expression) operator narrowings l r : Value.t =
             runtime_error ~what:(Printf.sprintf "`%s` divides by zero" (source_text span)) span
               "dividing by zero is a check (D53, standard 7.2)";
           Value.Rational (Q.div a b)
-      | _ -> l)
-  | _ -> l
+      | _ -> C.impossible ("a Rational operator the checker refuses: " ^ operator))
+  | _ -> C.impossible ("maths on values of different kinds: " ^ operator)
 
 (* ---------- Statements ---------- *)
 
@@ -533,14 +533,14 @@ and execute context (s : C.statement) =
       match place with
       | Value.Struct st -> (List.assoc field st.fields) := x
       | Value.Union u -> (List.assoc field u.case_fields) := x
-      | _ -> ())
+      | _ -> C.impossible "changing a field of something that isn't a struct or a case")
   | C.Set_index { target; counting; position; value } -> (
       let list = evaluate context target in
       let p = evaluate context position in
       let x = evaluate context value in
       match list with
       | Value.List l -> Dynarray.set l.items (list_offset s.statement_span counting l p) x
-      | _ -> ())
+      | _ -> C.impossible "changing an item of something that isn't a list")
   | C.Evaluate e -> ignore (evaluate context e)
   | C.Return None -> raise (Return_signal Value.Nothing)
   | C.Return (Some e) -> raise (Return_signal (evaluate context e))

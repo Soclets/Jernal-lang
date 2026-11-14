@@ -157,5 +157,6 @@ let run ~(folder : string) ~(files : string list) : int =
             flush stderr;
             122)
   with
+  | Checked.Impossible what -> compiler_bug ("the oracle reached a state the checker should rule out: " ^ what)
   | Sys_error message -> compiler_bug message
   | e -> compiler_bug (Printexc.to_string e)

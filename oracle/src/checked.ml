@@ -7,6 +7,12 @@ type failure = { failure_name : string; failure_fields : (string * Value.t) list
 
 exception Failure_raised of failure * Span.t
 
+(* A state the checker should have made impossible: the oracle stops loudly, as a CompilerBug, rather
+   than give a wrong answer (rule 13). *)
+exception Impossible of string
+
+let impossible what = raise (Impossible what)
+
 (* A check that failed while running (chapter 7), or NotDesignedYet met while running. *)
 exception Runtime_stop of Diagnostic.t
 
