@@ -1,0 +1,4 @@
+fn.main[]:
+    let mut $a: List<Int> = [1]
+    let $grid: List<List<Int>> = [$a, [2]]
+end fn.main

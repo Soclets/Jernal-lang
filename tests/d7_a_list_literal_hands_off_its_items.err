@@ -1,0 +1,5 @@
+CompileTimeError: d7_a_list_literal_hands_off_its_items.jern:3:35, line 3 column 35
+ 3 |     let $grid: List<List<Int>> = [$a, [2]]
+   |                                   ^^
+ what: `$a` can change inside, so handing it off needs `give` or `copy`
+ why:  a hand-off says what it does (D7, standard 3.6)

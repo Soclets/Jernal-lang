@@ -1167,10 +1167,26 @@ and check_list_literal fctx ~expected (e : expression) items =
   let span = e.expression_span in
   match Option.map underlying expected with
   | Some (Types.List item_type) ->
-      let checked = List.map (fun x -> let c = check_expression fctx ~expected:(Some item_type) x in expect_type context item_type c; c) items in
+      let checked =
+        List.map
+          (fun x ->
+            let c = check_expression fctx ~expected:(Some item_type) x in
+            expect_type context item_type c;
+            check_hand_off fctx c x;
+            c)
+          items
+      in
       { C.kind = C.List_literal checked; type_ = Option.get expected; span }
   | Some (Types.Array (item_type, _)) ->
-      let checked = List.map (fun x -> let c = check_expression fctx ~expected:(Some item_type) x in expect_type context item_type c; c) items in
+      let checked =
+        List.map
+          (fun x ->
+            let c = check_expression fctx ~expected:(Some item_type) x in
+            expect_type context item_type c;
+            check_hand_off fctx c x;
+            c)
+          items
+      in
       { C.kind = C.List_literal checked; type_ = Option.get expected; span }
   | Some (Types.Map (kind, _, _)) when items = [] ->
       { C.kind = C.Map_literal (kind, []); type_ = Option.get expected; span }
@@ -1192,9 +1208,10 @@ and check_map_literal fctx ~expected (e : expression) entries =
           (fun (k, v) ->
             let k = check_expression fctx ~expected:(Some key_type) k in
             expect_type context key_type k;
-            let v = check_expression fctx ~expected:(Some value_type) v in
-            expect_type context value_type v;
-            (k, v))
+            let checked_value = check_expression fctx ~expected:(Some value_type) v in
+            expect_type context value_type checked_value;
+            check_hand_off fctx checked_value v;
+            (k, checked_value))
           entries
       in
       { C.kind = C.Map_literal (kind, checked); type_ = Option.get expected; span }
@@ -1349,6 +1366,7 @@ and check_build fctx ~expected (e : expression) built fields =
                     Hashtbl.add seen field.text ();
                     let v = check_expression fctx ~expected:(Some t) field_value in
                     expect_type context t v;
+                    check_hand_off ~escapes:true fctx v field_value;
                     (field.text, v))
               fields
           in
