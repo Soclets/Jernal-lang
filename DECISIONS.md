@@ -1058,3 +1058,26 @@ end fn main
 The owner's sketch said "use full path syntax only on clash" and "config, imports, and stuff are handled by manifest".
 Cyborg has `import` lines instead, and its design session advised keeping clashes an error, as it described on
 2026-11-14. Claude proposed this; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D60. `use` gives a checked or quoted short name.** `use path as name` gives something a short name in that file. The
+path is written short, like any name (D59). One name per `use`, with no wildcards.
+
+- An unquoted name must match the last word of its path, so it can't lie about what it is.
+- A quoted name is the writer's free choice. The quotes appear only on the `use` line. A quoted name nothing could
+  call, such as `""` or `"fn"`, is refused.
+- If the part before the last dot is a function, the unquoted short name can't be the narrowing alone, since `stored`
+  on its own reads like a different action. A quoted name is allowed.
+
+```
+use time.seconds as seconds          // a family member
+use time.seconds as "secs"           // quoted: any name
+use time.seconds as minutes          // refused: it would lie
+use geometry.area as area            // a family member
+use show.stored as stored            // refused: `show` is a function
+use show.stored as "show_stored"     // quoted: allowed
+```
+
+This is Cyborg's `use` (its D93, D150, D151, D220), as Cyborg's design session described on 2026-11-14. The owner
+asked about `use time.seconds as seconds` and `as "secs"`, then pointed out: "`time.seconds` is a narrowing,
+`show.stored` is too." Claude narrowed the rule to narrowings of a function, with quoted names allowed; the owner
+chose: "yea". (Owner, 2026-11-14)
