@@ -1542,14 +1542,25 @@ and check_statement fctx (s : statement) : C.statement list =
   | Match { subject; match_arms } -> check_match fctx span subject match_arms
   | Fail { failure; fields } -> (
       (* trace: D48 — `fail` raises one of the function's listed failures, and leaves it *)
-      match List.assoc_opt failure.text fctx.info.failures with
-      | None ->
+      let suffix = "." ^ failure.text in
+      let in_full =
+        List.filter
+          (fun (n, _) -> String.length n > String.length suffix
+                         && String.sub n (String.length n - String.length suffix) (String.length suffix) = suffix)
+          fctx.info.failures
+      in
+      match List.assoc_opt failure.text fctx.info.failures, in_full with
+      | None, [ (full, _) ] ->
+          (* trace: D140 *)
+          error context ~fix:(quote full) failure.span "a family's failure is written in full (D140, standard 6.2)";
+          []
+      | None, _ ->
           error context
             ~what:(Printf.sprintf "%s isn't listed after `fails` on %s" (quote failure.text)
                      (if fctx.info.full_name = "" then "this function" else quote fctx.info.full_name))
             failure.span "a function lists the failures it can raise on its opening line (D48, standard 6.2)";
           []
-      | Some shape -> (
+      | Some shape, _ -> (
           try
             let seen = Hashtbl.create 4 in
             let given =
@@ -2093,20 +2104,32 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
       report context
         (Diagnostic.make ~span:(fst (List.hd d.type_parameters)).span ~what:"generic functions aren't built in the oracle yet"
            Diagnostic.Not_built_yet "functions and types can take type parameters (D103, standard 5.8)");
+    (* trace: D140 — a family listed whole or by member, written in full; inline failures stay short *)
+    let fields_of (shape : failure_shape) =
+      List.map (fun ((n : name), t) -> (n.text, try resolve_type context t with Skip -> Types.Unknown)) shape.failure_fields
+    in
     info.failures <-
-      List.filter_map
+      List.concat_map
         (fun (shape : failure_shape) ->
-          if Hashtbl.mem context.failure_families shape.failure_name.text then begin
-            report context
-              (Diagnostic.make ~span:shape.failure_name.span
-                 ~what:"listing a failure family after `fails` isn't decided yet" Diagnostic.Not_designed_yet
-                 "not decided yet (D49, standard 12.2)");
-            None
-          end
-          else
-            Some
-              ( shape.failure_name.text,
-                List.map (fun ((n : name), t) -> (n.text, try resolve_type context t with Skip -> Types.Unknown)) shape.failure_fields ))
+          let name = shape.failure_name.text in
+          match Hashtbl.find_opt context.failure_families name, String.index_opt name '.' with
+          | Some members, _ ->
+              List.map (fun (m : failure_shape) -> (name ^ "." ^ m.failure_name.text, fields_of m)) members
+          | None, Some dot -> (
+              let family = String.sub name 0 dot and member = String.sub name (dot + 1) (String.length name - dot - 1) in
+              match Hashtbl.find_opt context.failure_families family with
+              | None ->
+                  error context ~what:(Printf.sprintf "there's no failure family called %s" (quote family)) shape.failure_name.span
+                    "a named set of failures is a family (D49, D140, standard 6.2)";
+                  []
+              | Some members -> (
+                  match List.find_opt (fun (m : failure_shape) -> m.failure_name.text = member) members with
+                  | Some m -> [ (name, fields_of m) ]
+                  | None ->
+                      error context ~what:(Printf.sprintf "%s has no failure called %s" (quote family) (quote member))
+                        shape.failure_name.span "a family's members are written after the keyword `failure` (D49, standard 6.2)";
+                      []))
+          | None, None -> [ (name, fields_of shape) ])
         d.fails;
     info.parameter_types <- List.map (fun p -> try resolve_type context p.parameter_type with Skip -> Types.Unknown) d.parameters;
     info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown)

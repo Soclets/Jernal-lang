@@ -1,0 +1,11 @@
+fam.failure file_failed:
+    failure not_found
+end fam.failure file_failed
+
+fn find[$name: String] fails [file_failed]:
+    fail not_found
+end fn find
+
+fn.main[]:
+    find("x") ?? ignore
+end fn.main

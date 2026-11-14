@@ -1,0 +1,46 @@
+fam.failure file_failed:
+    failure not_found
+    failure denied
+    failure disk_full[free: Int]
+end fam.failure file_failed
+
+fn save[$size: Int] fails [file_failed, too_big]:
+    if $size > 100:
+        fail too_big
+    end if
+    if $size > 50:
+        fail file_failed.disk_full[free = 50]
+    end if
+    if $size < 0:
+        fail file_failed.denied
+    end if
+    println("saved " $size as String)
+end fn save
+
+fn find[$name: String] fails [file_failed.not_found]:
+    fail file_failed.not_found
+end fn find
+
+fn try_save[$size: Int]:
+    save($size) otherwise:
+        case file_failed.not_found:
+            println("not found")
+        case file_failed.denied:
+            println("denied")
+        case file_failed.disk_full $d:
+            println("only " $d.free as String " free")
+        case too_big:
+            println("too big")
+    end otherwise
+end fn try_save
+
+fn.main[]:
+    try_save(10)
+    try_save(60)
+    try_save(-1)
+    try_save(200)
+    find("x") otherwise:
+        case file_failed.not_found:
+            println("no x")
+    end otherwise
+end fn.main

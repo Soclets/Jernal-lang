@@ -140,7 +140,17 @@ let rec dotted_words state =
   end
   else []
 
-let span_from (first : Span.t) state =
+(* A name that may be written in full, such as `file_failed.not_found` (D140). *)
+let expect_dotted_name state expected =
+  let head = expect_name state expected in
+  let rest = dotted_words state in
+  match rest with
+  | [] -> head
+  | _ ->
+      let last = List.nth rest (List.length rest - 1) in
+      { text = String.concat "." (head.text :: List.map (fun n -> n.text) rest); span = Span.join head.span last.span }
+
+and span_from (first : Span.t) state =
   let last = state.tokens.(max 0 (state.position - 1)) in
   Span.join first last.span
 
@@ -655,7 +665,7 @@ and parse_arms state : arm list =
       let start = peek state in
       let arm_line () =
         ignore (advance state);
-        let case_name = expect_name state "a case name" in
+        let case_name = expect_dotted_name state "a case name" in
         let binding = match peek_kind state with Token.Variable _ -> Some (expect_variable state) | _ -> None in
         ignore (expect state Colon "`:`");
         end_of_line state;
@@ -886,7 +896,7 @@ and parse_statement_line state : statement =
       finish (Instead value)
   | Word "fail" ->
       ignore (advance state);
-      let failure = expect_name state "a failure's name" in
+      let failure = expect_dotted_name state "a failure's name" in
       let fields =
         if peek_kind state = Left_bracket && not (peek state).space_before then begin
           ignore (advance state);
@@ -1129,7 +1139,7 @@ let parse_parameters state : parameter list =
   items []
 
 let parse_failure_shape state : failure_shape =
-  let failure_name = expect_name state "a failure's name" in
+  let failure_name = expect_dotted_name state "a failure's name" in
   let failure_fields =
     if peek_kind state = Left_bracket && not (peek state).space_before then begin
       ignore (advance state);

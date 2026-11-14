@@ -1,0 +1,5 @@
+CompileTimeError: d140_a_family_failure_is_written_in_full.jern:6:10, line 6 column 10
+ 6 |     fail not_found
+   |          ^^^^^^^^^
+ fix:  `file_failed.not_found`
+ why:  a family's failure is written in full (D140, standard 6.2)
