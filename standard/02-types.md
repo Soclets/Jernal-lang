@@ -121,6 +121,23 @@ change $r.celsius = 23
 Properties of a type are narrowings on `struct`, strongest first, and the closer repeats them (D56), as with
 `struct.must_give` (chapter 8). A type's makers and methods live in its family (chapter 5).
 
+## 2.4a Tagged unions
+
+A tagged union is a block of cases, one per line; a case's data goes in `[ ]` with labelled fields (D97). It's always
+written `union.tagged`; a bare `union` is refused. An enum is a union whose cases carry no data. Cases are narrowings of
+the type, and a value is built like a struct.
+
+```
+union.tagged Status:
+    ok
+    failed[code: Int]
+end union.tagged Status
+
+let mut $s: Status = Status.failed[code = 3]
+```
+
+`match` and the case test are in 4.5a.
+
 ## 2.5 Type aliases and new types
 
 There's no bare `type` (D61):

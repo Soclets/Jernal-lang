@@ -65,6 +65,29 @@ else:
 end if
 ```
 
+## 4.5a `match` and the case test
+
+`match` must cover every case of a tagged union; a missing one is refused (D97). Arms use the case's short name, and
+`case name $f:` names its data.
+
+```
+match $s:
+    case failed $f:
+        println("failed: " $f.code as String)
+    case ok:
+        println("worked")
+end match
+```
+
+`if $value: Type.case:` tests which case a value is. Inside, its fields can be read; outside, they can't. That
+knowledge ends at a `change` to the value: anything after it that relies on the case is refused (D97).
+
+```
+if $s: Status.failed:
+    println("code " $s.code as String)
+end if
+```
+
 ## 4.6 Loops
 
 `for ... in` goes through something, and `while` runs while a condition holds; each closes with its own `end` (D30).

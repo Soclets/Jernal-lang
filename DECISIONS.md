@@ -1610,3 +1610,37 @@ end comment old_version
 
 Claude proposed `Bool` and `//`; the owner chose: "Yes, and `///` doc comments, and `comment name:`, `end comment
 name`". (Owner, 2026-11-14)
+
+**D97. Tagged unions and `match`.** A tagged union is a block of cases, one per line; a case's data goes in `[ ]` with
+labelled fields. It's always written `union.tagged`; a bare `union` is refused. An enum is a union whose cases carry no
+data. Cases are narrowings of the type, and a value is built like a struct.
+
+```
+union.tagged Status:
+    ok
+    failed[code: Int]
+end union.tagged Status
+
+let mut $s: Status = Status.failed[code = 3]
+
+match $s:
+    case failed $f:
+        println("failed: " $f.code as String)
+    case ok:
+        println("worked")
+end match
+
+if $s: Status.failed:
+    println("code " $s.code as String)
+end if
+```
+
+- `match` must cover every case; a missing one is refused, so adding a case later makes every `match` handle it.
+- Arms use the case's short name, as `otherwise` does (D48); `case failed $f:` names its data.
+- `if $value: Type.case:` tests which case a value is. Inside, the compiler knows the case, so its fields can be read;
+  outside, they can't. That knowledge ends at a `change` to the value: anything after it that relies on the case is
+  refused, with a `because:` pointing at the change.
+
+Not decided yet: whether `match` gives a value, a catch-all arm, guards, matching on integers, strings and ranges, and
+a naming form of the test. This is Cyborg's (its D9, D33, D104, D139), as Cyborg's design session described on
+2026-11-14, with short case names in arms. Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
