@@ -1274,3 +1274,28 @@ or package is named on the command line. The owner chose these names. (Owner, 20
 written in siml, the format of Cyborg's `CyJet.siml`. The manifest's file name and contents are not decided yet. Claude
 proposed JernOrac and asked between a standard format and a custom one like Cyborg's; the owner chose: "Yes, as for
 the manifest though, `siml` is a lot more straight-forward". (Owner, 2026-11-14)
+
+**D76. The package manager is Journey, and the manifest is `Journey.siml`.** Settles D75's open question. Every
+program has a manifest, even Hello World. It holds, one fact per line in siml:
+
+- `name` and `ver`: every project is a package. A version is a labelled date, biggest first, plus whether it breaks
+  anything, such as `ver 2026y-11m-14d breaks`; the word for "doesn't break" is a placeholder, `same`.
+- `need <package> <date>`, one per package, with the version always written. This is where D59's names come from.
+- `rule` lines for the compiler's and linter's rules, so configuration stays out of the code.
+
+```
+// Journey.siml
+name hello
+ver 2026y-11m-14d same
+
+need std 2026y-11m-14d
+need http 2026y-11m-14d
+
+rule mut.never_changed refuse
+```
+
+This is Cyborg's manifest (its D183, D189, D228 to D231, D265), as Cyborg's design session described on 2026-11-14,
+without its `dialect` line, since Jernal has one compiler. siml is the owner's own format: one line per fact, values
+separated by spaces, no sections, `=` or `;`, blank lines to group, quotes only when needed, `//` comments, and lists as
+repeated lines. Nesting isn't designed yet. The owner said: "Could be `Journey` for package man."; Claude said it would
+record `Journey.siml` with Cyborg's contents unless told otherwise. (Owner, 2026-11-14)
