@@ -20,6 +20,15 @@ let () =
   let start = if Filename.is_relative start then Filename.concat (Sys.getcwd ()) start else start in
   match arguments with
   | "run-test" :: folder :: [ test ] -> exit (Package.run ~folder ~files:[ test ])
+  | [ "parse"; file ] ->
+      (* for checking the oracle itself: only reads the file, and prints what the lexer and parser refuse *)
+      let text = Package.read_file file in
+      Diagnostic.add_source ~file ~text;
+      let tokens, lex_diagnostics = Lexer.lex ~file text in
+      let _, parse_diagnostics = Parser.parse_file ~file tokens in
+      let all = lex_diagnostics @ parse_diagnostics in
+      ignore (Package.print_diagnostics all);
+      exit (if List.exists Diagnostic.stops_the_program all then 1 else 0)
   | "run" :: rest -> (
       let program_arguments = match rest with "--" :: a -> a | [] -> [] | _ -> usage () in
       Std_library.program_arguments := program_arguments;
