@@ -1,0 +1,10 @@
+fn.main[]:
+    let $ls: List<Int> = [1, 2, 3]
+
+    // Tankun's program, as written
+    let sum_of_ls: Int = 0
+    for $i in $ls:
+    change $sum_of_ls = $sum_of_ls + $i
+    end for
+    println($sum_of_ls as String)
+end fn.main

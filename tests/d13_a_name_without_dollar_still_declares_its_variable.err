@@ -1,0 +1,11 @@
+CompileTimeError: d13_a_name_without_dollar_still_declares_its_variable.jern:5:9, line 5 column 9
+ 5 |     let sum_of_ls: Int = 0
+   |         ^^^^^^^^^
+ fix:  `$sum_of_ls`
+ why:  a variable's name starts with `$` (D56, standard 1.3)
+
+CompileTimeError: d13_a_name_without_dollar_still_declares_its_variable.jern:7:12, line 7 column 12
+ 7 |     change $sum_of_ls = $sum_of_ls + $i
+   |            ^^^^^^^^^^
+ what: `$sum_of_ls` can't change: it isn't `mut`
+ why:  `change` works on what can change (D33, D43, standard 3.5)

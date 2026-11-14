@@ -1,0 +1,6 @@
+fn.main[]:
+    let $ls: List<Int> = [1, 2]
+    for i in $ls:
+        println($i as String)
+    end for
+end fn.main

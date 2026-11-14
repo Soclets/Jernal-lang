@@ -126,6 +126,14 @@ let expect_variable state =
   let t = peek state in
   match t.kind with
   | Variable v -> ignore (advance state); name_of t v
+  | Word w when (not (is_keyword w)) && w <> "" && Char.lowercase_ascii w.[0] = w.[0] ->
+      (* trace: D13, D56 — a bare name where a variable goes has one fix, its `$`; reading carries on as if
+         it were written, so the variable still exists and nothing after is refused because of it *)
+      ignore (advance state);
+      report state
+        (Diagnostic.make ~span:t.span ~fix:(Printf.sprintf "`$%s`" w) ~edit:(t.span, "$" ^ w)
+           Diagnostic.Compile_time_error "a variable's name starts with `$` (D56, standard 1.3)");
+      name_of t w
   | _ -> unexpected state "a variable such as `$name`"
 
 (* Narrowings after a dot: .pure.baked *)
@@ -1084,8 +1092,12 @@ and parse_if state : statement =
   s
 
 and loop_name state =
-  match peek_kind state with
-  | Word w when not (is_keyword w) -> Some (name_of (advance state) w)
+  (* `for rows $row in`: a loop's name is a word with the loop's variable after it; in `for i in $xs`,
+     `i` is a variable missing its `$` *)
+  match peek_kind state, (peek_at state 1).kind with
+  | Word w, (Token.Variable _ | Word _) when (not (is_keyword w)) && not (is_word_at state 1 "in") -> Some (name_of (advance state) w)
+  | Word w, _ when (not (is_keyword w)) && (match (peek_at state 1).kind with Token.Variable _ -> true | _ -> false) ->
+      Some (name_of (advance state) w)
   | _ -> None
 
 and parse_while state : statement =
