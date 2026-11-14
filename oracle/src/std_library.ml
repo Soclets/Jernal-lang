@@ -29,6 +29,8 @@ let at_end_of_input = ref false
 let read_raw_line () : string option =
   if !at_end_of_input then None
   else begin
+    (* what was printed shows before the program waits for input *)
+    flush stdout;
     let buffer = Buffer.create 80 in
     let rec go () =
       match input_char stdin with
@@ -53,6 +55,7 @@ let read_line span =
 
 let read_all span =
   let buffer = Buffer.create 256 in
+  flush stdout;
   if not !at_end_of_input then begin
     (try
        while true do Buffer.add_channel buffer stdin 1 done
