@@ -1097,12 +1097,19 @@ and parse_match state : statement =
 
 let expected_narrowing_order = [ "pure"; "baked" ]
 
-let parse_type_parameters state : (name * requirement) list =
+let peek_kind_at_next_is_not_colon state = (peek_at state 1).kind <> Colon
+
+let parse_type_parameters ?(requirement_optional = false) state : (name * requirement) list =
   if peek_kind state = Type_open then begin
     ignore (advance state);
     let rec items acc =
       let t = peek state in
       match t.kind with
+      | Token.Type_parameter p when requirement_optional && peek_kind_at_next_is_not_colon state ->
+          (* an interface's own `?Self` names the type that satisfies it, with no requirement (D104) *)
+          ignore (advance state);
+          let item = ({ text = p; span = t.span }, { requirement_names = [] }) in
+          if peek_kind state = Comma then (ignore (advance state); items (item :: acc)) else List.rev (item :: acc)
       | Token.Type_parameter p ->
           ignore (advance state);
           ignore (expect state Colon "`:` and its requirement");
@@ -1353,6 +1360,74 @@ let parse_versions state : family_member =
   end_of_line state;
   Member_versions { versions_name; versions }
 
+(* `interface Name<?Self>:` with `includes` and `op` lines (D104, D105). *)
+let parse_interface state : declaration_kind =
+  let start = expect_word state "interface" in
+  let interface_name = expect_name state "the interface's name" in
+  ignore (parse_type_parameters ~requirement_optional:true state);
+  ignore (expect state Colon "`:`");
+  end_of_line state;
+  let closer = "interface " ^ interface_name.text in
+  let includes = ref [] and operations = ref [] in
+  with_block state closer (fun () ->
+      let rec go () =
+        skip_blank_lines state;
+        if is_word state "end" || peek_kind state = End_of_file then ()
+        else begin
+          (match
+             if is_word state "includes" then begin
+               ignore (advance state);
+               includes := !includes @ [ expect_name state "an interface" ];
+               end_of_line state
+             end
+             else if is_word state "op" then begin
+               ignore (advance state);
+               let t = advance state in
+               let symbol =
+                 match t.kind with
+                 | Less -> "<" | Greater -> ">" | Equals_equals -> "==" | Bang_equals -> "!=" | Plus -> "+" | Minus -> "-"
+                 | Word w -> w
+                 | _ -> unexpected state "an operator"
+               in
+               operations := !operations @ [ { text = symbol; span = t.span } ];
+               ignore (parse_parameters state);
+               if peek_kind state = Arrow then (ignore (advance state); ignore (parse_type state));
+               end_of_line state
+             end
+             else unexpected state "`includes` or `op`"
+           with
+           | () -> ()
+           | exception Line_error d -> report state d; skip_line state);
+          go ()
+        end
+      in
+      go ());
+  expect_closer state ~opener:start.span ~expected:closer;
+  end_of_line state;
+  Interface { interface_name; includes = !includes; operations = !operations }
+
+let parse_type_set state : declaration_kind =
+  let start = expect_word state "type_set" in
+  let set_name = expect_name state "the type set's name" in
+  ignore (expect state Colon "`:`");
+  end_of_line state;
+  let closer = "type_set " ^ set_name.text in
+  let members =
+    with_block state closer (fun () ->
+        let rec go acc =
+          skip_blank_lines state;
+          if is_word state "end" || peek_kind state = End_of_file then List.rev acc
+          else
+            match let t = parse_type state in end_of_line state; t with
+            | t -> go (t :: acc)
+            | exception Line_error d -> report state d; skip_line state; go acc
+        in
+        go [])
+  in
+  expect_closer state ~opener:start.span ~expected:closer;
+  end_of_line state;
+  Type_set { set_name; members }
+
 let parse_visibility state : visibility * Token.t option =
   if is_word state "pub" then begin
     let t = advance state in
@@ -1600,15 +1675,19 @@ let parse_declaration state : declaration option =
         | Word "union" -> parse_union state
         | Word "fam" -> parse_family state
         | Word "type" -> parse_type_declaration state
-        | Word ("interface" | "type_set") ->
-            unfinished_declaration state ~what:"interfaces and type sets aren't built in the oracle yet"
-              ~why:"an `interface` lists operations, and a `type_set` lists types (D105, standard 5.8)" ~designed:true
+        | Word "interface" -> parse_interface state
+        | Word "type_set" -> parse_type_set state
         | Word "shield" ->
             unfinished_declaration state ~what:"shields aren't built in the oracle yet"
               ~why:"shields hold unchecked code (D79, D80, standard 11.2)" ~designed:true
-        | _ when (match (peek_at state 1).kind with Word "satisfies" -> true | _ -> false) ->
-            unfinished_declaration state ~what:"`satisfies` isn't built in the oracle yet"
-              ~why:"a type fits an interface only through a written `satisfies` line (D105, standard 5.8)" ~designed:true
+        | _ when (let rec find i = match state.tokens.(i).kind with
+                    | Word "satisfies" -> true | Newline | End_of_file -> false | _ -> find (i + 1) in find state.position) ->
+            (* trace: D105 *)
+            let satisfying = parse_type state in
+            ignore (expect_word state "satisfies");
+            let interface = expect_name state "an interface" in
+            end_of_line state;
+            Satisfies { satisfying; interface }
         | Word "let" ->
             (* trace: D139 *)
             if is_word_at state 1 "mut" then begin

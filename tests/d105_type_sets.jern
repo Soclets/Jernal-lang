@@ -1,0 +1,22 @@
+type_set Whole:
+    i32
+    i64
+end type_set Whole
+
+interface Addable<?Self>:
+    op +[$a: ?Self, $b: ?Self] -> ?Self
+end interface Addable
+
+i32 satisfies Addable
+Int satisfies Addable
+
+fn twice<?Item: Whole and Addable>[$x: ?Item] -> ?Item:
+    return $x + $x
+end fn twice
+
+fn.main[]:
+    let $a: i32 = 21
+    println(twice($a) as String)
+    let $b: Float = 1.5
+    println(twice($b) as String)
+end fn.main

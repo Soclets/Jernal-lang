@@ -1,0 +1,10 @@
+fn largest<?Item: Any>[$a: ?Item, $b: ?Item] -> ?Item:
+    if $a > $b:
+        return $a
+    end if
+    return $b
+end fn largest
+
+fn.main[]:
+    println("never")
+end fn.main

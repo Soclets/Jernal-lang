@@ -182,6 +182,9 @@ type declaration_kind =
   | Family_failure of { failure_family : name; failures : failure_shape list }
   | Family_handler of { handler_family : name; handlers : handler_set list }
   | Global of statement     (* a `let` at the top of a file (D139) *)
+  | Interface of { interface_name : name; includes : name list; operations : name list }   (* D105 *)
+  | Type_set of { set_name : name; members : type_expression list }
+  | Satisfies of { satisfying : type_expression; interface : name }
   | Unfinished_declaration of { what : string; why : string; designed : bool }
 
 type declaration = { declaration_kind : declaration_kind; visibility : visibility; declaration_span : Span.t }

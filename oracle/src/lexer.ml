@@ -272,6 +272,9 @@ let lex_line state (line : string) (line_number : int) =
               "one statement, one line (D19, standard 1.1)";
             broken i (i + 1);
             go (i + 1) false
+        | ('<' | '>'), _ when (match previous_on_this_line () with Some { kind = Word "op"; _ } -> true | _ -> false) ->
+            (* `op <[...]` in an interface names the operator (D105) *)
+            simple (if c = '<' then Less else Greater) 1
         | '<', _ ->
             (* trace: D18 *)
             let space_after = space_after_at (i + 1) in

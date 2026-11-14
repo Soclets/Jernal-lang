@@ -24,6 +24,7 @@ type t =
   | Case of string * string      (* a union value known to be one case, inside a case test or arm (D97) *)
   | Failure of string * (string * t) list   (* a failure's data, named in an `otherwise` arm (D48) *)
   | New of string * t           (* type.new: a distinct type over the same data (D61) *)
+  | Parameter of string         (* a type parameter, ?Item, inside its generic function (D103) *)
   | Bounded of t * bounds       (* a type with details in [ ]: Int[min: 0, max: 100], List<Int>[len.max: 3] (D135) *)
   | Unknown                     (* after an error: nothing is guessed about it (D13) *)
   | Nothing                     (* what a function that returns nothing gives *)
@@ -75,6 +76,7 @@ let rec name = function
   | Case (u, c) -> u ^ "." ^ c
   | Failure (f, _) -> f
   | New (n, _) -> n
+  | Parameter p -> "?" ^ p
   | Bounded (t, b) ->
       let parts =
         List.filter_map (fun x -> x)

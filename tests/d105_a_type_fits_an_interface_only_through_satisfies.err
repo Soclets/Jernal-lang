@@ -1,0 +1,5 @@
+CompileTimeError: d105_a_type_fits_an_interface_only_through_satisfies.jern:13:13, line 13 column 13
+ 13 |     println(largest(3, 5) as String)
+    |             ^^^^^^^^^^^^^
+ what: `?Item` is `Int` here, which doesn't meet `Ordered`
+ why:  a type fits an interface only through a written `satisfies` line, and a type set only by being in it (D105, standard 5.8)

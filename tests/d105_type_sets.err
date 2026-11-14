@@ -1,0 +1,5 @@
+CompileTimeError: d105_type_sets.jern:21:13, line 21 column 13
+ 21 |     println(twice($b) as String)
+    |             ^^^^^^^^^
+ what: `?Item` is `Float` here, which doesn't meet `Whole`
+ why:  a type fits an interface only through a written `satisfies` line, and a type set only by being in it (D105, standard 5.8)

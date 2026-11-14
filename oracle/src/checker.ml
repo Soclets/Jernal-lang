@@ -66,6 +66,10 @@ type context = {
   baked_variables : (int, unit) Hashtbl.t;                       (* the ids of `let baked` variables *)
   versions : (string, function_info list) Hashtbl.t;             (* a name with several parameter lists (D46) *)
   overlapping_versions : (string, unit) Hashtbl.t;               (* already refused where they're written *)
+  interfaces : (string, name list * name list) Hashtbl.t;        (* includes, operations (D105) *)
+  type_sets : (string, type_expression list) Hashtbl.t;
+  mutable satisfied : (string * string) list;                    (* (type, interface) from `satisfies` lines *)
+  mutable type_parameters : (string * name list) list;           (* the generic function being checked (D103) *)
   mutable baked_values : (C.variable * C.expression) list;       (* worked out when compiling, in order (D5) *)
 }
 
@@ -140,8 +144,11 @@ let is_power_of_two n = n > 0 && n land (n - 1) = 0
 let rec resolve_type context (t : type_expression) : Types.t =
   match t.type_kind with
   | Parameter_type p ->
-      not_built context ~what:(Printf.sprintf "the type parameter `?%s` isn't built in the oracle yet" p) t.type_span
-        "functions and types can take type parameters (D103, standard 5.8)"
+      (* trace: D103 *)
+      if List.mem_assoc p context.type_parameters then Types.Parameter p
+      else
+        refuse context ~what:(Printf.sprintf "`?%s` isn't a type parameter here" p) t.type_span
+          "a type parameter is declared in `< >` after a function's name (D103, standard 5.8)"
   | Named_type { details = _ :: _; _ } -> resolve_details context t t.type_kind
   | Named_type { words = [ "Array" ]; my = false; _ } ->
       refuse context ~what:"an `Array` always says its length, as `Array<u8>[len: 4]`" t.type_span
@@ -374,6 +381,42 @@ let fit context (target : Types.t) (c : C.expression) : C.expression =
             raise Skip
         | None -> c)
     | None -> { c with kind = C.Check_fits { value = c; target } }
+
+(* The operations an interface gives, with those it includes (D105). *)
+let rec interface_operations context (interface : string) : string list =
+  match Hashtbl.find_opt context.interfaces interface with
+  | None -> []
+  | Some (includes, operations) ->
+      List.map (fun (o : name) -> o.text) operations
+      @ List.concat_map (fun (i : name) -> interface_operations context i.text) includes
+
+(* Whether a type parameter's requirements give an operation: `==` gives `!=`, and `<` gives `>`,
+   `at_least` and `at_most` (D105). *)
+let parameter_gives context (p : string) (operator : string) =
+  let requirements = Option.value (List.assoc_opt p context.type_parameters) ~default:[] in
+  let given = List.concat_map (fun (r : name) -> interface_operations context r.text) requirements in
+  let needed = match operator with "!=" -> "==" | ">" | "at_least" | "at_most" -> "<" | o -> o in
+  List.mem needed given
+
+(* Whether [t] meets a requirement: Any, a type set it's in, or an interface it satisfies (D105). *)
+let rec meets context (t : Types.t) (requirement : string) =
+  requirement = "Any"
+  || (match Hashtbl.find_opt context.type_sets requirement with
+      | Some members -> List.exists (fun m -> try Types.same (resolve_type context m) t with Skip -> false) members
+      | None -> false)
+  || List.mem (Types.name t, requirement) context.satisfied
+  || (match Hashtbl.find_opt context.interfaces requirement with
+      | Some _ ->
+          (* satisfying an interface that includes this one counts *)
+          List.exists
+            (fun (type_name, other) -> type_name = Types.name t && other <> requirement && includes context other requirement)
+            context.satisfied
+      | None -> false)
+
+and includes context (outer : string) (inner : string) =
+  match Hashtbl.find_opt context.interfaces outer with
+  | Some (included, _) -> List.exists (fun (i : name) -> i.text = inner || includes context i.text inner) included
+  | None -> false
 
 let literal_text = function
   | Syntax.Integer_literal { digits; negative; tilde } | Syntax.Decimal_literal { digits; negative; tilde } ->
@@ -874,6 +917,12 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
       let ordered = operator.word <> "==" && operator.word <> "!=" in
       (match underlying l.type_ with
        | Types.Integer _ | Types.Float _ | Types.Rational | Types.Decimal | Types.Unknown -> ()
+       | Types.Parameter p ->
+           (* trace: D103 — the body is checked once against the requirements *)
+           if not (parameter_gives context p operator.word) then
+             refuse context
+               ~what:(Printf.sprintf "`?%s`'s requirements don't give %s" p (quote operator_text)) operator.operator_span
+               "a generic body uses only what its requirements promise (D103, D105, standard 5.8)"
        | Types.String -> ()   (* trace: D138 — strings order by code point *)
        | Types.Bool when not ordered -> ()
        | Types.Bool ->
@@ -901,7 +950,13 @@ and check_binary fctx ~expected (e : expression) (operator : operator) left righ
           operator.operator_span "maths works on values of one type, converted with `as` (D91, standard 2.1a)";
       let t = underlying l.type_ in
       let is_integer = match t with Types.Integer _ -> true | _ -> false in
-      if not (Types.is_number t) && t <> Types.Unknown then
+      (match t with
+       | Types.Parameter p when not (parameter_gives context p operator.word) ->
+           refuse context
+             ~what:(Printf.sprintf "`?%s`'s requirements don't give %s" p (quote operator_text)) operator.operator_span
+             "a generic body uses only what its requirements promise (D103, D105, standard 5.8)"
+       | _ -> ());
+      if not (Types.is_number t) && t <> Types.Unknown && (match t with Types.Parameter _ -> false | _ -> true) then
         refuse context ~what:(Printf.sprintf "%s works on numbers, and this is %s" (quote operator_text) (type_text l.type_))
           operator.operator_span "maths works on numbers (D90, standard 2.1a)";
       (* arithmetic gives back the plain type (D135) *)
@@ -1164,7 +1219,7 @@ and check_call fctx ~expected (e : expression) callee arguments =
           refuse context
             ~what:(Printf.sprintf "%s is both `pkg::%s` and `%s::%s`" (quote word) word s.path word) callee.expression_span
             "a short name that clashes is always refused (D59, standard 9.2)"
-      | Some f, _ -> check_user_call fctx span f [] None arguments
+      | Some f, _ -> check_user_call ?expected fctx span f [] None arguments
       | None, Some s -> check_std_call fctx span s arguments
       | None, None ->
           if word = "main" && not my then
@@ -1229,6 +1284,84 @@ and check_path_call fctx span callee (head, head_span) (words : name list) argum
           [] presets
       in
       check_user_call fctx span f settings None arguments
+
+(* A generic function's type parameters are worked out from the arguments, or from where the result
+   goes; if nothing says, the call is refused (D103). Each must meet its requirements (D105). *)
+and instantiate fctx span (f : function_info) (expected : Types.t option) arguments : function_info =
+  let context = fctx.context in
+  let saved_diagnostics = context.diagnostics in
+  let variables = List.concat_map (fun scope -> Hashtbl.fold (fun _ info acc -> info :: acc) scope []) fctx.scopes in
+  let saved_given = List.map (fun info -> (info, info.given)) variables in
+  let argument_types =
+    List.map
+      (fun (a : argument) -> (a, try Some (check_expression fctx ~expected:None a.value).type_ with Skip -> None))
+      arguments
+  in
+  context.diagnostics <- saved_diagnostics;
+  List.iter (fun (info, given) -> info.given <- given) saved_given;
+  let bindings : (string, Types.t) Hashtbl.t = Hashtbl.create 4 in
+  let rec unify (declared : Types.t) (actual : Types.t) =
+    match declared, actual with
+    | Types.Parameter p, t when t <> Types.Unknown -> (
+        let t = match t with Types.Bounded (t, _) -> t | t -> t in
+        match Hashtbl.find_opt bindings p with
+        | None -> Hashtbl.replace bindings p t
+        | Some earlier when Types.same earlier t -> ()
+        | Some earlier ->
+            refuse context
+              ~what:(Printf.sprintf "`?%s` would be both %s and %s in this call" p (type_text earlier) (type_text t)) span
+              "a type parameter is worked out from the arguments (D103, standard 5.8)")
+    | Types.List a, Types.List b -> unify a b
+    | Types.Map (_, k1, v1), Types.Map (_, k2, v2) -> unify k1 k2; unify v1 v2
+    | Types.Bounded (a, _), b | a, Types.Bounded (b, _) -> unify a b
+    | _ -> ()
+  in
+  let labels = List.map (fun ((v : name), (l : name)) -> (v.text, l.text)) f.declaration.labels in
+  let parameters = List.combine (List.map (fun p -> p.parameter.text) f.declaration.parameters) f.parameter_types in
+  let positional_parameters = List.filter (fun (p, _) -> not (List.mem_assoc p labels)) parameters in
+  let position = ref 0 in
+  List.iter
+    (fun ((a : argument), found) ->
+      let parameter =
+        match a.label with
+        | None ->
+            let p = List.nth_opt positional_parameters !position in
+            incr position;
+            Option.map snd p
+        | Some l -> (
+            match List.find_opt (fun (_, label) -> label = l.text) labels with
+            | Some (p, _) -> List.assoc_opt p parameters
+            | None -> None)
+      in
+      match parameter, found with Some declared, Some actual -> unify declared actual | _ -> ())
+    argument_types;
+  (match expected with Some e -> unify f.result_type e | None -> ());
+  List.iter
+    (fun ((p : name), (r : requirement)) ->
+      match Hashtbl.find_opt bindings p.text with
+      | None ->
+          refuse context ~what:(Printf.sprintf "nothing in this call says what `?%s` is" p.text) span
+            "a type parameter is worked out from the arguments or where the result goes, and if nothing says, it's refused (D103, standard 5.8)"
+      | Some t ->
+          List.iter
+            (fun (requirement : name) ->
+              if not (meets context t requirement.text) then
+                refuse context
+                  ~what:(Printf.sprintf "`?%s` is %s here, which doesn't meet %s" p.text (type_text t) (quote requirement.text))
+                  span
+                  "a type fits an interface only through a written `satisfies` line, and a type set only by being in it (D105, standard 5.8)")
+            r.requirement_names)
+    f.declaration.type_parameters;
+  let rec substitute (t : Types.t) =
+    match t with
+    | Types.Parameter p -> Option.value (Hashtbl.find_opt bindings p) ~default:t
+    | Types.List item -> Types.List (substitute item)
+    | Types.Map (k, a, b) -> Types.Map (k, substitute a, substitute b)
+    | Types.Bounded (t, b) -> Types.Bounded (substitute t, b)
+    | Types.Array (t, n) -> Types.Array (substitute t, n)
+    | t -> t
+  in
+  { f with parameter_types = List.map substitute f.parameter_types; result_type = substitute f.result_type }
 
 (* A call of a name with versions picks the one whose parameters fit the arguments' number and exact
    types (D46). The arguments' types are found first without keeping anything that finding them did. *)
@@ -1350,8 +1483,9 @@ and check_arguments fctx span ~(function_name : string) ~(parameters : (string *
 
 (* A call of the program's own function. [settings] are a preset chain's values; [receiver] is the
    value a method is called on, given as its first argument. *)
-and check_user_call fctx span (f : function_info) (settings : (name * expression) list) (receiver : C.expression option) arguments =
+and check_user_call ?expected fctx span (f : function_info) (settings : (name * expression) list) (receiver : C.expression option) arguments =
   let context = fctx.context in
+  let f = if f.declaration.type_parameters = [] then f else instantiate fctx span f expected arguments in
   let declaration = f.declaration in
   (* trace: D41 *)
   if fctx.info.baked && not f.baked then
@@ -2195,6 +2329,21 @@ let dummy_declaration =
     parameters = []; result = None; fails = []; labels = []; defaults = []; requires = []; ensures = []; body = [];
     function_span = Span.none }
 
+(* A generic function's type parameters, each with requirements that exist (D103, D105). *)
+let type_parameters_of context (d : function_declaration) =
+  List.map
+    (fun ((n : name), (r : requirement)) ->
+      List.iter
+        (fun (requirement : name) ->
+          if requirement.text <> "Any" && not (Hashtbl.mem context.interfaces requirement.text)
+             && not (Hashtbl.mem context.type_sets requirement.text)
+          then
+            error context ~what:(Printf.sprintf "%s isn't `Any`, an interface or a type set" (quote requirement.text))
+              requirement.span "a type parameter always writes its requirement, even `Any` for none (D103, D105, standard 5.8)")
+        r.requirement_names;
+      (n.text, r.requirement_names))
+    d.type_parameters
+
 let file_scope context file =
   match Hashtbl.find_opt context.file_scopes file with
   | Some scope -> scope
@@ -2202,6 +2351,7 @@ let file_scope context file =
 
 let check_function context (info : function_info) =
   let declaration = info.declaration in
+  context.type_parameters <- List.map (fun ((n : name), (r : requirement)) -> (n.text, r.requirement_names)) declaration.type_parameters;
   let fctx = { context; info; scopes = [ Hashtbl.create 8; file_scope context info.file ]; loops = []; arm_values = [] } in
   let parameters =
     List.map2
@@ -2247,6 +2397,7 @@ let check_function context (info : function_info) =
     error context
       ~what:(Printf.sprintf "%s can reach its `end` without returning %s" (quote info.full_name) (type_text info.result_type))
       declaration.function_name.span "a function with a result always uses `return $value` (D26, standard 5.1)";
+  context.type_parameters <- [];
   Hashtbl.replace context.checked info.function_id
     { C.function_id = info.function_id; function_name = info.full_name; parameters; requires; body;
       returns_value = info.result_type <> Types.Nothing }
@@ -2256,6 +2407,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
     { diagnostics = []; functions = Hashtbl.create 32; structs = Hashtbl.create 16; unions = Hashtbl.create 16;
       aliases = Hashtbl.create 8; new_types = Hashtbl.create 8; std_visible; next_id = 0; checked = Hashtbl.create 32; resolving = [];
       presets = Hashtbl.create 8; families = Hashtbl.create 8; file_scopes = Hashtbl.create 8; globals = []; baked_variables = Hashtbl.create 8; baked_values = []; versions = Hashtbl.create 8; overlapping_versions = Hashtbl.create 4;
+      interfaces = Hashtbl.create 4; type_sets = Hashtbl.create 4; satisfied = []; type_parameters = [];
       function_by_id = Hashtbl.create 32; failure_families = Hashtbl.create 8; handler_families = Hashtbl.create 8 }
   in
   let mains = ref [] in
@@ -2346,6 +2498,10 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
                   handler_family.span "one name means one thing (D47, standard 5.5)"
               else Hashtbl.replace context.handler_families handler_family.text handlers
           | Global statement -> globals := (file.file_name, statement) :: !globals
+          | Interface { interface_name; includes; operations } ->
+              Hashtbl.replace context.interfaces interface_name.text (includes, operations)
+          | Type_set { set_name; members } -> Hashtbl.replace context.type_sets set_name.text members
+          | Satisfies _ -> ()
           | Unfinished_declaration { what; why; designed } ->
               report context
                 (Diagnostic.make ~span:d.declaration_span ~what
@@ -2355,10 +2511,18 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
   (* Then each struct's fields, union's cases and function's signature. *)
   Hashtbl.iter
     (fun _ info ->
+      (match info.struct_declaration.struct_type_parameters with
+       | (first, _) :: _ ->
+           report context
+             (Diagnostic.make ~span:first.span ~what:"generic structs aren't built in the oracle yet" Diagnostic.Not_built_yet
+                "functions and types can take type parameters (D103, standard 5.8)");
+           context.type_parameters <- List.map (fun ((n : name), (r : requirement)) -> (n.text, r.requirement_names)) info.struct_declaration.struct_type_parameters
+       | [] -> ());
       info.resolved_fields <-
         List.map
           (fun f -> (f.field_name.text, (try resolve_type context f.field_type with Skip -> Types.Unknown), f.field_default))
-          info.struct_declaration.fields)
+          info.struct_declaration.fields;
+      context.type_parameters <- [])
     context.structs;
   Hashtbl.iter
     (fun _ info ->
@@ -2370,10 +2534,7 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
     context.unions;
   let resolve_signature info =
     let d = info.declaration in
-    if d.type_parameters <> [] then
-      report context
-        (Diagnostic.make ~span:(fst (List.hd d.type_parameters)).span ~what:"generic functions aren't built in the oracle yet"
-           Diagnostic.Not_built_yet "functions and types can take type parameters (D103, standard 5.8)");
+    context.type_parameters <- type_parameters_of context d;
     (* trace: D140 — a family listed whole or by member, written in full; inline failures stay short *)
     let fields_of (shape : failure_shape) =
       List.map (fun ((n : name), t) -> (n.text, try resolve_type context t with Skip -> Types.Unknown)) shape.failure_fields
@@ -2402,8 +2563,26 @@ let check_package ~(std_visible : bool) (files : Syntax.file list) : (C.program 
           | None, None -> [ (name, fields_of shape) ])
         d.fails;
     info.parameter_types <- List.map (fun p -> try resolve_type context p.parameter_type with Skip -> Types.Unknown) d.parameters;
-    info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown)
+    info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown);
+    context.type_parameters <- []
   in
+  (* `Type satisfies Interface` lines (D105) *)
+  List.iter
+    (fun (file : Syntax.file) ->
+      List.iter
+        (fun d ->
+          match d.declaration_kind with
+          | Satisfies { satisfying; interface } -> (
+              match resolve_type context satisfying with
+              | t ->
+                  if not (Hashtbl.mem context.interfaces interface.text) then
+                    error context ~what:(Printf.sprintf "there's no interface called %s" (quote interface.text)) interface.span
+                      "a type fits an interface through a written `satisfies` line (D105, standard 5.8)"
+                  else context.satisfied <- (Types.name t, interface.text) :: context.satisfied
+              | exception Skip -> ())
+          | _ -> ())
+        file.declarations)
+    files;
   Hashtbl.iter (fun _ info -> resolve_signature info) context.functions;
   Hashtbl.iter (fun _ infos -> List.iter resolve_signature infos) context.versions;
   (* Two versions that could take the same call are refused where they're written (D46). *)

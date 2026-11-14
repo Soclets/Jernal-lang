@@ -1,0 +1,5 @@
+CompileTimeError: d103_a_body_uses_only_what_its_requirements_promise.jern:2:11, line 2 column 11
+ 2 |     if $a > $b:
+   |           ^
+ what: `?Item`'s requirements don't give `>`
+ why:  a generic body uses only what its requirements promise (D103, D105, standard 5.8)

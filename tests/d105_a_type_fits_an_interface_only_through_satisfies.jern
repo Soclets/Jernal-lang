@@ -1,0 +1,14 @@
+interface Ordered<?Self>:
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+fn largest<?Item: Ordered>[$a: ?Item, $b: ?Item] -> ?Item:
+    if $a > $b:
+        return $a
+    end if
+    return $b
+end fn largest
+
+fn.main[]:
+    println(largest(3, 5) as String)
+end fn.main

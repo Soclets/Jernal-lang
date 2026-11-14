@@ -1,0 +1,31 @@
+interface Equatable<?Self>:
+    op ==[$a: ?Self, $b: ?Self] -> Bool
+end interface Equatable
+
+/// Must be a total order.
+interface Ordered<?Self>:
+    includes Equatable
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+Int satisfies Ordered
+String satisfies Ordered
+
+fn largest<?Item: Ordered>[$a: ?Item, $b: ?Item] -> ?Item:
+    if $a > $b:
+        return $a
+    end if
+    return $b
+end fn largest
+
+fn first_of<?Item: Any>[$xs: List<?Item>] -> ?Item:
+    return $xs[pos: 1]
+end fn first_of
+
+fn.main[]:
+    let $big: Int = largest(3, 5)
+    println($big as String)
+    println(largest("apple", "pear"))
+    let $names: List<String> = ["Ann", "Bob"]
+    println(first_of($names))
+end fn.main
