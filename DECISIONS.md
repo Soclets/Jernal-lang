@@ -1644,3 +1644,20 @@ end if
 Not decided yet: whether `match` gives a value, a catch-all arm, guards, matching on integers, strings and ranges, and
 a naming form of the test. This is Cyborg's (its D9, D33, D104, D139), as Cyborg's design session described on
 2026-11-14, with short case names in arms. Claude proposed it; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D98. `match` is a statement.** `match` gives no value. A value from a `match` comes through `decl` and `assign`
+(D34), which make sure every arm gives it exactly once. This keeps D19 (an expression never spans lines) and D24
+(results are written out, never "the last line").
+
+```
+decl $label: String
+match $s:
+    case ok:
+        assign $label = "fine"
+    case failed $f:
+        assign $label = "error " $f.code as String
+end match
+```
+
+As in Cyborg, as its design session described on 2026-11-14. Claude proposed it; the owner chose: "A". (Owner,
+2026-11-14)

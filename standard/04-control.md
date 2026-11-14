@@ -79,6 +79,8 @@ match $s:
 end match
 ```
 
+`match` is a statement and gives no value; a value from it comes through `decl` and `assign` (D98).
+
 `if $value: Type.case:` tests which case a value is. Inside, its fields can be read; outside, they can't. That
 knowledge ends at a `change` to the value: anything after it that relies on the case is refused (D97).
 

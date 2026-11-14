@@ -6,7 +6,7 @@ Using anything here gives a `NotDesignedYet` error (rule 10). Each item moves in
 
 - **Text:** what a `Bool`, a `Float` or a struct looks like as text, and the formatting tool for things like decimal
   places, newlines and tabs (D21, D95).
-- **`match`:** whether it gives a value, a catch-all arm, guards, matching on integers, strings and ranges, and a
+- **`match`:** a catch-all arm, guards, matching on integers, strings and ranges, and a
   naming form of the case test (D97).
 - **Generics and interfaces:** how user code declares them.
 - **`pub`:** what a package or file shows, on functions, families, their members and struct fields.
