@@ -1,0 +1,12 @@
+fn say[$text: String, $n: Int] -> Int:
+    println($text)
+    return $n
+end fn say
+
+fn.main[]:
+    let $same: Bool = say("left", 1) == say("right", 1)
+    let $sum: Int = say("first", 1) + say("second", 2) x say("third", 3)
+    let $ages: Map<key: Int, val: Int> = [say("key", 1) => say("value", 2)]
+    let $text: String = $same as String " " $sum as String
+    println($text)
+end fn.main

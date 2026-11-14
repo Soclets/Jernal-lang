@@ -215,7 +215,9 @@ and evaluate_plain context (e : C.expression) : Value.t =
       | Value.Decimal d -> Value.Decimal (Decimal.negate d)
       | v -> v)
   | C.Compare { operator; left; right } ->
-      let l = evaluate context left and r = evaluate context right in
+      (* left, then right: OCaml leaves `let ... and ...` in no set order *)
+      let l = evaluate context left in
+      let r = evaluate context right in
       Value.Bool (compare_values operator l r)
   | C.Chain { operands; operators } ->
       (* trace: D139 — each operand runs once, left to right, stopping at the first false *)
@@ -243,7 +245,12 @@ and evaluate_plain context (e : C.expression) : Value.t =
   | C.List_literal items -> Value.List { items = Dynarray.of_list (List.map (evaluate context) items) }
   | C.Map_literal (map_kind, entries) ->
       let m = { Value.map_kind; entries = Dynarray.create () } in
-      List.iter (fun (k, v) -> Methods.set_key m (evaluate context k) (evaluate context v)) entries;
+      List.iter
+        (fun (k, v) ->
+          let key = evaluate context k in
+          let value = evaluate context v in
+          Methods.set_key m key value)
+        entries;
       Value.Map m
   | C.Build_struct { struct_name; fields } ->
       let defaults = Option.value (Hashtbl.find_opt context.program.struct_defaults struct_name) ~default:[] in
@@ -521,8 +528,9 @@ and execute context (s : C.statement) =
       | Some cell -> cell := x
       | None -> define context v x)
   | C.Set_field { target; field; value } -> (
+      let place = evaluate context target in
       let x = evaluate context value in
-      match evaluate context target with
+      match place with
       | Value.Struct st -> (List.assoc field st.fields) := x
       | _ -> ())
   | C.Set_index { target; counting; position; value } -> (
