@@ -173,6 +173,13 @@ let sized_integer word =
 
 let is_power_of_two n = n > 0 && n land (n - 1) = 0
 
+(* Values whose `==` isn't decided yet (D105): a struct, union, list or map. *)
+let rec equality_undecided (t : Types.t) =
+  match t with
+  | Types.Struct _ | Types.Union _ | Types.Case _ | Types.Instance _ | Types.List _ | Types.Map _ | Types.Array _ -> true
+  | Types.New (_, t) | Types.Bounded (t, _) -> equality_undecided t
+  | _ -> false
+
 (* Something without `pub` is seen only in its own file (D106); using it elsewhere is refused with no fix. *)
 let seen_from context ~name ~file ~(visibility : visibility) (span : Span.t) =
   (* trace: D106 *)
@@ -233,7 +240,11 @@ let rec resolve_type context (t : type_expression) : Types.t =
           match arguments with
           | [ { argument_label = Some { text = "key"; _ }; argument_type = key };
               { argument_label = Some { text = "val"; _ }; argument_type = value } ] ->
-              Types.Map (kind, resolve_type context key, resolve_type context value)
+              let key_type = resolve_type context key in
+              if equality_undecided key_type then
+                not_designed context ~what:(Printf.sprintf "a map keyed by %s needs its `==`, which isn't decided yet" (type_text key_type))
+                  key.type_span "not decided yet (D105, standard 12.1)";
+              Types.Map (kind, key_type, resolve_type context value)
           | _ ->
               refuse context ~what:"a map's types are written `<key: ..., val: ...>`" t.type_span
                 "two or more type parameters are each labelled with their name (D102, D132, standard 2.3)")
@@ -1946,6 +1957,9 @@ and check_method_call_checked fctx span (target : C.expression) (receiver : expr
   | Types.List _, "clear", [] ->
       ignore (positional 0);
       builtin ~changes:true "clear" (Methods.within_length (list_bounds target.type_) Methods.clear) Types.Nothing []
+  | Types.List item, "contains", [] when equality_undecided item ->
+      not_designed context ~what:(Printf.sprintf "`contains` needs `==` on %s, which isn't decided yet" (type_text item))
+        method_name.span "not decided yet (D105, standard 12.1)"
   | Types.List item, "contains", [] -> (
       match positional 1 with
       | [ x ] ->
