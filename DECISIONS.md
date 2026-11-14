@@ -1174,3 +1174,9 @@ kind of `Map`? Isn't there more? Maybe with a dot?", chose "yea" to a bare `Map`
 "Should we refuse the same option? Like `Map.insertion` is refused, write `Map`? I don't think so, since `i64` would also
 be refused. And we're not the same as Cyborg's pitch, we're progressive. So, `String.utf8` wouldn't be refused too. And
 does the `Utf8` need to be big first letter?" (Owner, 2026-11-14)
+
+**D65. The compiler: Rust, LLVM through `inkwell` and `llvm-sys`, and C++ where Rust can't reach.** The compiler is
+written in Rust. It drives LLVM through `inkwell`, and through `llvm-sys` where `inkwell` doesn't cover something. What
+neither can reach, such as parts of LLVM's C++ API, goes in small C++ pieces. This differs from Cyborg, which goes
+through Lyftar and allows no C++. Claude proposed Rust with LLVM IR as text; the owner said "That's not fun, lol", and
+chose: "Rust + Inkwell + llvm-sys + LLVM + C++ for Rust can't do?". (Owner, 2026-11-14)
