@@ -1247,3 +1247,13 @@ FinalPerf works?" and "ask"; Claude proposed Cyborg's, with all three operators 
 **D72. No default build mode.** Every build and run names its mode; nothing is picked implicitly. As in Cyborg (its
 D26). Claude proposed `Interp` for running and `Working` for building as defaults; the owner chose: "No". (Owner,
 2026-11-14)
+
+**D73. The oracle is written in OCaml, uses no shared GC, and the GC gets a torture mode.** The oracle (D69) is written
+in OCaml, a different language from the compiler (D65), so nothing can be shared between them by accident. Jernal's
+integers are `Int64` in the oracle, never OCaml's plain 63-bit `int`. The oracle doesn't share the compiler's garbage
+collector: it relies on OCaml's own, since collection can't be seen in a Jernal program. Comparing compiled programs
+against the oracle tests the real GC, since a GC bug changes the compiled output, and a GC torture option in `Working`
+mode, which collects on every allocation, makes sure collections and timing windows happen even in small tests. The
+owner said "SPARK?", then "No, no, no. I was joking"; asked "would they reuse the GC together? Comp and Orac" and "how
+does testing against the oracle doesn't test the GC?", said "Yes, but should oracle use Rust or OCaml?", and chose:
+"OCaml". (Owner, 2026-11-14)
