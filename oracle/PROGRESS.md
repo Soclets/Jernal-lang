@@ -32,7 +32,7 @@ for columns and `len()`).
 | `src/manifest.ml` | reading and checking `Journey.siml` |
 | `src/package.ml`, `src/test_runner.ml`, `bin/jernorac.ml` | the commands |
 
-## Built (192 tests passing)
+## Built (208 tests passing)
 
 - Manifest: `name`, `ver`, `need std 2026y-11m-14d`, `kind tests`, `use` blocks for a file and `all` (D60, D114,
   D115); other packages and dates and scoped lines give NotBuiltYet; `rule` lines give NotDesignedYet.

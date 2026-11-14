@@ -1,0 +1,11 @@
+CompileTimeError: d13_nothing_unknown_causes_an_error.jern:2:18, line 2 column 18
+ 2 |     let $broken: NoSuchType = 5
+   |                  ^^^^^^^^^^
+ what: there's no type called `NoSuchType`
+ why:  a type is a built-in type or one the program declares (D56, standard 2)
+
+CompileTimeError: d13_nothing_unknown_causes_an_error.jern:3:16, line 3 column 16
+ 3 |     let $copy: NoSuchType = $broken
+   |                ^^^^^^^^^^
+ what: there's no type called `NoSuchType`
+ why:  a type is a built-in type or one the program declares (D56, standard 2)

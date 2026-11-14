@@ -1,0 +1,5 @@
+fn.main[]:
+    let $broken: NoSuchType = 5
+    let $copy: NoSuchType = $broken
+    println($broken.anything as String)
+end fn.main

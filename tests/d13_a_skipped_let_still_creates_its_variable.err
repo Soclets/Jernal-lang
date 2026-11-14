@@ -1,0 +1,5 @@
+CompileTimeError: d13_a_skipped_let_still_creates_its_variable.jern:2:19, line 2 column 19
+ 2 |     let $x: Int = undefined_function()
+   |                   ^^^^^^^^^^^^^^^^^^
+ what: there's no function called `undefined_function`
+ why:  a name is visible when it's declared or comes from a package the manifest lists (D59, standard 9.2)

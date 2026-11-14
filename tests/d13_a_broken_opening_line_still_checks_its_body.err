@@ -1,0 +1,11 @@
+CompileTimeError: d13_a_broken_opening_line_still_checks_its_body.jern:3:20, line 3 column 20
+ 3 |     while $count < :
+   |                    ^
+ what: expected a value here, not `:`
+ why:  the shape of each statement is set out in the standard (D19, standard 1.1)
+
+CompileTimeError: d13_a_broken_opening_line_still_checks_its_body.jern:4:17, line 4 column 17
+ 4 |         println($missing)
+   |                 ^^^^^^^^
+ what: there's no variable called `$missing` here
+ why:  every new name says how it's made (D5, D34, standard 3.1)

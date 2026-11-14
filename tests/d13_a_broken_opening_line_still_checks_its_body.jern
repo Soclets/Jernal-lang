@@ -1,0 +1,7 @@
+fn.main[]:
+    let $count: Int = 0
+    while $count < :
+        println($missing)
+    end while
+    println("after")
+end fn.main
