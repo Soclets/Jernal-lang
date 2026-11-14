@@ -34,6 +34,15 @@ let rec problem (t : Types.t) (v : Value.t) : string option =
             if (match b.len_min with Some m -> n < m | None -> false) || (match b.len_max with Some m -> n > m | None -> false)
             then Some (Printf.sprintf "it has %s" (items_text n))
             else None
+        | Value.Float (f, _) when Float.is_integer f = false && not (Float.is_finite f) ->
+            (* infinities are ordered as IEEE says; NaN is unordered, so it never fits a bound *)
+            let breaks =
+              Float.is_nan f && (b.min <> None || b.max <> None)
+              || (f = Float.infinity && b.max <> None)
+              || (f = Float.neg_infinity && b.min <> None)
+            in
+            if breaks then Some (Printf.sprintf "it is %s" (if Float.is_nan f then "NaN" else if f > 0.0 then "inf" else "-inf"))
+            else None
         | _ -> (
             match number_of v with
             | None -> if b.min <> None || b.max <> None then Some (Printf.sprintf "it is %s" (shown v)) else None
