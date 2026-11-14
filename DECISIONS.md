@@ -888,3 +888,19 @@ make it lazy (copy-on-write) only where it can prove nobody could notice. Things
 they're unused, so they need explicit cleanup, which is not decided yet. The owner's sketch already said "GC"; the owner
 asked "What if we change to copy-on-write?", "What if we go both RC and GC? And copy-on-write" and "What if we go GC
 only?"; Claude proposed GC only, with `copy` copying right away; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D51. `must_give` types must be handed off exactly once.** A type marked `must_give` has to be given away with `give`
+exactly once on every path, or the program doesn't compile. It's for things that have to be closed or released, such
+as files, connections and locks: the garbage collector handles memory, and `must_give` makes sure nobody forgets to
+close. Every way out of a function counts, including `return early`, `?` and a failure. It's checked when compiling,
+with nothing at runtime. Replaces D7's "no `must_Give`". How a type is marked depends on how types are declared, which
+is not decided yet.
+
+```
+let $f: File = open($path)?
+println($f.read_line())
+close(give $f)                 // leaving this out is a CompileTimeError
+```
+
+From Cyborg's `must_Give` (its D2). The owner said: "Cyborg has a `must_Give` struct"; Claude proposed it for files and
+connections, after D50 left them without cleanup; the owner chose: "Yes". (Owner, 2026-11-14)
