@@ -1122,3 +1122,23 @@ This is Cyborg's `fn.main` (its D11, D214), as Cyborg's design session described
 for `fn main`, should it be `fn.main`?", and said "Actually, you can make your own `fn main`, `fn my::main`. Ask Cyborg
 for more details"; Claude proposed this; the owner chose: "yea". How a name that clashes with the language is written
 is not decided yet. (Owner, 2026-11-14)
+
+**D63. `my::` only for names that clash with the language.** A name of the program's own that is also a built-in word
+(a keyword, a word operator such as `and` or `at_least`, a built-in type such as `Int`, or `main`) is written with
+`my::` wherever it appears: its declaration, its closer and every use. Every other name stays bare. If Jernal later adds
+a built-in word that old code used as a bare name, that code gets a `CompileTimeError` saying to add `my::`, never a
+silent change of meaning. `my::` is for clashes with the language; `pkg::` (D59) is for clashes with a package.
+
+```
+fn greet[]:                     // no clash: bare
+...
+fn my::main[]:                  // clashes with `main`
+...
+end fn my::main
+my::main()
+my::and($x, $y)                 // never mistaken for the operator `and`
+```
+
+This is Cyborg's `my::` (its D75, D214), as Cyborg's design session described on 2026-11-14. The owner asked "But is
+`my::` required? Personally, I don't think it should be", then "Why not just require only for clashing ones? Current
+clashing"; the owner chose: "yea". (Owner, 2026-11-14)
