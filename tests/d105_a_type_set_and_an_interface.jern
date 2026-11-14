@@ -1,0 +1,34 @@
+interface Equatable<?Self>:
+    op ==[$a: ?Self, $b: ?Self] -> Bool
+end interface Equatable
+
+interface Ordered<?Self>:
+    includes Equatable
+    op <[$a: ?Self, $b: ?Self] -> Bool
+end interface Ordered
+
+type_set Whole:
+    i32
+    i64
+end type_set Whole
+
+i32 satisfies Ordered
+i64 satisfies Ordered
+
+fn smallest<?Item: Whole and Ordered>[$xs: List<?Item>] -> ?Item:
+    let mut $best: ?Item = $xs.first()
+    for $x in $xs:
+        if $x < $best:
+            change $best = $x
+        end if
+    end for
+    return $best
+end fn smallest
+
+fn.main[]:
+    let $small: List<i32> = [5, -3, 8]
+    let $big: List<Int> = [40, 20, 30]
+    let $a: i32 = smallest($small)
+    let $b: Int = smallest($big)
+    println($a as String " " $b as String)
+end fn.main
