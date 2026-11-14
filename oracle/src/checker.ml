@@ -1715,6 +1715,10 @@ and check_arguments fctx span ~(function_name : string) ~(parameters : (string *
    value a method is called on, given as its first argument. *)
 and check_user_call ?expected fctx span (f : function_info) (settings : (name * expression) list) (receiver : C.expression option) arguments =
   let context = fctx.context in
+  if f.declaration.header_broken then begin
+    List.iter (fun (a : argument) -> try ignore (check_expression fctx ~expected:None a.value) with Skip -> ()) arguments;
+    raise Skip
+  end;
   let f =
     if f.declaration.type_parameters = [] then f
     else instantiate fctx span f expected ~receiver:(Option.map (fun (r : C.expression) -> r.type_) receiver) arguments
@@ -2675,7 +2679,7 @@ let () = check_statements_ref := check_statements
 let dummy_declaration =
   { narrowings = []; function_name = { text = ""; span = Span.none }; function_my = false; type_parameters = [];
     parameters = []; result = None; fails = []; labels = []; defaults = []; requires = []; ensures = []; body = [];
-    function_span = Span.none; function_visibility = File_only }
+    function_span = Span.none; function_visibility = File_only; header_broken = false }
 
 (* A generic function's type parameters, each with requirements that exist (D103, D105). *)
 let type_parameters_of context (d : function_declaration) =
@@ -2936,7 +2940,11 @@ let check_package ?(uses = []) ~(std_visible : bool) (files : Syntax.file list) 
           | None, None -> [ (name, fields_of shape) ])
         d.fails;
     info.parameter_types <- List.map (fun p -> try resolve_type context p.parameter_type with Skip -> Types.Unknown) d.parameters;
-    info.result_type <- (match d.result with None -> Types.Nothing | Some t -> try resolve_type context t with Skip -> Types.Unknown);
+    info.result_type <-
+      (match d.result with
+       | _ when d.header_broken -> Types.Unknown
+       | None -> Types.Nothing
+       | Some t -> try resolve_type context t with Skip -> Types.Unknown);
     (* trace: D106 — a `pub.…` signature can't mention a less visible type *)
     if d.function_visibility <> File_only then begin
       let rec less_visible (t : Types.t) =

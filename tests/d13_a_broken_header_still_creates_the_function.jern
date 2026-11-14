@@ -1,0 +1,8 @@
+fn half[$n: Int] -> Int fails odd:
+    return $n div.trunc 2
+end fn half
+
+fn.main[]:
+    println(half(10) as String)
+    println(undeclared() as String)
+end fn.main

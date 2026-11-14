@@ -1283,14 +1283,24 @@ let parse_function state ~(keyword : string) : function_declaration =
     end
     else (false, expect_name state "the function's name")
   in
-  let type_parameters = parse_type_parameters state in
-  let parameters = parse_parameters state in
-  let result =
-    if peek_kind state = Arrow then (ignore (advance state); Some (parse_type state)) else None
+  (* trace: D13 — a broken header still creates the function, and whatever is broken counts as unknown *)
+  let type_parameters = ref [] and parameters = ref [] and result = ref None and fails = ref [] in
+  let header_broken =
+    match
+      type_parameters := parse_type_parameters state;
+      parameters := parse_parameters state;
+      result := (if peek_kind state = Arrow then (ignore (advance state); Some (parse_type state)) else None);
+      fails := parse_fails state;
+      ignore (expect state Colon "`:`");
+      end_of_line state
+    with
+    | () -> false
+    | exception Line_error d ->
+        report state d;
+        skip_line state;
+        true
   in
-  let fails = parse_fails state in
-  ignore (expect state Colon "`:`");
-  end_of_line state;
+  let type_parameters = !type_parameters and parameters = !parameters and result = !result and fails = !fails in
   let closer =
     let head = String.concat "." (keyword :: narrowing_words) in
     if is_main then head else head ^ " " ^ (if function_my then "my::" else "") ^ function_name.text
@@ -1304,7 +1314,7 @@ let parse_function state ~(keyword : string) : function_declaration =
   expect_closer state ~opener:start.span ~expected:closer;
   end_of_line state;
   { narrowings; function_name; function_my; type_parameters; parameters; result; fails; labels;
-    defaults; requires; ensures; body; function_span = start.span; function_visibility = File_only }
+    defaults; requires; ensures; body; function_span = start.span; function_visibility = File_only; header_broken }
 
 let parse_visibility state : visibility * Token.t option =
   if is_word state "pub" then begin
@@ -1364,7 +1374,7 @@ let parse_versions state : family_member =
               end_of_line state;
               { narrowings = []; function_name = { versions_name with span = opener.span }; function_my = false;
                 type_parameters = []; parameters; result; fails; labels; defaults; requires; ensures; body;
-                function_span = opener.span; function_visibility = File_only }
+                function_span = opener.span; function_visibility = File_only; header_broken = false }
             with
             | v -> go (v :: acc)
             | exception Line_error d -> report state d; skip_block state; go acc

@@ -151,6 +151,7 @@ type function_declaration = {
   body : statement list;
   function_span : Span.t;
   function_visibility : visibility;   (* D106: without `pub`, seen only in its own file *)
+  header_broken : bool;               (* D13: the header had an error; what wasn't read counts as unknown *)
 }
 
 type struct_field = { field_name : name; field_type : type_expression; field_default : expression option; field_visibility : visibility }

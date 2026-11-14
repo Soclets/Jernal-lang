@@ -1,0 +1,11 @@
+CompileTimeError: d13_a_broken_header_still_creates_the_function.jern:1:31, line 1 column 31
+ 1 | fn half[$n: Int] -> Int fails odd:
+   |                               ^^^
+ what: expected `[` here, not `odd`
+ why:  the shape of each statement is set out in the standard (D19, standard 1.1)
+
+CompileTimeError: d13_a_broken_header_still_creates_the_function.jern:7:13, line 7 column 13
+ 7 |     println(undeclared() as String)
+   |             ^^^^^^^^^^
+ what: there's no function called `undeclared`
+ why:  a name is visible when it's declared or comes from a package the manifest lists (D59, standard 9.2)
