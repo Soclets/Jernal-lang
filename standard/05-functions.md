@@ -84,8 +84,8 @@ A `fam.fn` block holds things that belong under one name (D45):
 2. a group of related functions,
 3. a type's makers and methods.
 
-Inside `fam.fn X`, members are written short, after a keyword, and each one's full name is `X.name`; a function named
-`X` itself is the family's own, called as `X(...)` (D45, D49). A narrowing on `fam.fn`, such as `fam.fn.pure`, applies to
+Inside `fam.fn <family>`, members are written short, after a keyword, and each one's full name is `<family>.<name>`; a
+function named `<family>` itself is the family's own, called as `X(...)` (D45, D49). A narrowing on `fam.fn`, such as `fam.fn.pure`, applies to
 every member.
 
 ```
@@ -186,7 +186,7 @@ A type's labels come from its parameters' names: `?Left` is labelled `left.type:
 
 An `interface` lists operations with no code, and can include another with `includes` (D105). It has no laws; promises
 go in `///` documentation (D104). A `type_set` is a closed list of types. Requirements combine with `and`, and only an
-interface gives operations. A type fits an interface only through a written `Type satisfies Interface` line, which only
+interface gives operations. A type fits an interface only through a written `<type> satisfies <interface>` line, which only
 the type's package or the interface's package may write. A type defines only `==` and `<`; `!=`, `>`, `at_least` and
 `at_most` follow.
 

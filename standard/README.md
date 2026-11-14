@@ -8,6 +8,14 @@ Only Jernal Design Claude edits the standard (rule 12). Every new decision updat
 the same commit (D81). JernComp and JernOrac are built from this standard, and anything listed in
 [chapter 12](12-not-decided.md) gives a `NotDesignedYet` error (rule 10).
 
+## How syntax is described
+
+In the standard's syntax descriptions, `<...>` holding lowercase words is a slot, to be replaced, angle brackets and
+all: `need <package> <date>`. `<a or b>` means pick one. Slots nest, so a slot can hold another:
+`jern <comp or run or test> --<mode>`, `List<<item type>>`. Jernal's own type brackets never look like a slot, since
+they hold a type, and types are capitalized (D56): `List<Int>` is real code, `List<<item type>>` is a description.
+`...` means more of the same, or a body of code. (D129)
+
 | Chapter | |
 |---|---|
 | [1. Syntax](01-syntax.md) | lines, blocks, names, brackets, spacing |

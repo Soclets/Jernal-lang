@@ -13,6 +13,7 @@
 Jernal files end in `.jern` (D74).
 
 ```
+jern <comp or run or test> --<mode> <-- <arguments>, only for run>
 jern comp --FinalSafe       // compiles
 jern run --FinalSafe        // compiles, then runs
 jern run --Interp           // runs on the oracle

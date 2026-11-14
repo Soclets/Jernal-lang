@@ -2069,3 +2069,11 @@ means std as specified on that date; both implementations implement it, JernOrac
 that one. The manifest never names an implementation, so the same program runs on both and can be compared (D69). The
 owner asked "Doesn't JernOrac have to read Journey to get std?" and "What about `need std JernOrac`?"; Claude explained
 why the manifest shouldn't name an implementation; the owner chose: "yea". (Owner, 2026-11-14)
+
+**D129. The standard marks slots with `< >`, and slots nest.** In the standard's syntax descriptions, `<...>` holding
+lowercase words is a slot to replace, brackets and all, such as `need <package> <date>`. `<a or b>` means pick one.
+Slots nest: `jern <comp or run or test> --<mode>`, `List<<item type>>`. Jernal's own type brackets hold a capitalized
+type (D56), so `List<Int>` is code and `List<<item type>>` is a description. `...` means more of the same, or a body of
+code. The owner said "Let's define how we say placeholders first", explained "like `jern <run or compile> <mode>`
+stuff", and, when Claude proposed `{ }` to avoid clashing with type brackets, chose: "Just fucking define `<>` and nest
+it". (Owner, 2026-11-14)

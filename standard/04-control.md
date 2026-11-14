@@ -80,7 +80,7 @@ end match
 ```
 
 There's no catch-all arm: every case is always covered (D99). A set of arms can be written once in a `fam.handler`
-(6.4) and reused with `match $x with family.handler`, which must still cover every case (D100). A set that can
+(6.4) and reused with `match <value> with <family>.<handler>`, which must still cover every case (D100). A set that can
 `return` or `break` is used with `*`, as in `match $key with key_actions.*bail`. A `match` is either written out or one
 set, never a mix. To pick out a few cases, use the case test below.
 
@@ -89,7 +89,7 @@ guards: a check goes inside the arm.
 
 `match` is a statement and gives no value; a value from it comes through `decl` and `assign` (D98).
 
-`if $value: Type.case:` tests which case a value is. Inside, its fields can be read; outside, they can't. That
+`if <value>: <type>.<case>:` tests which case a value is. Inside, its fields can be read; outside, they can't. That
 knowledge ends at a `change` to the value: anything after it that relies on the case is refused (D97).
 
 ```
