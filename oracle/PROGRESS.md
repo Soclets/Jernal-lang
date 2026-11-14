@@ -99,6 +99,8 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
 - Order of evaluation: arguments, operands and struct fields [left to right, as written].
 - How precise "can reach its end without returning" is (D26): a `while true:` with a `return` inside, or a call to
   `exit()` last [both are refused: only `return`, `fail`, and `if`/`else` or `match` where every branch ends, count].
+- Whether a manifest without `name` or `ver` is refused (9.1) [not refused]; and whether a `use` block for a file
+  that isn't in the package is refused [not refused].
 - The exact list of keywords, since `my::` depends on it (D63). [the oracle's list is in `oracle/src/parser.ml`,
   `keywords`; `range`, `pos`, `offset`, `from`, `to`, `before`, `step_by`, `key`, `self` and `Any` aren't in it]
 
