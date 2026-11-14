@@ -1,0 +1,4 @@
+fn.main[]:
+    let $f: Float = 2.5
+    let $i: Int = $f as Int
+end fn.main

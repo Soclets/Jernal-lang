@@ -489,6 +489,7 @@ and failures_of context (value : C.expression) : (string * (string * Types.t) li
   | C.Call_function { function_id; _ } -> (
       match Hashtbl.find_opt context.function_by_id function_id with Some f -> f.failures | None -> [])
   | C.Arithmetic { operator = "div"; narrowings = [ "exact" ]; _ } -> [ ("not_exact", []) ]   (* trace: D139 *)
+  | C.Convert { narrowings = [ "exact" ]; _ } -> [ ("not_exact", []) ]
   | _ -> []
 
 and require_can_fail context (value : C.expression) =
@@ -672,9 +673,36 @@ and check_convert fctx (e : expression) value narrowings target =
    | Types.String, (Types.List _ | Types.Map _), _ ->
        not_designed context ~what:(Printf.sprintf "what %s looks like as text isn't decided yet" (type_text from)) span
          "not decided yet (D120, standard 12.1)"
-   | _ ->
+   (* trace: D91 *)
+   | Types.Integer _, Types.Integer _, ([] | [ "wrap" ] | [ "saturate" ]) -> ()
+   | Types.Integer _, Types.Integer _, _ ->
+       refuse context
+         ~what:(Printf.sprintf "%s isn't a conversion between integers: it's plain `as`, `as.wrap` or `as.saturate`"
+                  (quote (String.concat "." ("as" :: narrowing_words))))
+         span "conversions say what they do whenever there's a choice (D91, standard 2.1a)"
+   | Types.Integer _, (Types.Float Types.F64 | Types.Rational),
+     ([ "trunc" ] | [ "floor" ] | [ "ceil" ] | [ "round"; "even" ] | [ "round"; "away" ] | [ "exact" ]) -> ()
+   | Types.Integer _, (Types.Float Types.F64 | Types.Rational), [] ->
+       refuse context
+         ~what:(Printf.sprintf "converting %s to an integer says how it rounds: `as.trunc`, `as.floor`, `as.ceil`, `as.round.even`, `as.round.away` or `as.exact`"
+                  (type_text value.type_))
+         span "there's no bare rounding, since ties are a real choice (D91, standard 2.1a)"
+   | (Types.Float Types.F64 | Types.Rational), (Types.Integer _ | Types.Float Types.F64 | Types.Rational), [] -> ()
+   | (Types.Integer _ | Types.Float _ | Types.Rational), (Types.Integer _ | Types.Float _ | Types.Rational), _
+     when (match underlying target_type, from with Types.Float k, _ | _, Types.Float k -> k <> Types.F64 | _ -> false) ->
        not_built context
          ~what:(Printf.sprintf "converting %s to %s isn't built in the oracle yet" (type_text value.type_) (type_text target_type))
+         span "converting between number types uses `as` (D91, standard 2.1a)"
+   | (Types.Integer _ | Types.Float _ | Types.Rational), (Types.Integer _ | Types.Float _ | Types.Rational), _ ->
+       refuse context
+         ~what:(Printf.sprintf "%s doesn't say anything this conversion needs" (quote (String.concat "." ("as" :: narrowing_words))))
+         span "conversions say what they do whenever there's a choice (D91, standard 2.1a)"
+   | (Types.Integer _ | Types.Float _ | Types.Rational | Types.Decimal), Types.String, _ ->
+       not_designed context ~what:(Printf.sprintf "turning text into %s isn't decided yet" (type_text target_type)) span
+         "not decided yet (D53, standard 12.1)"
+   | _ ->
+       refuse context
+         ~what:(Printf.sprintf "%s can't be converted to %s" (type_text value.type_) (type_text target_type))
          span "converting between number types uses `as` (D91, standard 2.1a)");
   { C.kind = C.Convert { value; narrowings = narrowing_words; target = target_type }; type_ = target_type; span }
 

@@ -1,0 +1,7 @@
+fn.main[]:
+    let $r: Rational = 7 div.rational 2
+    println(($r as.floor Int) as String)
+    println(($r as.round.even Int) as String)
+    let $exact: Int = $r as.exact Int ?? 0
+    println($exact as String)
+end fn.main

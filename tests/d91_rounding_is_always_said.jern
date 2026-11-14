@@ -1,0 +1,17 @@
+fn.main[]:
+    let $f: Float = 2.5
+    let $g: Float = -2.5
+    println(($f as.trunc Int) as String)
+    println(($f as.floor Int) as String)
+    println(($f as.ceil Int) as String)
+    println(($f as.round.even Int) as String)
+    println(($f as.round.away Int) as String)
+    println(($g as.trunc Int) as String)
+    println(($g as.floor Int) as String)
+    println(($g as.ceil Int) as String)
+    println(($g as.round.even Int) as String)
+    println(($g as.round.away Int) as String)
+    let $three: Float = 3.0
+    println(($three as.exact Int) as String)
+    println(($f as.exact Int ?? 0) as String)
+end fn.main

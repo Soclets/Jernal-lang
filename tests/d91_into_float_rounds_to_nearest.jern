@@ -1,0 +1,13 @@
+fn.main[]:
+    let $n: Int = 9007199254740993
+    let $f: Float = $n as Float
+    println($f as String)
+    let $r: Rational = 1 div.rational 3
+    let $third: Float = $r as Float
+    println($third as String)
+    let $back: Rational = 0.5
+    let $half: Float = $back as Float
+    println($half as String)
+    let $exact: Rational = $half as Rational
+    println($exact as String)
+end fn.main

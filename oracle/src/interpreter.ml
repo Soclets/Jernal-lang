@@ -139,7 +139,8 @@ let define context (v : C.variable) value = Hashtbl.replace context.frame v.vari
 
 let rec evaluate context (e : C.expression) : Value.t =
   match e.kind with
-  | C.Call_function _ | C.Call_builtin _ | C.Arithmetic { operator = "div"; narrowings = [ "exact" ]; _ } -> (
+  | C.Call_function _ | C.Call_builtin _ | C.Arithmetic { operator = "div"; narrowings = [ "exact" ]; _ }
+  | C.Convert { narrowings = [ "exact" ]; _ } -> (
       try evaluate_call context e
       with C.Failure_raised (failure, _) ->
         (* trace: D48, D137 *)
@@ -171,6 +172,7 @@ and evaluate_call context (e : C.expression) : Value.t =
       let l = evaluate context left in
       let r = evaluate context right in
       arithmetic e operator narrowings l r
+  | C.Convert { value; narrowings; target } -> convert e narrowings target (evaluate context value)
   | _ -> evaluate context e
 
 and evaluate_plain context (e : C.expression) : Value.t =
@@ -183,7 +185,7 @@ and evaluate_plain context (e : C.expression) : Value.t =
       let v = evaluate context value in
       match target with
       | Types.String -> Value.String (to_text e.span narrowings v)
-      | _ -> v)
+      | _ -> convert e narrowings target v)
   | C.Arithmetic { operator; narrowings; left; right } ->
       let l = evaluate context left in
       let r = evaluate context right in
@@ -305,6 +307,59 @@ and run_arms context (arms : C.arm list) (failure : C.failure) : Value.t option 
         Some Value.Nothing
       with Instead_signal v -> Some v)
   | None -> None
+
+(* Converting between number types (D91). *)
+and convert (e : C.expression) (narrowings : string list) (target : Types.t) (v : Value.t) : Value.t =
+  let span = e.span in
+  let doesnt_fit shown =
+    runtime_error
+      ~what:(Printf.sprintf "`%s` doesn't fit in `%s`" (source_text span) (Types.name target))
+      ~when_:(Printf.sprintf "it is %s" shown) span "a value that doesn't fit is a check (D91, standard 2.1a)"
+  in
+  let into_integer (t : Types.integer_type) (exact : Q.t) =
+    (* the rounding is always said (D91) *)
+    let numerator = Q.num exact and denominator = Q.den exact in
+    let floor_value = Z.fdiv numerator denominator in
+    let whole = Z.equal denominator Z.one in
+    let n =
+      match narrowings with
+      | [ "trunc" ] -> Z.div numerator denominator
+      | [ "floor" ] -> floor_value
+      | [ "ceil" ] -> if whole then floor_value else Z.succ floor_value
+      | [ "round"; "even" ] | [ "round"; "away" ] ->
+          let twice_remainder = Q.mul (Q.of_int 2) (Q.sub exact (Q.of_bigint floor_value)) in
+          let c = Q.compare twice_remainder Q.one in
+          if c < 0 then floor_value
+          else if c > 0 then Z.succ floor_value
+          else if narrowings = [ "round"; "even" ] then (if Z.is_even floor_value then floor_value else Z.succ floor_value)
+          else if Q.sign exact >= 0 then Z.succ floor_value
+          else floor_value
+      | [ "exact" ] ->
+          if not whole then raise (C.Failure_raised ({ C.failure_name = "not_exact"; failure_fields = [] }, span));
+          numerator
+      | _ -> floor_value
+    in
+    if not (Types.integer_fits t n) then doesnt_fit (Z.to_string n);
+    Value.integer_of_z t n
+  in
+  match v, target with
+  | (Value.Int64_integer _ | Value.Wide_integer _), Types.Integer t -> (
+      let n = Value.integer_to_z v in
+      match narrowings with
+      | [ "wrap" ] -> Value.integer_of_z t (wrap t n)
+      | [ "saturate" ] -> Value.integer_of_z t (saturate t n)
+      | _ -> if Types.integer_fits t n then Value.integer_of_z t n else doesnt_fit (Z.to_string n))
+  | (Value.Int64_integer _ | Value.Wide_integer _), Types.Float k ->
+      Value.Float (Numbers.float_of_rational (Q.of_bigint (Value.integer_to_z v)), k)
+  | (Value.Int64_integer _ | Value.Wide_integer _), Types.Rational -> Value.Rational (Q.of_bigint (Value.integer_to_z v))
+  | Value.Float (f, _), Types.Integer t ->
+      if not (Float.is_finite f) then doesnt_fit (float_text span f) else into_integer t (Q.of_float f)
+  | Value.Float (f, _), Types.Rational ->
+      if not (Float.is_finite f) then doesnt_fit (float_text span f) else Value.Rational (Q.of_float f)
+  | Value.Float (f, _), Types.Float k -> Value.Float (f, k)
+  | Value.Rational q, Types.Integer t -> into_integer t q
+  | Value.Rational q, Types.Float k -> Value.Float (Numbers.float_of_rational q, k)
+  | _ -> v
 
 and list_offset span counting (l : Value.list_value) (p : Value.t) : int =
   let n = Value.integer_to_z p in

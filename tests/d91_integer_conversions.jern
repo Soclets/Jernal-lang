@@ -1,0 +1,18 @@
+fn.main[]:
+    let $small: i32 = 70000
+    let $big: Int = $small as Int
+    println($big as String)
+    let $back: i32 = $big as i32
+    println($back as String)
+    let $large: Int = 300
+    let $low: u8 = $large as.wrap u8
+    let $capped: u8 = $large as.saturate u8
+    let $negative: Int = -5
+    let $floor: u8 = $negative as.saturate u8
+    println($low as String)
+    println($capped as String)
+    println($floor as String)
+    let $x: Int = 5
+    let $minus: i32 = -$x as i32
+    println($minus as String)
+end fn.main

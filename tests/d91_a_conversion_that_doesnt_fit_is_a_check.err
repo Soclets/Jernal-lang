@@ -1,0 +1,6 @@
+RuntimeError: d91_a_conversion_that_doesnt_fit_is_a_check.jern:3:23, line 3 column 23
+ 3 |     let $small: i32 = $big as i32
+   |                       ^^^^^^^^^^^
+ what: `$big as i32` doesn't fit in `i32`
+ why:  a value that doesn't fit is a check (D91, standard 2.1a)
+ when: it is 3000000000

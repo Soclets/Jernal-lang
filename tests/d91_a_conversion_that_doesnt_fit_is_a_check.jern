@@ -1,0 +1,5 @@
+fn.main[]:
+    let $big: Int = 3000000000
+    let $small: i32 = $big as i32
+    println("never")
+end fn.main
