@@ -103,6 +103,8 @@ Every `what:`/`why:` text in `tests/*.err` is the oracle's proposal until Jernal
   `exit()` last [both are refused: only `return`, `fail`, and `if`/`else` or `match` where every branch ends, count].
 - Whether a manifest without `name` or `ver` is refused (9.1) [not refused]; and whether a `use` block for a file
   that isn't in the package is refused [not refused].
+- A handler used at a call that can't raise one of its arms' failures (D49: "one handler may cover several failure
+  families"): is that arm allowed there? [refused, as an inline arm would be]
 - The exact list of keywords, since `my::` depends on it (D63). [the oracle's list is in `oracle/src/parser.ml`,
   `keywords`; `range`, `pos`, `offset`, `from`, `to`, `before`, `step_by`, `key`, `self` and `Any` aren't in it]
 
